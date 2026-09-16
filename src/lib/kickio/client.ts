@@ -28,21 +28,35 @@ export type KickioTable =
   | "sales_history";
 
 /**
- * A service-role JWT carries `"role":"service_role"` in its payload and bypasses
- * RLS entirely. Detect it without verifying the signature - we only need to know
- * what the token claims to be in order to refuse it.
+ * Postgres roles this engine is allowed to connect to Kickio as. An allowlist,
+ * not a blocklist: a role that is not named here is refused, so a future key for
+ * `postgres`, `service_role` or anything else privileged cannot be dropped into
+ * the env and quietly gain write access.
+ *
+ *  - `anon`                  the public marketplace key; RLS-limited, no write policy
+ *  - `kickio_content_reader` the scoped read-only role (docs/kickio-read-only-role.sql)
  */
-function claimsServiceRole(key: string): boolean {
-  if (key.startsWith("sb_secret_")) return true;
+const ALLOWED_ROLES = new Set(["anon", "kickio_content_reader"]);
+
+/**
+ * The role a Supabase key claims. Read without verifying the signature - the
+ * server verifies that; here we only need to know what to refuse. Returns null
+ * when the key states no role (e.g. a modern publishable key).
+ */
+function claimedRole(key: string): string | null {
+  // Modern secret keys carry full privileges and never state a role.
+  if (key.startsWith("sb_secret_")) return "service_role";
+  if (key.startsWith("sb_publishable_")) return "anon";
+
   const parts = key.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
   try {
     const payload = JSON.parse(
       Buffer.from(parts[1].replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"),
     ) as { role?: string };
-    return payload.role === "service_role";
+    return typeof payload.role === "string" ? payload.role : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -74,11 +88,12 @@ export function kickio(): KickioReader {
     );
   }
 
-  if (claimsServiceRole(key)) {
+  const role = claimedRole(key);
+  if (role === null || !ALLOWED_ROLES.has(role)) {
     throw new Error(
-      "Refusing to connect to Kickio with a service-role key. That key bypasses " +
-        "row-level security and can write to the live marketplace. Use the " +
-        "publishable (anon) key instead.",
+      `Refusing to connect to Kickio as '${role ?? "unknown"}'. Kickio is ` +
+        "read-only from this project, so only a credential for a role that " +
+        `cannot write is accepted: ${[...ALLOWED_ROLES].join(", ")}.`,
     );
   }
 
@@ -104,4 +119,4 @@ export function resetKickioClient(): void {
   cached = null;
 }
 
-export const __testing = { claimsServiceRole };
+export const __testing = { claimedRole, ALLOWED_ROLES };

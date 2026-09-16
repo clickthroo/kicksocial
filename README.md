@@ -7,8 +7,9 @@ marketplace data, and queues them for one-tap approval.
 
 **Kickio's database is read-only from this project.** Enforced in three layers:
 
-1. **Credential** — `src/lib/kickio/client.ts` accepts only a publishable (anon)
-   key and throws on a service-role key, which would bypass RLS.
+1. **Credential** — `src/lib/kickio/client.ts` allowlists the roles it will
+   connect as (`anon`, `kickio_content_reader`) and refuses everything else, so
+   a privileged key cannot be dropped into the env and quietly gain writes.
 2. **Surface** — the Kickio client exposes `select` and nothing else. There is no
    `insert`/`update`/`delete` to reach for.
 3. **Database** — Kickio's own RLS grants the anon role SELECT on public data and
@@ -41,7 +42,7 @@ Recipes run on a Vercel cron (`vercel.json`), or on demand via
 |---|---|---|
 | `grail_of_the_day` | Daily | Working — 1,633 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
-| `sold_this_week` | Weekly (Fri) | **Blocked** — needs read access to `sales_history` |
+| `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md` |
 
 Selection logic is code (each recipe queries a different shape of data and
 carries its own integrity rules). Thresholds, cadence, platforms and the copy

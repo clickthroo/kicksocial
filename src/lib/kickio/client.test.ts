@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { kickio, resetKickioClient, __testing } from "./client.ts";
 
-const { claimsServiceRole } = __testing;
+const { claimedRole } = __testing;
 
 /** Build an unsigned JWT with the given role claim, as Supabase issues them. */
 function jwtWithRole(role: string): string {
@@ -10,26 +10,24 @@ function jwtWithRole(role: string): string {
   return `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ iss: "supabase", role })}.sig`;
 }
 
-describe("service-role detection", () => {
-  test("flags a legacy service_role JWT", () => {
-    assert.equal(claimsServiceRole(jwtWithRole("service_role")), true);
+describe("role detection", () => {
+  test("reads the role from a JWT", () => {
+    assert.equal(claimedRole(jwtWithRole("service_role")), "service_role");
+    assert.equal(claimedRole(jwtWithRole("anon")), "anon");
+    assert.equal(claimedRole(jwtWithRole("kickio_content_reader")), "kickio_content_reader");
   });
 
-  test("flags a modern secret key", () => {
-    assert.equal(claimsServiceRole("sb_secret_abc123"), true);
+  test("treats a modern secret key as service_role", () => {
+    assert.equal(claimedRole("sb_secret_abc123"), "service_role");
   });
 
-  test("allows an anon JWT", () => {
-    assert.equal(claimsServiceRole(jwtWithRole("anon")), false);
+  test("treats a publishable key as anon", () => {
+    assert.equal(claimedRole("sb_publishable_abc123"), "anon");
   });
 
-  test("allows a publishable key", () => {
-    assert.equal(claimsServiceRole("sb_publishable_abc123"), false);
-  });
-
-  test("does not throw on a malformed key", () => {
-    assert.equal(claimsServiceRole("not-a-jwt"), false);
-    assert.equal(claimsServiceRole("a.b.c"), false);
+  test("returns null for a malformed key rather than throwing", () => {
+    assert.equal(claimedRole("not-a-jwt"), null);
+    assert.equal(claimedRole("a.b.c"), null);
   });
 });
 
@@ -44,7 +42,25 @@ describe("kickio() construction", () => {
     restore();
     process.env.KICKIO_SUPABASE_URL = "https://example.supabase.co";
     process.env.KICKIO_SUPABASE_PUBLISHABLE_KEY = jwtWithRole("service_role");
-    assert.throws(() => kickio(), /service-role key/i);
+    assert.throws(() => kickio(), /refusing to connect/i);
+    restore();
+  });
+
+  test("refuses any role not on the allowlist, not just service_role", () => {
+    for (const role of ["postgres", "authenticated", "supabase_admin", "rds_superuser"]) {
+      restore();
+      process.env.KICKIO_SUPABASE_URL = "https://example.supabase.co";
+      process.env.KICKIO_SUPABASE_PUBLISHABLE_KEY = jwtWithRole(role);
+      assert.throws(() => kickio(), /refusing to connect/i, `${role} must be refused`);
+    }
+    restore();
+  });
+
+  test("accepts the scoped read-only role", () => {
+    restore();
+    process.env.KICKIO_SUPABASE_URL = "https://example.supabase.co";
+    process.env.KICKIO_SUPABASE_PUBLISHABLE_KEY = jwtWithRole("kickio_content_reader");
+    assert.doesNotThrow(() => kickio());
     restore();
   });
 
