@@ -1,0 +1,163 @@
+/**
+ * The pipeline: recipe selects verified data -> Claude writes the copy ->
+ * a draft lands in the approval queue.
+ *
+ * Every run is recorded in recipe_runs, including skips. A day with no post
+ * should be explainable without digging through logs.
+ */
+import { engine } from "./engine/client.ts";
+import { generateCopy } from "./copy/generate.ts";
+import { recipeByKey, type Recipe } from "./recipes/index.ts";
+import type { PlatformCopy, PostDraft } from "./engine/types.ts";
+
+export interface RunOutcome {
+  recipeKey: string;
+  status: "created" | "skipped" | "failed";
+  draftId?: string;
+  headline?: string;
+  reason?: string;
+}
+
+/** Drop platform variants the recipe doesn't publish to. */
+function forPlatforms(copy: PlatformCopy, platforms: Recipe["platforms"]): PlatformCopy {
+  const out: PlatformCopy = {};
+  if (platforms.includes("x")) out.x = copy.x;
+  if (platforms.includes("instagram")) out.instagram = copy.instagram;
+  if (platforms.includes("tiktok")) out.tiktok = copy.tiktok;
+  return out;
+}
+
+export async function runRecipe(
+  key: string,
+  trigger: "cron" | "manual" = "cron",
+): Promise<RunOutcome> {
+  const startedAt = Date.now();
+  const recipe = recipeByKey(key);
+  if (!recipe) return { recipeKey: key, status: "failed", reason: `Unknown recipe '${key}'` };
+
+  const record = async (
+    status: string,
+    extra: Record<string, unknown> = {},
+  ): Promise<void> => {
+    await engine()
+      .from("recipe_runs")
+      .insert({
+        recipe_key: key,
+        trigger,
+        status,
+        duration_ms: Date.now() - startedAt,
+        ...extra,
+      });
+  };
+
+  // Config (thresholds, brief, enabled, platforms) lives in the recipes table so
+  // it can be tuned without a redeploy. Fall back to the code defaults if the row
+  // is missing, so a recipe never silently stops working.
+  const { data: configRow } = await engine()
+    .from("recipes")
+    .select("enabled,selection,prompt_template,platforms")
+    .eq("key", key)
+    .maybeSingle();
+
+  const config = configRow as {
+    enabled: boolean;
+    selection: Record<string, unknown>;
+    prompt_template: string | null;
+    platforms: string[] | null;
+  } | null;
+
+  if (config && !config.enabled) {
+    await record("skipped", { skipped_reason: "Recipe is disabled" });
+    return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
+  }
+
+  const platforms = (config?.platforms as Recipe["platforms"] | undefined) ?? recipe.platforms;
+  const brief = config?.prompt_template?.trim() || recipe.brief;
+
+  let result;
+  try {
+    result = await recipe.run(config?.selection);
+  } catch (err) {
+    const reason = `Recipe threw: ${(err as Error).message}`;
+    await record("failed", { skipped_reason: reason });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  if (!result.ok) {
+    await record("skipped", {
+      skipped_reason: result.reason,
+      diagnostics: result.diagnostics ?? {},
+    });
+    return { recipeKey: key, status: "skipped", reason: result.reason };
+  }
+
+  const { candidate } = result;
+
+  let generated;
+  try {
+    generated = await generateCopy(brief, candidate);
+  } catch (err) {
+    const reason = `Copy generation failed: ${(err as Error).message}`;
+    await record("failed", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .insert({
+      recipe_key: key,
+      status: "draft",
+      subject_ref: candidate.subjectRef,
+      headline: candidate.headline,
+      copy: forPlatforms(generated.copy, platforms),
+      source_data: { ...candidate.sourceData, images: candidate.images },
+      claims: candidate.claims,
+      generation: {
+        model: "claude-opus-5",
+        usage: generated.usage,
+        visual_template: recipe.visualTemplate,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    const reason = `Saving draft failed: ${error.message}`;
+    await record("failed", { skipped_reason: reason });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const draftId = (data as { id: string }).id;
+  await record("created", { draft_id: draftId });
+
+  return {
+    recipeKey: key,
+    status: "created",
+    draftId,
+    headline: candidate.headline,
+  };
+}
+
+/** Drafts awaiting review, newest first. */
+export async function pendingDrafts(): Promise<PostDraft[]> {
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .select("*")
+    .eq("status", "draft")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(`Loading queue failed: ${error.message}`);
+  return (data ?? []) as PostDraft[];
+}
+
+export async function setDraftStatus(
+  id: string,
+  status: "approved" | "rejected",
+  notes?: string,
+): Promise<void> {
+  const patch: Record<string, unknown> = { status, reviewed_at: new Date().toISOString() };
+  if (notes !== undefined) patch.notes = notes;
+
+  const { error } = await engine().from("post_drafts").update(patch).eq("id", id);
+  if (error) throw new Error(`Updating draft failed: ${error.message}`);
+}
