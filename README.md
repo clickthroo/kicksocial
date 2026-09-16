@@ -86,11 +86,39 @@ npm test
 npm run build
 ```
 
+## Visual templates
+
+Rendered to PNG by Satori (`next/og`), so they run on Vercel with no headless
+browser. Two sizes: `ig` (1080×1350, 4:5) and `x` (1200×675, 16:9).
+
+| Template | Visual |
+|---|---|
+| `grail_card` | The seller's own photo, full bleed, type over a scrim |
+| `trend_chart` | Hero number + supporting sparkline |
+| `roundup_card` | Ranked list of sales |
+
+Iterate on a design without waiting for a real draft:
+
+```
+/api/render/preview?template=trend_chart&format=x
+```
+
+Two things worth knowing before editing them:
+
+- **Satori supports a CSS subset** — flexbox only, no grid, and any element with
+  more than one child needs an explicit `display: flex`.
+- **No glyphs outside the bundled font.** `▲`/`▼` render as tofu boxes, so the
+  trend arrow is drawn as SVG. Check any new glyph actually renders.
+
+The trend card's direction colours (`#0ca30c` rising / `#9085e9` falling) were
+picked with the dataviz validator against the dark surface: deutan ΔE 25.6,
+tritan 10.2. Red/green was rejected — it measures deutan ΔE 4.1, indistinguishable
+to a red-green colourblind viewer. Direction is also carried by an arrow and a
+signed number, so it never rests on colour alone.
+
 ## Not built yet
 
-- **Visual templates** — the card/chart renderer. Drafts carry image URLs and a
-  `visual_template` key; nothing renders them yet.
 - **TikTok video** — scripts are generated; the animated render is not built.
-- **Publishing** — v1 is export-only by design. `publish_log` exists; no platform
-  API is wired up.
+- **Publishing** — v1 is export-only by design: download the PNG, copy the text.
+  `publish_log` exists; no platform API is wired up.
 - **Featured Collector** — deferred, no data. See `docs/schema-findings.md`.

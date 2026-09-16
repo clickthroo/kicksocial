@@ -7,9 +7,9 @@ import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
 const X_LIMIT = 280;
 
-function firstImage(sourceData: Record<string, unknown>): string | null {
-  const images = sourceData.images;
-  return Array.isArray(images) && typeof images[0] === "string" ? images[0] : null;
+/** Instagram is the 4:5 portrait crop; X is 16:9. */
+function renderUrl(id: string, format: "ig" | "x"): string {
+  return `/api/render/${id}?format=${format}`;
 }
 
 export function DraftCard({ draft }: { draft: PostDraft }) {
@@ -20,6 +20,27 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   // Resolve instantly on tap; the row disappears when the server revalidates.
   const [resolved, setResolved] = useOptimistic<null | "approved" | "rejected">(null);
 
+  const [copied, setCopied] = useState(false);
+
+  const copyText = async () => {
+    const c = draft.copy;
+    const text =
+      tab === "x"
+        ? (c.x?.text ?? "")
+        : tab === "instagram"
+          ? [c.instagram?.caption, (c.instagram?.hashtags ?? []).map((h) => `#${h.replace(/^#/, "")}`).join(" ")]
+              .filter(Boolean)
+              .join("\n\n")
+          : [c.tiktok?.hook, ...(c.tiktok?.beats ?? []), c.tiktok?.cta].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   const act = (verb: "approved" | "rejected") => {
     startTransition(async () => {
       setResolved(verb);
@@ -28,7 +49,6 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
     });
   };
 
-  const image = firstImage(draft.source_data);
 
   return (
     <article className={`card${resolved ? " resolved" : ""}`}>
@@ -37,7 +57,13 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         <h2>{draft.headline}</h2>
       </div>
 
-      {image && <img className="shot" src={image} alt="" loading="lazy" />}
+      {/* The rendered card - what gets posted, not the raw photo. */}
+      <img
+        className="shot"
+        src={renderUrl(draft.id, tab === "x" ? "x" : "ig")}
+        alt=""
+        loading="lazy"
+      />
 
       {available.length > 1 && (
         <div className="tabs" role="tablist">
@@ -108,6 +134,18 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         <summary>Source data</summary>
         <pre className="raw">{JSON.stringify(draft.source_data, null, 2)}</pre>
       </details>
+
+      <div className="export">
+        <a className="link" href={renderUrl(draft.id, "ig")} download={`${draft.recipe_key}-ig.png`}>
+          Download 4:5
+        </a>
+        <a className="link" href={renderUrl(draft.id, "x")} download={`${draft.recipe_key}-x.png`}>
+          Download 16:9
+        </a>
+        <button className="link" onClick={copyText} type="button">
+          {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
+        </button>
+      </div>
 
       <div className="actions">
         <button
