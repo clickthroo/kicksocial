@@ -128,6 +128,26 @@ Note the same distinction in labelling: `player_name` is a **printed name**, not
 a player-issue shirt (that is `issue = 'Authentic/Player Version'`). They were
 conflated, which put the wrong word in the copy.
 
+### Posted prices are buyer-facing, not asking prices
+
+`listings.price_cents` is what the seller asks. kickio.com adds a **buyer
+protection fee** on top — 4% + £0.40, rounded up to the next amount ending in
+.50 or .99 — so a £332.99 listing displays as **£346.99**. Quoting the asking
+price understates what a reader sees on arrival.
+
+The fee parameters are read at run time from Kickio's `marketplace_settings`,
+so a change on their side flows through rather than silently making every post
+wrong. `src/lib/kickio/pricing.ts` owns the calculation and is tested against
+the real observed figure.
+
+Two related rules:
+
+- **Cheapest listing per product.** A product can carry several listings and the
+  page headlines the lowest ("lowest asking price"). Featuring a dearer one
+  contradicts the page, so candidates are deduplicated to the cheapest.
+- **Pence are not rounded away.** £945 loses its decimals, £346.99 keeps them —
+  rounding it to "£347" overstates the price against the page.
+
 ### Why posts get suppressed
 
 Both published recipes discard data they could otherwise use:

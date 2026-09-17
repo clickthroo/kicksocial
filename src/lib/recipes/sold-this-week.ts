@@ -18,6 +18,7 @@
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
+import { formatPrice } from "../kickio/pricing.ts";
 
 interface SaleRow {
   id: string;
@@ -111,12 +112,9 @@ export async function runSoldThisWeek(
   }
 
   const featured = sales.slice(0, config.featureCount);
-  const gbp = (cents: number) =>
-    (cents / 100).toLocaleString("en-GB", {
-      style: "currency",
-      currency: "GBP",
-      maximumFractionDigits: 0,
-    });
+  // Completed sales elsewhere, so no buyer protection fee applies here - but
+  // pence still must not be rounded away.
+  const gbp = (cents: number) => formatPrice(cents, "GBP");
 
   const total = sales.reduce((sum, s) => sum + s.price_cents, 0);
   const sourceBreakdown = sales.reduce<Record<string, number>>((acc, s) => {

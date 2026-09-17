@@ -21,6 +21,7 @@
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
+import { formatPrice } from "../kickio/pricing.ts";
 
 interface AggregateRow {
   scope: string;
@@ -167,11 +168,7 @@ export async function runPriceTrends(
     .select("day,index_value,cohort_count,total_sales_90d")
     .order("day", { ascending: true });
 
-  const median = (winner.median_fair_price_cents / 100).toLocaleString("en-GB", {
-    style: "currency",
-    currency: "GBP",
-    maximumFractionDigits: 0,
-  });
+  const median = formatPrice(winner.median_fair_price_cents, "GBP");
 
   const claims: Claim[] = [
     {

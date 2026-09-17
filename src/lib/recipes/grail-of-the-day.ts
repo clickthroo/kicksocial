@@ -22,6 +22,7 @@
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
+import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
 
 interface ListingRow {
   id: string;
@@ -370,23 +371,39 @@ export async function runGrailOfTheDay(
     };
   }
 
-  const ranked = eligible
+  // A product can carry several listings and kickio.com headlines the cheapest
+  // ("lowest asking price"). Quoting a dearer one contradicts the page a reader
+  // lands on, so keep only the cheapest listing per product.
+  const cheapestPerProduct = new Map<string, ListingRow>();
+  for (const listing of eligible) {
+    const productKey = listing.products?.slug ?? listing.id;
+    const held = cheapestPerProduct.get(productKey);
+    if (!held || listing.price_cents < held.price_cents) {
+      cheapestPerProduct.set(productKey, listing);
+    }
+  }
+
+  const ranked = [...cheapestPerProduct.values()]
     .map((listing) => ({ listing, ...scoreListing(listing) }))
     .sort((a, b) => b.score - a.score);
   const winner = ranked[0];
   const { listing, signals } = winner;
 
-  const price = (listing.price_cents / 100).toLocaleString("en-GB", {
-    style: "currency",
-    currency: listing.currency || "GBP",
-    maximumFractionDigits: 0,
-  });
+  // What a reader sees on kickio.com, not the seller's asking price.
+  const fee = await buyerFeeSettings();
+  const buyerCents = buyerPriceCents(listing.price_cents, fee);
+  const currency = listing.currency || "GBP";
+  const price = formatPrice(buyerCents, currency);
 
   const claims: Claim[] = [
     {
-      statement: `Listed at ${price}`,
-      value: listing.price_cents / 100,
-      source: `listings.price_cents (id ${listing.id})`,
+      statement: `Priced at ${price}`,
+      value: buyerCents / 100,
+      source: `listings.price_cents (id ${listing.id}) + buyer protection fee`,
+      basis:
+        `asking ${formatPrice(listing.price_cents, currency)} plus ` +
+        `${fee.percentBps / 100}% + ${formatPrice(fee.fixedCents, currency)}, ` +
+        `rounded ${fee.rounding} - this is the figure shown on kickio.com`,
     },
   ];
   if (listing.condition) {
@@ -411,7 +428,9 @@ export async function runGrailOfTheDay(
     sourceData: {
       listing_id: listing.id,
       title: listing.title,
-      price: price,
+      price,
+      asking_price: formatPrice(listing.price_cents, currency),
+      buyer_protection_fee_applied: fee.enabled,
       team: listing.team,
       season: listing.season,
       shirt_type: listing.shirt_type,

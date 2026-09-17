@@ -27,7 +27,9 @@ export type KickioTable =
   | "price_index_history"
   | "sales_history"
   // Read-only, and only to label sellers in the settings screen.
-  | "profiles";
+  | "profiles"
+  // Read-only: the buyer protection fee, so posted prices match the site.
+  | "marketplace_settings";
 
 /**
  * Postgres roles this engine is allowed to connect to Kickio as. An allowlist,
