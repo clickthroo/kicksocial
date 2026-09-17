@@ -61,6 +61,7 @@ selection diagnostics behind a disclosure.
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md`. Disabled in Settings meanwhile |
 | `grail_sale` | On demand | Working — an admin names the sale (`/sold`) |
+| `market_index` | Weekly (Thu) | **Skipping** — the index's basket is still filling; see below |
 
 Every variant carries **kickio.com** in its body text, and each network gets its
 own hashtag count (see below).
@@ -264,6 +265,34 @@ its own rows and none of this logic changes.
 
 Before this, approving was a dead end — the draft left the queue, nothing
 recorded where it went, and the rendered assets became unreachable.
+
+### Market Index, and why it refuses
+
+`price_index_history` is a single market-wide index with no scope column — the
+same table that was wrongly drawn under club headlines. Here it **is** the
+subject, so plotting it is finally legitimate. Quoting it usually is not.
+
+An index is a basket, and Kickio's basket is still filling:
+
+| Window | Basket | Index |
+|---|---|---|
+| 30 days | 1,261 → 2,036 (**+61.5%**) | −0.6% |
+| 60 days | 1,005 → 2,036 (**+102.6%**) | −1.4% |
+| 97 days (all) | 0 → ~1,900 | −2.3% |
+
+A basket that doubles is not measuring prices; it is measuring how much of the
+market Kickio has got round to tracking. The first row on record has
+`cohort_count = 0` at exactly `100.00` — that is the *definition* of an index's
+first day, not a reading, and anchoring a percentage to it invents a movement.
+
+So `maxCohortDriftPct` (15%) is the integrity rule of this recipe, exactly as
+`change_basis = like_for_like` is for Price Trends: the mix-shift trap one level
+up, and harder to spot because the number looks so calm. The recipe **skips
+today** and names the figure that disqualified it. It starts working on its own
+the week coverage plateaus — nothing needs changing for that.
+
+`warmupFloorPct` trims the leading days where the basket was empty or far below
+the window's normal size, so the percentage is never anchored to a definition.
 
 ### Platform limits, and the one that survives X Premium
 

@@ -14,6 +14,7 @@ function recipesForToday(date: Date): string[] {
   const keys = ["grail_of_the_day"];
   const day = date.getUTCDay(); // 0 Sun .. 6 Sat
   if (day === 2) keys.push("price_trends");   // Tuesday
+  if (day === 4) keys.push("market_index");   // Thursday
   if (day === 5) keys.push("sold_this_week"); // Friday
   return keys;
 }

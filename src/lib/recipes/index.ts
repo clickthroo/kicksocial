@@ -2,6 +2,11 @@ import type { Platform, RecipeResult } from "../engine/types.ts";
 import { runGrailOfTheDay, DEFAULT_GRAIL_CONFIG } from "./grail-of-the-day.ts";
 import { runPriceTrends, DEFAULT_PRICE_TRENDS_CONFIG } from "./price-trends.ts";
 import { runSoldThisWeek, DEFAULT_SOLD_CONFIG } from "./sold-this-week.ts";
+import {
+  runMarketIndex,
+  DEFAULT_MARKET_INDEX_CONFIG,
+  MARKET_INDEX_BRIEF,
+} from "./market-index.ts";
 
 export interface Recipe {
   key: string;
@@ -82,6 +87,16 @@ sales" are the right framings.
 
 No TikTok variant. Write X and Instagram only.`,
     run: (selection) => runSoldThisWeek({ ...DEFAULT_SOLD_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "market_index",
+    name: "Market Index",
+    cadence: "weekly",
+    platforms: ["x", "instagram"],
+    visualTemplate: "trend_chart",
+    brief: MARKET_INDEX_BRIEF,
+    run: (selection) =>
+      runMarketIndex({ ...DEFAULT_MARKET_INDEX_CONFIG, ...(selection as object) }),
   },
 ];
 
