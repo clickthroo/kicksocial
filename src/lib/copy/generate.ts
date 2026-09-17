@@ -18,7 +18,14 @@ import type { Claim, PlatformCopy, RecipeCandidate } from "../engine/types.ts";
 
 const MODEL = "claude-opus-5";
 
-/** Schema-constrained shape of a generated post. */
+/**
+ * Schema-constrained shape of a generated post.
+ *
+ * Structured outputs support a subset of JSON Schema: `minItems` may only be 0
+ * or 1, so array lengths cannot be enforced here (the API rejects the whole
+ * request with a 400 otherwise). Length guidance lives in each field's
+ * `description` and in the brand voice instead.
+ */
 const COPY_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -40,10 +47,10 @@ const COPY_SCHEMA = {
         caption: { type: "string", description: "Hook line, then 2-4 short paragraphs." },
         hashtags: {
           type: "array",
-          minItems: 4,
-          maxItems: 8,
           items: { type: "string" },
-          description: "Without the leading #.",
+          // Structured outputs reject minItems above 1, so counts are stated
+          // here and in the brand voice rather than enforced by the schema.
+          description: "Between 4 and 8 hashtags, without the leading #.",
         },
       },
     },
@@ -55,10 +62,9 @@ const COPY_SCHEMA = {
         hook: { type: "string", description: "First two seconds." },
         beats: {
           type: "array",
-          minItems: 3,
-          maxItems: 5,
           items: { type: "string" },
-          description: "On-screen text, roughly six words each.",
+          description:
+            "Between 3 and 5 on-screen text beats, roughly six words each.",
         },
         cta: { type: "string" },
       },
