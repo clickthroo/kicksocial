@@ -32,6 +32,23 @@ can already read `listings`, `products`, `teams` and the derived
 while keeping the underlying comparables private is a coherent position, and
 worth confirming with whoever set it up before changing it.
 
+## The role is used for every query, not just sales
+
+Once `KICKIO_SUPABASE_PUBLISHABLE_KEY` holds the role's token, the engine
+authenticates as `kickio_content_reader` for **all** of its Kickio reads. So the
+grant list has to cover everything in `KickioTable`, not just `sales_history`.
+
+Two of those are easy to overlook, and they fail differently:
+
+| Table | Used for | If the grant is missing |
+|---|---|---|
+| `profiles` | Seller checkboxes in Settings | `listSellers()` throws — visible error banner |
+| `marketplace_settings` | Buyer protection fee → the price in every post | **Silent.** `buyerFeeSettings()` falls back to hardcoded defaults on error, so posts keep working and keep matching the site — until Kickio changes the fee, at which point every price is quietly wrong |
+
+The second is the dangerous one, and it is the same failure shape as the bugs
+this project keeps hitting: nothing errors, the output looks plausible, and the
+number is wrong. Run the verification block.
+
 ## Connecting as the role
 
 The role is `NOLOGIN` — the engine never logs in directly, so there is no

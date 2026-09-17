@@ -44,15 +44,28 @@ grant kickio_content_reader to authenticator;
 -- ---------------------------------------------------------------------------
 grant usage on schema public to kickio_content_reader;
 
--- Deliberately NOT `grant select on all tables`. Only what the three recipes
--- read. Anything added to Kickio later is invisible to this role by default.
+-- Deliberately NOT `grant select on all tables`. Only what the engine actually
+-- reads. Anything added to Kickio later is invisible to this role by default.
+--
+-- This list must match KickioTable in src/lib/kickio/client.ts. Once the engine
+-- authenticates as this role it uses it for EVERY query, not just sales - so a
+-- table missing here breaks a feature:
+--   profiles             -> the seller checkboxes in Settings (throws, visibly)
+--   marketplace_settings -> the buyer protection fee, and therefore the price in
+--                           every post. buyerFeeSettings() falls back to
+--                           hardcoded defaults on error rather than failing the
+--                           run, so omitting this does not break loudly - it
+--                           just stops tracking Kickio's real fee, and posts
+--                           drift silently wrong the day that fee changes.
 grant select on
   public.sales_history,
   public.listings,
   public.products,
   public.teams,
   public.price_index_aggregates,
-  public.price_index_history
+  public.price_index_history,
+  public.profiles,
+  public.marketplace_settings
 to kickio_content_reader;
 
 
@@ -90,8 +103,13 @@ create policy price_index_history_content_engine_read
   to kickio_content_reader
   using (true);
 
--- listings / products / teams need no new policy: their existing read policies
--- are scoped `TO public`, which in Postgres means every role, including this one.
+-- listings / products / teams / profiles / marketplace_settings need no new
+-- policy. Their read policies are scoped `TO public`, which in Postgres means
+-- every role, including this one. Verified against pg_policies:
+--   listings_public_read, products_public_read, products_read,
+--   teams_public_read, profiles_read, marketplace_settings_public_read
+-- The grant above is still required - a `TO public` policy says which ROWS, the
+-- grant says whether the role may touch the table at all.
 
 
 -- ============================================================================
@@ -113,8 +131,13 @@ create policy price_index_history_content_engine_read
 --   update listings set price_cents = price_cents;
 --   delete from sales_history where false;
 --
---   -- Should fail - the role has no access to tables it was not granted:
+--   -- Should each return rows - the engine needs these for seller labels and
+--   -- for the buyer protection fee that sets the price shown in posts:
 --   select count(*) from profiles;
+--   select bpf_percent_bps, bpf_fixed_gbp_cents from marketplace_settings;
+--
+--   -- Should fail - the role has no access to tables it was not granted:
+--   select count(*) from chargebacks;
 --
 --   reset role;
 --
@@ -129,7 +152,8 @@ create policy price_index_history_content_engine_read
 --   drop policy if exists price_index_aggregates_content_engine_read on public.price_index_aggregates;
 --   drop policy if exists price_index_history_content_engine_read on public.price_index_history;
 --   revoke all on public.sales_history, public.listings, public.products,
---     public.teams, public.price_index_aggregates, public.price_index_history
+--     public.teams, public.price_index_aggregates, public.price_index_history,
+--     public.profiles, public.marketplace_settings
 --     from kickio_content_reader;
 --   revoke usage on schema public from kickio_content_reader;
 --   revoke kickio_content_reader from authenticator;
