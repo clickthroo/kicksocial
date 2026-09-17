@@ -262,3 +262,5 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 .log-headline { font-size: 14px; line-height: 1.35; }
 .log-meta { font-size: 12px; color: var(--muted); }
 .log-side { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+/* The part of an X post hidden behind "Show more" until a reader expands it. */
+.copy-body .collapsed { color: var(--muted); }

@@ -88,9 +88,19 @@ cautious post always beats one clever wrong one.
 
 Write all three. They are different pieces of writing, not one caption resized.
 
-**X** - Punchy, stat-forward. One post, up to 260 characters INCLUDING the three
-hashtags that get appended when it is posted. Lead with the most surprising
-concrete fact.
+**X** - Punchy, stat-forward. Kickio posts from a Premium account, so the old 280
+limit does not apply and the hashtags no longer eat the post.
+
+What has not changed is that **the first 280 characters are all anyone sees**
+before X collapses the rest behind "Show more". So:
+
+- The opening 280 characters must read as a complete post on their own. Lead with
+  the most surprising concrete fact, and never let it straddle that boundary.
+- Everything after it is for a reader who has already decided to continue. Give
+  them the detail a collector actually wants - the issue type, what was happening
+  at the club, why this one is unusual. Do not pad to fill the room.
+- Length is earned, not assumed. If the post says what it has to say in 200
+  characters, stop at 200.
 
 **Instagram** - Caption-led storytelling. Open with a hook line that works as the
 truncated preview (roughly the first 125 characters), then 2-4 short paragraphs.
@@ -104,7 +114,9 @@ each.
 ## Hashtags
 
 Each platform states its own count in the output schema. Fill it - the number is
-chosen per network, not a ceiling to stay under.
+chosen per network, not a ceiling to stay under. On X they are appended after the
+post body, so they never eat into the opening that decides whether anyone reads
+it.
 
 Build them in layers, most specific first, so the set reaches both the people
 looking for this exact shirt and the people browsing the category:

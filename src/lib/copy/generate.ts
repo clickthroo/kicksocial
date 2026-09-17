@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BRAND_VOICE, ctaForDay } from "./brand-voice.ts";
 import type { Claim, PlatformCopy, RecipeCandidate } from "../engine/types.ts";
+import { PLATFORM_LIMITS } from "./limits.ts";
 
 const MODEL = "claude-opus-5";
 
@@ -26,17 +27,6 @@ const MODEL = "claude-opus-5";
  * request with a 400 otherwise). Length guidance lives in each field's
  * `description` and in the brand voice instead.
  */
-/**
- * How many hashtags each network gets.
- *
- * Not one number: the platforms behave differently. Instagram allows 30 and
- * genuinely rewards filling them, so it is set to the cap. TikTok's caption is
- * short and the tags carry discovery. X gives no reach for volume, counts them
- * inside the 280 characters, and a wall of tags reads as spam - so it stays
- * small on purpose. Raise `x` here if you want to test that.
- */
-export const HASHTAG_LIMITS = { x: 3, instagram: 30, tiktok: 8 } as const;
-
 const COPY_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -50,16 +40,21 @@ const COPY_SCHEMA = {
         text: {
           type: "string",
           description:
-            "Up to 260 characters, INCLUDING the hashtags, which are appended to " +
-            "the end when posted. Ends with the CTA and kickio.com.",
+            `Up to ${PLATFORM_LIMITS.x.chars} characters - this is a Premium account, ` +
+            `so the old 280 limit does not apply. But the first ${PLATFORM_LIMITS.x.lead} ` +
+            "characters are all that shows before X collapses the post behind " +
+            "\"Show more\", so they must work as a complete thought on their own: " +
+            "lead with the most surprising concrete fact and never split it across " +
+            "that boundary. Anything after it is for the reader who has already " +
+            "decided to keep going - use it for the detail a collector wants, not " +
+            "for padding. Ends with the CTA and kickio.com.",
         },
         hashtags: {
           type: "array",
           items: { type: "string" },
           description:
-            `Exactly ${HASHTAG_LIMITS.x} hashtags, without the leading #. X gives no ` +
-            "reach for volume and a wall of tags reads as spam, so these are the " +
-            "few that a collector would actually follow.",
+            `${PLATFORM_LIMITS.x.hashtags} hashtags, without the leading #. They are ` +
+            "appended after the post body and do not count against the lead.",
         },
       },
     },
@@ -79,7 +74,7 @@ const COPY_SCHEMA = {
           // Structured outputs reject minItems above 1, so counts are stated
           // here and in the brand voice rather than enforced by the schema.
           description:
-            `${HASHTAG_LIMITS.instagram} hashtags, without the leading #. Instagram ` +
+            `${PLATFORM_LIMITS.instagram.hashtags} hashtags, without the leading #. Instagram ` +
             `allows 30 and rewards reach, so fill it: work outward from the most ` +
             "specific (club, season, player, manufacturer, sponsor) through the " +
             "mid-tail (#90sfootball, #awaykit) to the broad (#footballshirt). Every " +
@@ -105,7 +100,7 @@ const COPY_SCHEMA = {
           type: "array",
           items: { type: "string" },
           description:
-            `${HASHTAG_LIMITS.tiktok} hashtags for the caption, without the leading #. ` +
+            `${PLATFORM_LIMITS.tiktok.hashtags} hashtags for the caption, without the leading #. ` +
             "TikTok's caption is short, so these carry the discovery - mix club and " +
             "era tags with the broad football-shirt ones.",
         },

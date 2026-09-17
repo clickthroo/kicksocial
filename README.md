@@ -265,25 +265,37 @@ its own rows and none of this logic changes.
 Before this, approving was a dead end — the draft left the queue, nothing
 recorded where it went, and the rendered assets became unreachable.
 
-### Hashtags are per-network, not one number
+### Platform limits, and the one that survives X Premium
 
-`HASHTAG_LIMITS` in `src/lib/copy/generate.ts`:
+`src/lib/copy/limits.ts` — its own module because the dashboard needs it, and a
+client component importing `generate.ts` would pull the Anthropic SDK into the
+browser bundle.
 
-| Network | Tags | Why |
+| Network | Post | Hashtags |
 |---|---|---|
-| Instagram | **30** | The platform cap, and it genuinely rewards filling it |
-| TikTok | 8 | Short caption, so the tags carry discovery |
-| X | 3 | No reach for volume, they count inside the 280 characters, and a wall of them reads as spam |
+| X | **25,000** (Premium) | 15 |
+| Instagram | 2,200 | **30** (the platform cap) |
+| TikTok | 2,200 | 12 |
 
-The brand voice tells the model to build them in layers — the shirt (club,
-season, player, maker), the category (era, kit type), then the broad ones
-collectors browse — and to stop short of the number rather than invent tags or
-pad with near-duplicates. A padded set is worse than a short one.
+**Kickio posts from an X Premium account**, so the 280-character limit does not
+apply and hashtags no longer come out of the same budget as the writing — which
+is what made three the right number on a free account.
+
+**The first 280 characters still decide everything.** Past that, X collapses the
+post behind "Show more", so `x.lead` is the part that has to stand alone. That is
+a writing constraint rather than a platform one, and it is the only part of the
+old limit worth keeping. The brand voice says so: lead with the most surprising
+concrete fact, never let it straddle the boundary, and don't pad to fill the room
+Premium bought. The queue greys out everything past the lead and reports
+`lead 268/280 · 412 total` instead of a meaningless count against 25,000.
+
+Hashtags are built in layers — the shirt (club, season, player, maker), the
+category (era, kit type), then the broad ones collectors browse — and the model
+is told to stop short of the number rather than invent tags or pad with
+near-duplicates. A padded set is worse than a short one.
 
 `src/lib/copy/export.ts` owns the text that gets pasted, so the queue and the
-publish screen cannot disagree about it. X's counter includes the hashtags,
-because X does and they are appended to the post; counting only the body showed
-posts as comfortably inside 280 when the thing actually posted was over.
+publish screen cannot disagree about it.
 
 ### Why posts get suppressed
 

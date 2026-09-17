@@ -3,10 +3,10 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { approveDraft, rejectDraft } from "./actions.ts";
 import { exportText, tags, xLength } from "@/lib/copy/export.ts";
+import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
-const X_LIMIT = 280;
 
 function urlField(sourceData: Record<string, unknown>, key: string): string | null {
   const url = sourceData[key];
@@ -81,13 +81,27 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
       <div className="copy-body">
         {tab === "x" && draft.copy.x && (
           <>
-            <p>{draft.copy.x.text}</p>
+            {/* Premium allows 25,000 characters, so a raw count against it tells a
+                reviewer nothing. What matters is the opening 280: past that, X
+                collapses the post and only the lead is read in the timeline. */}
+            {willCollapse(draft.copy.x.text) ? (
+              <p>
+                {draft.copy.x.text.slice(0, PLATFORM_LIMITS.x.lead)}
+                <span className="collapsed">
+                  {draft.copy.x.text.slice(PLATFORM_LIMITS.x.lead)}
+                </span>
+              </p>
+            ) : (
+              <p>{draft.copy.x.text}</p>
+            )}
             {draft.copy.x.hashtags?.length ? (
               <p className="hashtags">{tags(draft.copy.x.hashtags)}</p>
             ) : null}
-            {/* Counts the tags too - X does, and they are appended on posting. */}
-            <span className={`count${xLength(draft.copy) > X_LIMIT ? " count over" : ""}`}>
-              {xLength(draft.copy)}/{X_LIMIT} with hashtags
+            <span className={`count${xLength(draft.copy) > PLATFORM_LIMITS.x.chars ? " count over" : ""}`}>
+              {willCollapse(draft.copy.x.text)
+                ? `lead ${leadLength(draft.copy.x.text)}/${PLATFORM_LIMITS.x.lead} · ` +
+                  `${xLength(draft.copy)} total — grey text is behind “Show more”`
+                : `${xLength(draft.copy)} characters — shows in full`}
             </span>
           </>
         )}
@@ -96,7 +110,9 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
           <>
             <p>{draft.copy.instagram.caption}</p>
             <p className="hashtags">{tags(draft.copy.instagram.hashtags)}</p>
-            <span className="count">{draft.copy.instagram.hashtags.length}/30 hashtags</span>
+            <span className="count">
+              {draft.copy.instagram.hashtags.length}/{PLATFORM_LIMITS.instagram.hashtags} hashtags
+            </span>
           </>
         )}
 
