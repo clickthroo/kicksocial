@@ -49,10 +49,26 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       cohort_count: 7,
       total_sales: 723,
       median_fair_price: "£61",
-      series: [100, 103, 101, 108, 112, 109, 118, 121, 119, 126, 131, 134.5].map((v, i) => ({
-        day: `2026-06-${String(i + 1).padStart(2, "0")}`,
-        index_value: v,
-      })),
+      subject: "Germany football shirts",
+      montage_basis: "Germany shirts listed on Kickio now",
+      // Real Germany products, so the montage can be judged against real
+      // photography rather than flat placeholders.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10339151937883/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10346057040219/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/GERH06BSC7EL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/86ae9199-cf46-4151-8e77-78dea4d0049c/" +
+          "2aae3361-33bc-4f53-9fb2-3f3da43afbd2-layflat.png",
+      ],
+      // Empty on purpose: Kickio has no per-subject price history, so a real
+      // draft carries no chart. A sample with an invented rising line would
+      // hide exactly the thing that went wrong here.
+      series: [],
+      series_basis: "No per-subject price history exists in Kickio, so no chart is drawn",
     },
   },
   grail_sale_card: {

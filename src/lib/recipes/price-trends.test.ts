@@ -2,6 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   selectPublishable,
+  seriesAgreesWithHeadline,
   DEFAULT_PRICE_TRENDS_CONFIG as CONFIG,
 } from "./price-trends.ts";
 
@@ -75,5 +76,46 @@ describe("price trend publishing rules", () => {
     const { publishable, rejected } = selectPublishable(rows, CONFIG);
     assert.equal(publishable.length, 0);
     assert.match(rejected[0].reason, /comparable items/);
+  });
+});
+
+describe("a chart may never contradict its headline", () => {
+  const series = (...values: number[]) => values.map((index_value) => ({ index_value }));
+
+  test("rejects a falling series under a rising headline", () => {
+    // The bug this exists to prevent: price_index_history is a single
+    // market-wide index with no scope column, and it was drawn under every
+    // subject. A card read "Germany +21.9% · like-for-like" over a line that
+    // ran 100.00 -> 97.74. Picture and number pointed opposite ways.
+    assert.equal(seriesAgreesWithHeadline(series(100, 99, 98, 97.74), 21.9), false);
+  });
+
+  test("rejects a rising series under a falling headline", () => {
+    assert.equal(seriesAgreesWithHeadline(series(90, 95, 100), -12.4), false);
+  });
+
+  test("accepts a series that moves the way the headline says", () => {
+    assert.equal(seriesAgreesWithHeadline(series(100, 108, 122), 21.9), true);
+    assert.equal(seriesAgreesWithHeadline(series(122, 108, 100), -18.0), true);
+  });
+
+  test("judges on net movement, not on the wobbles in between", () => {
+    // A real series is noisy. Only where it started and ended is a claim.
+    assert.equal(seriesAgreesWithHeadline(series(100, 130, 95, 110, 122), 21.9), true);
+  });
+
+  test("refuses too few points to be a trend", () => {
+    assert.equal(seriesAgreesWithHeadline(series(100, 122), 21.9), false);
+    assert.equal(seriesAgreesWithHeadline(series(100), 21.9), false);
+    assert.equal(seriesAgreesWithHeadline([], 21.9), false);
+  });
+
+  test("refuses a flat series - it contradicts nothing and shows nothing", () => {
+    assert.equal(seriesAgreesWithHeadline(series(100, 100, 100), 21.9), false);
+  });
+
+  test("ignores non-numeric points rather than throwing", () => {
+    const dirty = [{ index_value: 100 }, { index_value: Number.NaN }, { index_value: 122 }];
+    assert.equal(seriesAgreesWithHeadline(dirty, 21.9), false);
   });
 });

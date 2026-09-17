@@ -13,6 +13,7 @@
  */
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, type CardStyle } from "./styles.ts";
+import { KICKIO_MARK } from "./brand-mark.ts";
 
 /** Output sizes per platform. */
 export const FORMATS = {
@@ -30,7 +31,7 @@ const SURFACE = "#14181d";
  * contrast. Red/green was rejected - it measures deutan ΔE 4.1.
  * Colour is never the only cue: an arrow and a signed number carry it too.
  */
-const UP = "#0ca30c";
+const UP = "#2bd14a";
 const DOWN = "#9085e9";
 
 function Frame({
@@ -59,6 +60,26 @@ function Frame({
       {children}
     </div>
   );
+}
+
+/**
+ * The logo where one has been embedded (scripts/embed-mark.mjs), the text
+ * wordmark otherwise - so a card is never missing its attribution just because
+ * the artwork has not been added yet.
+ */
+function Brand({ size, style }: { size: number; style?: React.CSSProperties }) {
+  if (KICKIO_MARK) {
+    return (
+      <img
+        src={KICKIO_MARK}
+        alt="Kickio"
+        width={size}
+        height={size}
+        style={{ width: size, height: size, ...style }}
+      />
+    );
+  }
+  return <Wordmark style={{ fontSize: Math.round(size * 0.55), ...style }} />;
 }
 
 function Wordmark({ style }: { style?: React.CSSProperties }) {
@@ -288,8 +309,14 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
   const series = Array.isArray(d.series)
     ? (d.series as Array<{ index_value: number }>).map((p) => Number(p.index_value)).filter(Number.isFinite)
     : [];
+  const montage = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const hasMontage = montage.length >= 3;
+  // The strip has to come from somewhere: the chart gives up the height. 16:9
+  // has far less to give than 4:5 - the first pass at these numbers pushed the
+  // provenance line off the bottom of the landscape card.
+  const thumb = portrait ? 220 : 98;
   const sparkW = portrait ? 960 : 1080;
-  const sparkH = portrait ? 300 : 210;
+  const sparkH = hasMontage ? (portrait ? 190 : 104) : portrait ? 300 : 210;
   const spark = sparklineDataUri(series, colour, sparkW, sparkH);
 
   return (
@@ -305,7 +332,7 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Wordmark />
+          <Brand size={portrait ? 62 : 52} />
           <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, letterSpacing: 2 }}>
             MARKET TREND
           </div>
@@ -320,7 +347,7 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
               marginBottom: 8,
             }}
           >
-            {String(d.label ?? "")}
+            {String(d.subject ?? d.label ?? "")}
           </div>
 
           {/* Direction carried three ways: arrow, sign, and colour. */}
@@ -353,6 +380,36 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
 
         {spark && (
           <img src={spark} alt="" width={sparkW} height={sparkH} style={{ width: sparkW, height: sparkH }} />
+        )}
+
+        {montage.length >= 3 && (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex" }}>
+              {montage.slice(0, 4).map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={thumb}
+                  height={thumb}
+                  style={{
+                    width: thumb,
+                    height: thumb,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    marginRight: i < 3 ? 10 : 0,
+                  }}
+                />
+              ))}
+            </div>
+            {/* These are examples of the category, NOT the shirts behind the
+                figure - which come from sales data the engine cannot read.
+                Unlabelled beside a percentage they would read as the movers. */}
+            <div style={{ display: "flex", fontSize: 19, color: INK_MUTED, marginTop: 10 }}>
+              {String(d.montage_basis ?? "")}
+            </div>
+          </div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column" }}>

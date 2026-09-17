@@ -22,6 +22,7 @@ import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
 import { formatPrice } from "../kickio/pricing.ts";
+import { imageUrls } from "./grail-of-the-day.ts";
 
 interface AggregateRow {
   scope: string;
@@ -69,6 +70,50 @@ export const DEFAULT_PRICE_TRENDS_CONFIG: PriceTrendsConfig = {
 export interface TrendRejection {
   key: string;
   reason: string;
+}
+
+/**
+ * The daily series for THIS subject - or nothing.
+ *
+ * `price_index_history` carries no scope or key: it is a single market-wide
+ * index, 97 days of it, and there is no per-club or per-era series in Kickio at
+ * all. It was being plotted under every headline regardless of subject, so a
+ * card reading "Germany +21.9% · like-for-like" carried a line that was neither
+ * Germany's nor like-for-like nor 90 days - and which fell 2.3% while the
+ * headline rose 21.9%. A reader checking the picture against the number found
+ * them in opposite directions, which is the most expensive kind of wrong.
+ *
+ * So: no series unless it is genuinely this subject's. The card drops the chart
+ * rather than illustrating a number with someone else's data. If Kickio ever
+ * adds a scoped history table this is the one function to change.
+ */
+async function subjectSeries(
+  scope: string,
+  key: string,
+): Promise<{ points: HistoryRow[]; basis: string | null }> {
+  void scope;
+  void key;
+  return {
+    points: [],
+    basis: null,
+  };
+}
+
+/**
+ * A series may only be drawn beside a headline it agrees with.
+ *
+ * Pure and exported so the rule is testable: the failure this exists to prevent
+ * was invisible in code review and obvious the moment anyone looked at the card.
+ */
+export function seriesAgreesWithHeadline(points: Array<{ index_value: number }>, pct: number): boolean {
+  const values = points.map((p) => Number(p.index_value)).filter(Number.isFinite);
+  // Two points is not a trend, and one is not a line.
+  if (values.length < 3) return false;
+
+  const net = values[values.length - 1] - values[0];
+  // A flat series contradicts nothing, but it also illustrates nothing.
+  if (net === 0) return false;
+  return net > 0 === pct > 0;
 }
 
 /**
@@ -120,6 +165,71 @@ export function selectPublishable(
   return { publishable, rejected };
 }
 
+/**
+ * A few shirts of the kind the figure is about, to put on the card.
+ *
+ * THESE ARE NOT THE COMPARABLES. The figure comes from `sales_history` rows the
+ * engine cannot even read; these are current listings that happen to match the
+ * subject. Shown unlabelled beside "+21.9%" they would read as the shirts that
+ * moved, which is a claim the data does not support - so the card captions them
+ * as examples, and `montage_basis` records that here too.
+ *
+ * Only `club` and `era` map onto something queryable. A condition band does not
+ * describe a shirt anyone could picture, so those trends carry no montage.
+ */
+async function montageFor(
+  scope: string,
+  key: string,
+  label: string,
+): Promise<{ images: string[]; basis: string | null }> {
+  const query = kickio()
+    .from("products")
+    .select("primary_image_url,images")
+    .is("deleted_at", null)
+    .eq("status", "active")
+    .not("primary_image_url", "is", null)
+    .limit(24);
+
+  if (scope === "club") {
+    query.ilike("team", label);
+  } else if (scope === "era") {
+    // key is the decade's first year, e.g. "1990".
+    const decade = Number.parseInt(key, 10);
+    if (!Number.isFinite(decade)) return { images: [], basis: null };
+    query.gte("season_end_year", decade).lt("season_end_year", decade + 10);
+  } else {
+    return { images: [], basis: null };
+  }
+
+  const { data, error } = await query;
+  if (error) return { images: [], basis: null };
+
+  const seen = new Set<string>();
+  const images: string[] = [];
+  for (const row of (data ?? []) as Array<{ primary_image_url: string | null; images: unknown }>) {
+    for (const url of imageUrls([row.primary_image_url, ...(Array.isArray(row.images) ? row.images : [])])) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      images.push(url);
+      break;
+    }
+    if (images.length >= 4) break;
+  }
+
+  // One shirt reads as "this shirt moved 21.9%". Three or four read as a
+  // category, which is what this is.
+  if (images.length < 3) return { images: [], basis: null };
+  return { images: images.slice(0, 4), basis: `${label} shirts listed on Kickio now` };
+}
+
+/** "Germany" is a country; "Germany football shirts" is the subject. */
+export function subjectPhrase(scope: string, label: string): string {
+  if (scope === "club") return `${label} football shirts`;
+  if (scope === "era") return `${label} football shirts`;
+  if (scope === "condition_band") return `Shirts in ${label.toLowerCase()} condition`;
+  return `${label} shirts`;
+}
+
 export async function runPriceTrends(
   config: PriceTrendsConfig = DEFAULT_PRICE_TRENDS_CONFIG,
 ): Promise<RecipeResult> {
@@ -162,13 +272,14 @@ export async function runPriceTrends(
   const direction = pct >= 0 ? "up" : "down";
   const windowDays = winner.change_window_days ?? 90;
 
-  // The daily series behind the figure, for the trend graphic.
-  const { data: history } = await kickio()
-    .from("price_index_history")
-    .select("day,index_value,cohort_count,total_sales_90d")
-    .order("day", { ascending: true });
+  const series = await subjectSeries(winner.scope, winner.key);
+  // The guard, applied even though subjectSeries returns nothing today: if a
+  // scoped series is ever wired up, a line that disagrees with the headline
+  // must never reach a card again.
+  const plottable = seriesAgreesWithHeadline(series.points, pct);
 
   const median = formatPrice(winner.median_fair_price_cents, "GBP");
+  const montage = await montageFor(winner.scope, winner.key, winner.label);
 
   const claims: Claim[] = [
     {
@@ -199,14 +310,25 @@ export async function runPriceTrends(
       cohort_count: winner.cohort_count,
       total_sales: winner.total_sales,
       median_fair_price: median,
+      // What the subject IS, spelled out. "Germany" alone on a card reads as a
+      // country; the point is the shirts.
+      subject: subjectPhrase(winner.scope, winner.label),
+      montage_basis: montage.basis,
       data_updated_at: winner.updated_at,
-      series: (history ?? []) as HistoryRow[],
+      series: plottable ? series.points : [],
+      // Why there is no chart, where there is none. A reviewer should not have
+      // to wonder whether it simply failed to load.
+      series_basis: plottable
+        ? series.basis
+        : series.points.length > 0
+          ? "Series withheld: its direction disagrees with the headline figure"
+          : "No per-subject price history exists in Kickio, so no chart is drawn",
       // Shown in the dashboard so the reviewer can see what was excluded and why.
       excluded_from_consideration: rejected,
     },
     claims,
-    // Chart-led post: the visual template renders the series, no photography.
-    images: [],
+    // Illustrative only - see montageFor. The card labels them as such.
+    images: montage.images,
   };
 
   return { ok: true, candidate };
