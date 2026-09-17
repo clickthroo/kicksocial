@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx";
 import { SAMPLE_DRAFTS } from "@/lib/render/sample.ts";
+import { asCardStyle } from "@/lib/render/styles.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
   const template = params.get("template") ?? "grail_card";
   const format: FormatKey = params.get("format") === "x" ? "x" : "ig";
+  const style = params.has("style") ? asCardStyle(params.get("style")) : undefined;
 
   const draft = SAMPLE_DRAFTS[template];
   if (!draft) {
@@ -20,5 +22,5 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  return new ImageResponse(templateFor(draft, format), FORMATS[format]);
+  return new ImageResponse(templateFor(draft, format, style), FORMATS[format]);
 }

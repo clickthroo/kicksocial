@@ -12,6 +12,7 @@
  * with more than one child needs an explicit `display: flex`.
  */
 import type { PostDraft } from "../engine/types.ts";
+import { asCardStyle, type CardStyle } from "./styles.ts";
 
 /** Output sizes per platform. */
 export const FORMATS = {
@@ -453,6 +454,95 @@ const STUDIO = "#0b0c0e";
 const STUDIO_LIFT = "#1c1f24";
 const STUDIO_INK = "#f6f7f9";
 const STUDIO_MUTED = "#8b95a3";
+const PAPER = "#f2efe9";
+const PAPER_INK = "#14181d";
+const PAPER_MUTED = "#6f6b64";
+
+interface Style {
+  /** Top and bottom of the backdrop sweep. */
+  from: string;
+  to: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  /** Border colour for the attribute chips and rules. */
+  hairline: string;
+  /** Share of the portrait frame the photo takes. */
+  stage: number;
+  /** Inset around the photo. */
+  inset: number;
+  /**
+   * How the photo is presented. This is what actually separates the styles -
+   * palette alone produced six cards that looked like the same card, because
+   * Kickio's photos carry their own pale background and that bright rectangle
+   * dominates whatever is behind it.
+   *
+   *   plate  - rounded white panel, inset on the field
+   *   round  - the same panel clipped to a circle
+   *   bare   - no panel; on a light field the photo's own background disappears
+   *   keyline- large, thin-bordered, poster-like
+   *   bleed  - fills the frame, type over a scrim
+   */
+  photo: "plate" | "round" | "bare" | "keyline" | "bleed";
+  /** Multiplier on the title size. */
+  titleScale: number;
+}
+
+function styleFor(key: CardStyle, shirt?: { hex: string; deep: string }): Style {
+  const dark: Style = {
+    from: STUDIO_LIFT,
+    to: STUDIO,
+    ink: STUDIO_INK,
+    muted: STUDIO_MUTED,
+    accent: BRAND,
+    hairline: "rgba(246,247,249,0.3)",
+    stage: 0.58,
+    inset: 1,
+    photo: "plate",
+    titleScale: 1,
+  };
+
+  switch (key) {
+    case "spotlight":
+      // Circular crop on near-black: the shirt reads as a lot under a light.
+      return { ...dark, from: "#15181c", to: "#030406", stage: 0.5, inset: 1.2, photo: "round" };
+    case "sweep":
+      // Backdrop taken from the shirt. The photo is smaller so the colour is
+      // actually visible rather than a border round a white rectangle.
+      return shirt
+        ? {
+            ...dark,
+            from: shirt.hex,
+            to: shirt.deep,
+            hairline: "rgba(255,255,255,0.42)",
+            stage: 0.46,
+            inset: 1.5,
+          }
+        : dark;
+    case "paper":
+      // The one case where the photo needs no panel: on warm off-white its own
+      // pale background blends instead of announcing itself.
+      return {
+        from: PAPER,
+        to: PAPER,
+        ink: PAPER_INK,
+        muted: PAPER_MUTED,
+        accent: "#0f6b43",
+        hairline: "rgba(20,24,29,0.55)",
+        stage: 0.52,
+        inset: 1,
+        photo: "bare",
+        titleScale: 1,
+      };
+    case "editorial":
+      return { ...dark, from: "#0d0f12", to: "#08090b", stage: 1, inset: 1, photo: "bleed", titleScale: 1.2 };
+    case "frame":
+      return { ...dark, from: "#0f1115", to: "#090a0d", stage: 0.62, inset: 1.1, photo: "keyline", titleScale: 0.82 };
+    default:
+      return dark;
+  }
+}
+
 /**
  * The engine's accent, so the cards and the dashboard read as one system.
  * Kickio's own brand hex was not recorded anywhere in either database - swap
@@ -523,7 +613,15 @@ function MissingPhoto({ width, height }: { width: number; height: number }) {
  * swallowed. Linear gradients are already proven here (the Grail card's scrim),
  * so the light is built from one.
  */
-function StudioField({ width, height }: { width: number; height: number }) {
+function StudioField({
+  width,
+  height,
+  palette,
+}: {
+  width: number;
+  height: number;
+  palette: Style;
+}) {
   return (
     <div
       style={{
@@ -533,42 +631,57 @@ function StudioField({ width, height }: { width: number; height: number }) {
         display: "flex",
         width,
         height,
-        background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 58%, #06070a 100%)`,
+        background: `linear-gradient(to bottom, ${palette.from} 0%, ${palette.to} 72%, ${palette.to} 100%)`,
       }}
     />
   );
 }
 
-function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+function GrailSaleCard({
+  draft,
+  format,
+  style,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  style: CardStyle;
+}) {
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
   const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
   const portrait = format === "ig";
   const { width, height } = FORMATS[format];
+  const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
+  const palette = styleFor(style, shirt);
 
   const title = String(d.title ?? draft.headline ?? "");
   const price = String(d.price ?? "");
   // Season and club are already in the title; these add what it does not carry.
   const meta = [d.condition, d.size, d.printing].filter(Boolean).map(String);
 
-  const stageHeight = portrait ? Math.round(height * 0.58) : height;
+  const stageHeight = portrait ? Math.round(height * palette.stage) : height;
   const stageWidth = portrait ? width : Math.round(width * 0.48);
-  const pad = portrait ? 56 : 46;
+  const pad = Math.round((portrait ? 56 : 46) * palette.inset);
+  // Bleed fills its stage; everything else sits inside the inset.
+  const bleed = palette.photo === "bleed";
+  const photoW = bleed ? stageWidth : stageWidth - pad * 2;
+  const photoH = bleed ? stageHeight : stageHeight - pad * 2;
 
   return (
-    <Frame format={format} background={STUDIO}>
-      <StudioField width={width} height={height} />
+    <Frame format={format} background={palette.to}>
+      <StudioField width={width} height={height} palette={palette} />
 
       <div
         style={{
           display: "flex",
-          flexDirection: portrait ? "column" : "row",
+          flexDirection: bleed ? "column" : portrait ? "column" : "row",
           width,
           height,
           position: "relative",
         }}
       >
+
         <div
           style={{
             display: "flex",
@@ -576,51 +689,72 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
             height: stageHeight,
             alignItems: "center",
             justifyContent: "center",
-            padding: pad,
+            ...(bleed ? {} : { padding: pad }),
           }}
         >
           {photo ? (
             /* Kickio's photography is catalogue shots on their own pale
                backgrounds, and nothing here can change that. Feathering that
                background into a dark field needs per-pixel work the renderer
-               cannot do, and faking it with a gradient left a bright rectangle
-               with a smudge around it. So the panel is deliberate instead: an
-               inset, rounded plate, lit against the dark - a shirt presented
-               under glass rather than a photo pasted onto a card. Any photo,
-               any background, and it still reads as designed. */
+               cannot do. So each style decides how to present the rectangle
+               rather than pretending it is not there. */
             <img
               src={photo}
               alt=""
-              width={stageWidth - pad * 2}
-              height={stageHeight - pad * 2}
+              width={photoW}
+              height={photoH}
               style={{
-                width: stageWidth - pad * 2,
-                height: stageHeight - pad * 2,
+                width: photoW,
+                height: photoH,
                 // The whole shirt, never a crop of it - a sale is a record of
                 // one specific shirt, and cropping its sleeves off to fill a
                 // frame loses the thing the post is about.
-                objectFit: "contain",
-                borderRadius: 10,
-                // White, because `contain` letterboxes a photo whose aspect does
-                // not match the plate, and these are catalogue shots on white or
-                // near-white. A warmer plate leaves visible bars down the sides.
-                background: "#ffffff",
+                objectFit: palette.photo === "bleed" ? "cover" : "contain",
+                ...(palette.photo === "round"
+                  ? { borderRadius: Math.round(Math.min(photoW, photoH) / 2), background: "#ffffff" }
+                  : palette.photo === "keyline"
+                    ? { borderRadius: 2, background: "#ffffff", border: `2px solid ${palette.hairline}` }
+                    : palette.photo === "bare" || palette.photo === "bleed"
+                      ? {}
+                      : { borderRadius: 10, background: "#ffffff" }),
               }}
             />
           ) : (
-            <MissingPhoto width={stageWidth - pad * 2} height={stageHeight - pad * 2} />
+            <MissingPhoto width={photoW} height={photoH} />
           )}
         </div>
+
+        {bleed && (
+          /* Type sits over the photograph here, so it needs a scrim or it is
+             only as legible as whatever the shirt happens to be. It has to come
+             AFTER the photo in the DOM: Satori paints in document order and
+             honours z-index only partially, so the first attempt put the scrim
+             behind the picture and left white type on a pale background. */
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "flex",
+              width,
+              height,
+              background:
+                `linear-gradient(to bottom, rgba(8,9,11,0.5) 0%, rgba(8,9,11,0.04) 26%, ` +
+                `rgba(8,9,11,0.8) 58%, rgba(8,9,11,0.97) 100%)`,
+            }}
+          />
+        )}
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: portrait ? "flex-end" : "space-between",
-            width: portrait ? width : width - stageWidth,
-            height: portrait ? height - stageHeight : height,
+            justifyContent: bleed ? "flex-end" : portrait ? "flex-end" : "space-between",
+            width: bleed ? width : portrait ? width : width - stageWidth,
+            height: bleed ? height : portrait ? height - stageHeight : height,
             padding: pad,
-            color: STUDIO_INK,
+            color: palette.ink,
+            ...(bleed ? { position: "absolute", top: 0, left: 0 } : {}),
           }}
         >
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -634,7 +768,7 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
             >
               <SoldBadge scale={portrait ? 1 : 0.85} />
               {d.sold_at ? (
-                <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: STUDIO_MUTED }}>
+                <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: palette.muted }}>
                   {String(d.sold_at)}
                 </div>
               ) : null}
@@ -643,7 +777,7 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
             <div
               style={{
                 display: "flex",
-                fontSize: titleSize(title, portrait),
+                fontSize: Math.round(titleSize(title, portrait) * palette.titleScale),
                 fontWeight: 800,
                 lineHeight: 1.08,
                 letterSpacing: -1,
@@ -657,7 +791,7 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
                 style={{
                   display: "flex",
                   fontSize: portrait ? 22 : 18,
-                  color: STUDIO_MUTED,
+                  color: palette.muted,
                   marginTop: 12,
                 }}
               >
@@ -678,8 +812,8 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
                       padding: portrait ? "6px 12px" : "5px 10px",
                       marginRight: 9,
                       marginTop: 8,
-                      border: `1px solid rgba(246,247,249,0.3)`,
-                      color: STUDIO_INK,
+                      border: `1px solid ${palette.hairline}`,
+                      color: palette.ink,
                     }}
                   >
                     {sig.toUpperCase()}
@@ -696,7 +830,7 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
                 fontSize: portrait ? 24 : 20,
                 fontWeight: 700,
                 letterSpacing: 3,
-                color: BRAND,
+                color: palette.accent,
                 marginBottom: portrait ? 8 : 5,
               }}
             >
@@ -721,16 +855,16 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
                 justifyContent: "space-between",
                 marginTop: portrait ? 30 : 22,
                 paddingTop: portrait ? 20 : 15,
-                borderTop: `1px solid rgba(246,247,249,0.16)`,
+                borderTop: `1px solid ${palette.hairline}`,
               }}
             >
-              <Wordmark style={{ fontSize: portrait ? 25 : 21, opacity: 1 }} />
+              <Wordmark style={{ fontSize: portrait ? 25 : 21, opacity: 1, color: palette.ink }} />
               <div
                 style={{
                   display: "flex",
                   fontSize: portrait ? 19 : 16,
                   fontWeight: 600,
-                  color: BRAND_DEEP,
+                  color: palette.accent,
                 }}
               >
                 kickio.com
@@ -743,7 +877,15 @@ function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey 
   );
 }
 
-export function templateFor(draft: PostDraft, format: FormatKey): React.ReactElement {
+/**
+ * `style` overrides what the draft carries, so the dashboard can preview a look
+ * before anyone commits to it.
+ */
+export function templateFor(
+  draft: PostDraft,
+  format: FormatKey,
+  style?: CardStyle,
+): React.ReactElement {
   const template =
     (draft.generation as { visual_template?: string })?.visual_template ?? "grail_card";
 
@@ -753,7 +895,13 @@ export function templateFor(draft: PostDraft, format: FormatKey): React.ReactEle
     case "roundup_card":
       return <RoundupCard draft={draft} format={format} />;
     case "grail_sale_card":
-      return <GrailSaleCard draft={draft} format={format} />;
+      return (
+        <GrailSaleCard
+          draft={draft}
+          format={format}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     default:
       return <GrailCard draft={draft} format={format} />;
   }

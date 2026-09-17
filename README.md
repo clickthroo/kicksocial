@@ -366,6 +366,48 @@ Two things worth knowing before editing them:
   source (`imageUrls()`), and the card prints "No renderable photo — do not
   post" if one is ever missing, so the failure is loud rather than dark.
 
+### Card styles are chosen in the app, not in the code
+
+Six looks for `grail_sale_card`, listed in `src/lib/render/styles.ts`:
+
+| Style | What it is |
+|---|---|
+| Studio | Rounded white plate, inset on a dark field. The safe default |
+| Spotlight | The same plate clipped to a circle on near-black |
+| Sweep | Backdrop coloured **from the shirt's own photo** |
+| Paper | Warm off-white; no plate, so the photo's pale background blends away |
+| Editorial | Photo full-bleed, type over a scrim |
+| Frame | Large keylined photo, smaller type |
+
+Set a default per recipe in **Settings**; change any individual draft from the
+queue. The picker passes `?style=` to the render route, so tapping through
+options re-renders immediately and nothing is saved until one is chosen.
+`setDraftStyle` touches only the style key — **changing a look can never change
+a fact.**
+
+The first attempt varied only colour and produced six cards that looked like the
+same card. Kickio's photos carry their own pale background, and that bright
+rectangle dominates whatever sits behind it — so the styles differ in how the
+photo itself is *presented* (plate, circle, bare, keyline, bleed), not just in
+palette.
+
+**Sweep's colour is sampled from the photograph**, not from
+`teams.primary_color`, which is populated for only 180 of 2,959 teams and is a
+club brand colour rather than this shirt's. `dominant-colour.ts` samples the
+middle half of the frame — the raw dominant colour of a product shot is the
+backdrop — and returns null for a near-white, near-black or near-grey shirt,
+where a tinted backdrop would look broken rather than minimal. It runs once at
+draft creation and is allowed to fail.
+
+Two Satori traps this hit, both worth knowing before editing a template:
+
+- **`border: undefined` throws**, taking the whole render with it. Satori parses
+  the value it is given rather than skipping the property, so conditional styles
+  must be spread (`...(cond ? {border} : {})`), never set to `undefined`.
+- **Paint order is document order**, and z-index is honoured only partially. The
+  bleed scrim first went in before the photo and left white type on a pale
+  background.
+
 `grail_sale_card` deliberately does not use the Grail treatment. Type over a
 photograph suits something you can still buy — the shirt is the offer. A sale is
 finished, so it is a dark studio field with the shirt on a lit plate and the

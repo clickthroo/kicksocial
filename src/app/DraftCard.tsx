@@ -1,7 +1,8 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { approveDraft, rejectDraft } from "./actions.ts";
+import { approveDraft, rejectDraft, chooseStyle } from "./actions.ts";
+import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 import { exportText, tags, xLength } from "@/lib/copy/export.ts";
 import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
@@ -13,9 +14,19 @@ function urlField(sourceData: Record<string, unknown>, key: string): string | nu
   return typeof url === "string" && url.startsWith("http") ? url : null;
 }
 
-/** Instagram is the 4:5 portrait crop; X is 16:9. */
-function renderUrl(id: string, format: "ig" | "x"): string {
-  return `/api/render/${id}?format=${format}`;
+/**
+ * Instagram is the 4:5 portrait crop; X is 16:9.
+ *
+ * `style` is passed on the URL rather than saved first, so tapping through the
+ * options re-renders immediately and nothing is committed until a choice is
+ * made. `v` busts the browser cache when the saved style changes underneath the
+ * same URL.
+ */
+function renderUrl(id: string, format: "ig" | "x", style?: string, v = 0): string {
+  const q = new URLSearchParams({ format });
+  if (style) q.set("style", style);
+  if (v) q.set("v", String(v));
+  return `/api/render/${id}?${q}`;
 }
 
 export function DraftCard({ draft }: { draft: PostDraft }) {
@@ -27,6 +38,29 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [resolved, setResolved] = useOptimistic<null | "approved" | "rejected">(null);
 
   const [copied, setCopied] = useState(false);
+
+  const savedStyle = asCardStyle((draft.generation as { style?: unknown })?.style);
+  // What is on screen, which may not be what is saved yet.
+  const [preview, setPreview] = useState<CardStyle>(savedStyle);
+  const [savedAt, setSavedAt] = useState(0);
+  const [styleError, setStyleError] = useState<string | null>(null);
+  const [savingStyle, startStyle] = useTransition();
+  const restylable = (draft.generation as { visual_template?: string })?.visual_template ===
+    "grail_sale_card";
+
+  const pickStyle = (style: CardStyle) => {
+    setPreview(style);
+    setStyleError(null);
+    startTransition(() => {});
+    startStyle(async () => {
+      try {
+        await chooseStyle(draft.id, style);
+        setSavedAt(Date.now());
+      } catch (err) {
+        setStyleError((err as Error).message);
+      }
+    });
+  };
 
   const copyText = async () => {
     try {
@@ -57,10 +91,36 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
       {/* The rendered card - what gets posted, not the raw photo. */}
       <img
         className="shot"
-        src={renderUrl(draft.id, tab === "x" ? "x" : "ig")}
+        src={renderUrl(draft.id, tab === "x" ? "x" : "ig", preview, savedAt)}
         alt=""
         loading="lazy"
       />
+
+      {restylable && (
+        <div className="styles">
+          <div className="styles-row" role="radiogroup" aria-label="Card style">
+            {CARD_STYLES.map((style) => (
+              <button
+                key={style.key}
+                type="button"
+                role="radio"
+                aria-checked={preview === style.key}
+                className="style-chip"
+                title={style.blurb}
+                onClick={() => pickStyle(style.key)}
+                disabled={savingStyle}
+              >
+                {style.name}
+              </button>
+            ))}
+          </div>
+          <p className="styles-note">
+            {styleError
+              ? styleError
+              : (CARD_STYLES.find((s) => s.key === preview)?.blurb ?? "")}
+          </p>
+        </div>
+      )}
 
       {available.length > 1 && (
         <div className="tabs" role="tablist">
@@ -182,10 +242,10 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
       )}
 
       <div className="export">
-        <a className="link" href={renderUrl(draft.id, "ig")} download={`${draft.recipe_key}-ig.png`}>
+        <a className="link" href={renderUrl(draft.id, "ig", preview, savedAt)} download={`${draft.recipe_key}-ig.png`}>
           Download 4:5
         </a>
-        <a className="link" href={renderUrl(draft.id, "x")} download={`${draft.recipe_key}-x.png`}>
+        <a className="link" href={renderUrl(draft.id, "x", preview, savedAt)} download={`${draft.recipe_key}-x.png`}>
           Download 16:9
         </a>
         <button className="link" onClick={copyText} type="button">

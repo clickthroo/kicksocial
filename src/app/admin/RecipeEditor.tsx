@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { saveRecipe } from "./actions.ts";
 import type { SellerOption } from "@/lib/kickio/sellers.ts";
+import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 
 export interface RecipeRow {
   key: string;
@@ -40,6 +41,7 @@ export function RecipeEditor({
       ? (recipe.selection.allowedSellerIds as string[])
       : [],
   );
+  const [style, setStyle] = useState<CardStyle>(asCardStyle(recipe.selection.style));
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -50,6 +52,8 @@ export function RecipeEditor({
   // Grail Sale selects nothing - an admin names the shirt and types the price -
   // so a price floor and a cooldown would be controls that do nothing.
   const selectsCandidates = recipe.key !== "grail_sale";
+  // Only the sale card has style variants so far.
+  const hasStyles = recipe.key === "grail_sale";
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -67,6 +71,7 @@ export function RecipeEditor({
             ...(selectsCandidates
               ? { minPriceCents: Math.round(minPrice * 100), cooldownDays: cooldown }
               : {}),
+            ...(hasStyles ? { style } : {}),
             ...(isListingRecipe
               ? {
                 maxStockCheckAgeDays: stockAge,
@@ -182,6 +187,34 @@ export function RecipeEditor({
           Club and kit windows are preferences — they reorder candidates rather
           than block a post, so a thin day still produces one.
         </p>
+      )}
+
+      {hasStyles && (
+        <div className="row">
+          <div className="field-label">Default card style</div>
+          <p className="hint">
+            Where a new sale starts. Every draft can still be restyled in the queue —
+            changing a look never changes a fact.
+          </p>
+          <div className="styles-row">
+            {CARD_STYLES.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className="style-chip"
+                aria-checked={style === option.key}
+                role="radio"
+                title={option.blurb}
+                onClick={() => setStyle(option.key)}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+          <p className="hint" style={{ marginTop: 9 }}>
+            {CARD_STYLES.find((o) => o.key === style)?.blurb}
+          </p>
+        </div>
       )}
 
       <div className="row">

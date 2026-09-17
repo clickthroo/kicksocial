@@ -73,6 +73,8 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       condition: "Very Good",
       size: "L",
       rarity_signals: ["1990s", "Match issue"],
+      // Sampled from the photo at generation time; only the Sweep style uses it.
+      shirt_colour: { hex: "#7a263c", deep: "#240b12" },
       // A real product photo, so the composition is judged against a real
       // shirt on a real background rather than a flat placeholder.
       images: [

@@ -10,6 +10,7 @@ import { generateCopy } from "./copy/generate.ts";
 import { SOLD_CTA_POOL } from "./copy/brand-voice.ts";
 import { recipeByKey, type Recipe } from "./recipes/index.ts";
 import { runGrailSale, GRAIL_SALE_BRIEF, type GrailSaleInput } from "./recipes/grail-sale.ts";
+import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./render/styles.ts";
 import type { PlatformCopy, PostDraft } from "./engine/types.ts";
 
 export interface RunOutcome {
@@ -158,13 +159,14 @@ export async function createGrailSaleDraft(input: GrailSaleInput): Promise<RunOu
 
   const { data: configRow } = await engine()
     .from("recipes")
-    .select("enabled,prompt_template,platforms")
+    .select("enabled,prompt_template,platforms,selection")
     .eq("key", key)
     .maybeSingle();
   const config = configRow as {
     enabled: boolean;
     prompt_template: string | null;
     platforms: string[] | null;
+    selection: Record<string, unknown> | null;
   } | null;
 
   if (config && !config.enabled) {
@@ -216,6 +218,8 @@ export async function createGrailSaleDraft(input: GrailSaleInput): Promise<RunOu
         model: "claude-opus-5",
         usage: generated.usage,
         visual_template: "grail_sale_card",
+        // The recipe's default; a reviewer can change it on the card.
+        style: asCardStyle((config?.selection as Record<string, unknown>)?.style),
       },
     })
     .select("id")
@@ -242,6 +246,27 @@ export async function pendingDrafts(): Promise<PostDraft[]> {
 
   if (error) throw new Error(`Loading queue failed: ${error.message}`);
   return (data ?? []) as PostDraft[];
+}
+
+/**
+ * Restyle an existing draft. Only the style key is touched - the copy, claims
+ * and photography are untouched, so changing a look can never change a fact.
+ */
+export async function setDraftStyle(id: string, style: CardStyle): Promise<void> {
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .select("generation")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Loading draft failed: ${error.message}`);
+  if (!data) throw new Error("Draft not found");
+
+  const generation = (data as { generation: Record<string, unknown> }).generation ?? {};
+  const { error: updateError } = await engine()
+    .from("post_drafts")
+    .update({ generation: { ...generation, style } })
+    .eq("id", id);
+  if (updateError) throw new Error(`Saving the style failed: ${updateError.message}`);
 }
 
 export async function setDraftStatus(

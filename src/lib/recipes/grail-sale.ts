@@ -31,6 +31,7 @@ import { readSignals, imageUrls, kickioUrl } from "./grail-of-the-day.ts";
 import { cleanValue, cleanFacts } from "../kickio/values.ts";
 import { formatPrice } from "../kickio/pricing.ts";
 import { slugFromUrl } from "../kickio/product-url.ts";
+import { shirtColour } from "../render/dominant-colour.ts";
 
 export interface ProductRow {
   id: string;
@@ -143,7 +144,12 @@ function printingLabel(product: ProductRow): string | null {
   return name ?? (number ? `#${number}` : null);
 }
 
-export function buildCandidate(lookup: LookupResult, input: GrailSaleInput): RecipeResult {
+export function buildCandidate(
+  lookup: LookupResult,
+  input: GrailSaleInput,
+  /** Sampled from the photo, for the Sweep style. Absent is fine. */
+  colour?: { hex: string; deep: string } | null,
+): RecipeResult {
   const { product, images } = lookup;
 
   if (images.length === 0) {
@@ -227,6 +233,9 @@ export function buildCandidate(lookup: LookupResult, input: GrailSaleInput): Rec
         printing,
         rarity_signals: signals.labels,
         kickio_url: kickioUrl(product.slug),
+        // Only used to colour a backdrop. It describes the photograph, never
+        // the shirt, and is never written into copy.
+        shirt_colour: colour ?? undefined,
         admin_note: cleanValue(input.note),
         // New attribute vocabulary surfaces in review rather than becoming a
         // confident false claim in copy.
@@ -243,7 +252,11 @@ export function buildCandidate(lookup: LookupResult, input: GrailSaleInput): Rec
 export async function runGrailSale(input: GrailSaleInput): Promise<RecipeResult> {
   const lookup = await lookupProduct(input.url);
   if (!lookup.ok) return { ok: false, reason: lookup.reason };
-  return buildCandidate(lookup.value, input);
+
+  // Allowed to fail: a neutral backdrop is a fine post, a post that did not
+  // happen because a colour sample threw is not.
+  const colour = lookup.value.images[0] ? await shirtColour(lookup.value.images[0]) : null;
+  return buildCandidate(lookup.value, input, colour);
 }
 
 export const GRAIL_SALE_BRIEF = `**Grail Sale** - one shirt that has just sold, on Kickio.
