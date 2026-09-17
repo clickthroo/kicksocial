@@ -294,6 +294,12 @@ Two data traps it works around:
 A club also has to *span* something: 20 shirts from three seasons is a shelf, not
 an archive, so `minSpanYears` (15) rejects it rather than calling it one.
 
+**The club can be pinned in Settings.** Left on automatic, the deepest club not
+on cooldown is chosen. Pick one and it runs for that club, cooldown or not — an
+admin asking for Arsenal is asking for Arsenal, not for a reminder that Arsenal
+ran in June. It does **not** bypass the depth and span checks, so a thin choice
+is refused by name rather than turned into a thin post.
+
 ### Market Index, and why it refuses
 
 `price_index_history` is a single market-wide index with no scope column — the
@@ -429,8 +435,21 @@ Two things worth knowing before editing them:
 `brand_settings` table (one row, enforced by a check constraint — two rows would
 mean cards rendering in whichever branding the query happened to return).
 
-The logo is **uploaded, not committed**: PNG or JPEG, re-encoded to a 512px
-square PNG and stored inline as a data URI. Inlined rather than linked because
+The logo is **uploaded, not committed**: PNG or JPEG, background knocked out,
+re-encoded to a 512px square PNG and stored inline as a data URI.
+
+**The background knockout is a flood fill from the edges, not "make white
+transparent".** Kickio's badge is a black disc on an opaque white square, and on
+a near-black card that reads as a white box with a logo in it — resizing onto a
+transparent canvas does not help, because the white is in the source pixels. But
+the badge's ring and its lettering are white too, so removing every white pixel
+would hollow it out. The fill therefore starts at the border and spreads only
+through touching pixels of the same colour: the surround goes, anything enclosed
+by the artwork stays. It runs **before** the square resize, since `fit: contain`
+pads with transparency and would leave the detector looking at transparent
+corners. It declines when the corners disagree — a logo on a gradient or a
+photograph has no single background to remove, and guessing one would eat the
+artwork. Inlined rather than linked because
 Satori needs the bytes at render time — a URL means a network round trip on every
 card, and a different answer in dev, preview and production if the file moves.
 Re-encoded because the uploaded file would otherwise decide the cost of every

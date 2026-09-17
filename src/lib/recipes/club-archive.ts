@@ -56,6 +56,15 @@ export interface ClubArchiveConfig {
   shortlistSize: number;
   /** A club should not come round again for a long while. */
   cooldownDays: number;
+  /**
+   * Pin the post to one club. Empty means "whichever has the most depth".
+   *
+   * A pinned club bypasses the cooldown - an admin asking for Arsenal is asking
+   * for Arsenal, not for a reminder that Arsenal ran in June - but it does NOT
+   * bypass the quality gates. A club without the depth is refused by name, so
+   * the answer is a clear no rather than a thin post.
+   */
+  team?: string | null;
 }
 
 export const DEFAULT_CLUB_ARCHIVE_CONFIG: ClubArchiveConfig = {
@@ -65,6 +74,7 @@ export const DEFAULT_CLUB_ARCHIVE_CONFIG: ClubArchiveConfig = {
   gridSize: 9,
   shortlistSize: 14,
   cooldownDays: 120,
+  team: null,
 };
 
 /** Seasons are text ("1990-91"); `season_end_year` is null on every row. */
@@ -168,23 +178,30 @@ export function qualifies(summary: ClubSummary, config: ClubArchiveConfig): Club
 export async function runClubArchive(
   config: ClubArchiveConfig = DEFAULT_CLUB_ARCHIVE_CONFIG,
 ): Promise<RecipeResult> {
-  // Cheap shortlist. teams.listings_count disagrees with the real product count,
-  // so it is used only to decide who is worth counting properly.
-  const { data: teamData, error: teamError } = await kickio()
-    .from("teams")
-    .select("name,listings_count")
-    .is("deleted_at", null)
-    .gt("listings_count", 0)
-    .order("listings_count", { ascending: false })
-    .limit(config.shortlistSize);
+  const pinned = config.team?.trim() || null;
+  let names: string[];
 
-  if (teamError) return { ok: false, reason: `Kickio query failed: ${teamError.message}` };
+  if (pinned) {
+    names = [pinned];
+  } else {
+    // Cheap shortlist. teams.listings_count disagrees with the real product
+    // count, so it is used only to decide who is worth counting properly.
+    const { data: teamData, error: teamError } = await kickio()
+      .from("teams")
+      .select("name,listings_count")
+      .is("deleted_at", null)
+      .gt("listings_count", 0)
+      .order("listings_count", { ascending: false })
+      .limit(config.shortlistSize);
 
-  const names = ((teamData ?? []) as unknown as TeamRow[])
-    .map((t) => t.name)
-    .filter((n): n is string => !!n);
-  if (names.length === 0) {
-    return { ok: false, reason: "No teams with any listings", diagnostics: { shortlist: 0 } };
+    if (teamError) return { ok: false, reason: `Kickio query failed: ${teamError.message}` };
+
+    names = ((teamData ?? []) as unknown as TeamRow[])
+      .map((t) => t.name)
+      .filter((n): n is string => !!n);
+    if (names.length === 0) {
+      return { ok: false, reason: "No teams with any listings", diagnostics: { shortlist: 0 } };
+    }
   }
 
   const { data: productData, error: productError } = await kickio()
@@ -209,8 +226,17 @@ export async function runClubArchive(
   const rejected: Array<{ key: string; reason: string }> = [];
   const eligible: ClubSummary[] = [];
 
+  if (pinned && byTeam.size === 0) {
+    return {
+      ok: false,
+      reason: `No active products on Kickio for "${pinned}". Check the club's name matches Kickio's.`,
+      diagnostics: { pinned },
+    };
+  }
+
   for (const [team, products] of byTeam) {
-    if (seen.has(subjectRefFor(team))) {
+    // A pinned club was asked for by name; the cooldown is for the rotation.
+    if (!pinned && seen.has(subjectRefFor(team))) {
       rejected.push({ key: team, reason: `covered within the last ${config.cooldownDays} days` });
       continue;
     }
@@ -227,8 +253,10 @@ export async function runClubArchive(
   if (eligible.length === 0) {
     return {
       ok: false,
-      reason: "No club has enough depth on Kickio for a retrospective right now",
-      diagnostics: { shortlisted: names.length, rejected },
+      reason: pinned
+        ? `${pinned} does not have the depth for a retrospective: ${rejected[0]?.reason ?? "no qualifying products"}`
+        : "No club has enough depth on Kickio for a retrospective right now",
+      diagnostics: { pinned, shortlisted: names.length, rejected },
     };
   }
 

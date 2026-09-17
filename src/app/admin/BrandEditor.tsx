@@ -1,7 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { uploadBrandMark, removeBrandMark, updateBrandColours } from "./brand-actions.ts";
+import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  uploadBrandMark,
+  removeBrandMark,
+  updateBrandColours,
+  currentBrandMark,
+} from "./brand-actions.ts";
 import { checkDirectionPair, isHexColour } from "@/lib/brand/colour.ts";
 import type { Brand } from "@/lib/brand/settings.ts";
 
@@ -23,10 +28,12 @@ export function BrandEditor({ brand }: { brand: Brand }) {
     falling: brand.falling,
   });
   const [mark, setMark] = useState(brand.markDataUri);
+  const [reloadAt, setReloadAt] = useState(0);
   const [markName, setMarkName] = useState(brand.markFilename);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [knockout, setKnockout] = useState(true);
   const [busy, startTransition] = useTransition();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -44,20 +51,31 @@ export function BrandEditor({ brand }: { brand: Brand }) {
     setNote(null);
     const form = new FormData();
     form.set("mark", file);
+    form.set("knockout", knockout ? "on" : "off");
     startTransition(async () => {
       try {
-        const { bytes } = await uploadBrandMark(form);
-        // Read it back for the preview rather than trusting the round trip.
-        const reader = new FileReader();
-        reader.onload = () => setMark(String(reader.result));
-        reader.readAsDataURL(file);
+        const { bytes, note: processed } = await uploadBrandMark(form);
         setMarkName(file.name);
-        setNote(`Stored as a ${Math.round(bytes / 1024)}KB PNG, 512px square.`);
+        setNote(`${processed} Stored as a ${Math.round(bytes / 1024)}KB PNG, 512px square.`);
+        // Reload so the preview shows the PROCESSED file, not the local one -
+        // the whole point is seeing whether the background came out.
+        setReloadAt(Date.now());
       } catch (err) {
         setError((err as Error).message);
       }
     });
   };
+
+  useEffect(() => {
+    if (!reloadAt) return;
+    let cancelled = false;
+    void currentBrandMark().then((value) => {
+      if (!cancelled) setMark(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadAt]);
 
   const clearMark = () => {
     setError(null);
@@ -105,12 +123,13 @@ export function BrandEditor({ brand }: { brand: Brand }) {
         </p>
 
         <div className="brand-mark-row">
-          <div className="brand-mark-preview">
-            {mark ? (
-              <img src={mark} alt="" />
-            ) : (
-              <span className="brand-mark-empty">KICKIO</span>
-            )}
+          {/* Both surfaces: a logo that reads on one can disappear on the other,
+              and the cards use the dark one. */}
+          <div className="brand-mark-preview dark">
+            {mark ? <img src={mark} alt="" /> : <span className="brand-mark-empty dark">KICKIO</span>}
+          </div>
+          <div className="brand-mark-preview light">
+            {mark ? <img src={mark} alt="" /> : <span className="brand-mark-empty light">KICKIO</span>}
           </div>
           <div className="brand-mark-meta">
             <div>{mark ? (markName ?? "Uploaded") : "No logo — cards use the wordmark"}</div>
@@ -131,6 +150,21 @@ export function BrandEditor({ brand }: { brand: Brand }) {
             </div>
           </div>
         </div>
+
+        <label className="check" style={{ marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={knockout}
+            onChange={(e) => setKnockout(e.target.checked)}
+          />
+          <span>Remove a flat background</span>
+        </label>
+        <p className="hint">
+          Clears the surround so the logo sits on the card rather than in a white box.
+          It spreads inwards from the edges, so white <em>inside</em> the artwork — a
+          ring, lettering — is kept. Turn it off for a logo that is meant to have a
+          panel behind it.
+        </p>
 
         <input
           ref={fileInput}

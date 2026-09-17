@@ -322,3 +322,17 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 }
 .brand-check.ok { border-left-color: var(--accent); }
 .brand-check.warn { border-left-color: var(--warn); color: var(--text); }
+.settings select {
+  font: inherit; font-size: 14px; width: 100%;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+}
+.brand-mark-preview.dark { background: #0b0c0e; }
+.brand-mark-preview.light { background: #f2efe9; }
+.brand-mark-empty.dark { color: #f4f6f8; }
+.brand-mark-empty.light { color: #14181d; }
+/* `.settings .row > label` sets column direction for the stacked fields, which
+   out-specifies `.check` and stacked the tickbox above its own label. */
+.settings .row > label.check, .settings .row > label.toggle {
+  flex-direction: row; align-items: center; gap: 9px;
+}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveRecipe } from "./actions.ts";
-import type { SellerOption } from "@/lib/kickio/sellers.ts";
+import type { SellerOption, TeamOption } from "@/lib/kickio/sellers.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 
 export interface RecipeRow {
@@ -23,9 +23,11 @@ function num(selection: Record<string, unknown>, key: string, fallback: number):
 export function RecipeEditor({
   recipe,
   sellers,
+  teams,
 }: {
   recipe: RecipeRow;
   sellers: SellerOption[];
+  teams: TeamOption[];
 }) {
   const [enabled, setEnabled] = useState(recipe.enabled);
   const [brief, setBrief] = useState(recipe.prompt_template);
@@ -42,6 +44,9 @@ export function RecipeEditor({
       : [],
   );
   const [style, setStyle] = useState<CardStyle>(asCardStyle(recipe.selection.style));
+  const [team, setTeam] = useState(
+    typeof recipe.selection.team === "string" ? recipe.selection.team : "",
+  );
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,6 +59,7 @@ export function RecipeEditor({
   const selectsCandidates = recipe.key !== "grail_sale";
   // Only the sale card has style variants so far.
   const hasStyles = recipe.key === "grail_sale";
+  const picksClub = recipe.key === "club_archive";
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -72,6 +78,7 @@ export function RecipeEditor({
               ? { minPriceCents: Math.round(minPrice * 100), cooldownDays: cooldown }
               : {}),
             ...(hasStyles ? { style } : {}),
+            ...(picksClub ? { team: team || null } : {}),
             ...(isListingRecipe
               ? {
                 maxStockCheckAgeDays: stockAge,
@@ -214,6 +221,28 @@ export function RecipeEditor({
           <p className="hint" style={{ marginTop: 9 }}>
             {CARD_STYLES.find((o) => o.key === style)?.blurb}
           </p>
+        </div>
+      )}
+
+      {picksClub && (
+        <div className="row">
+          <label>
+            <span className="field-label">Club</span>
+            <p className="hint">
+              Leave on automatic and the deepest club that is not on cooldown is chosen.
+              Pick one and it runs for that club, cooldown or not — but it still has to
+              clear the depth and span checks, so a thin choice is refused by name
+              rather than turned into a thin post.
+            </p>
+            <select value={team} onChange={(e) => setTeam(e.target.value)}>
+              <option value="">Automatic — deepest club available</option>
+              {teams.map((option) => (
+                <option key={option.name} value={option.name}>
+                  {option.name} ({option.listings} listings)
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       )}
 

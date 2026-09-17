@@ -340,7 +340,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <BrandMark size={portrait ? 62 : 52} brand={brand} />
+          <BrandMark size={portrait ? 96 : 76} brand={brand} />
           <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, letterSpacing: 2 }}>
             MARKET TREND
           </div>
@@ -925,7 +925,7 @@ function GrailSaleCard({
                 borderTop: `1px solid ${palette.hairline}`,
               }}
             >
-              <Wordmark style={{ fontSize: portrait ? 25 : 21, opacity: 1, color: palette.ink }} />
+              <BrandMark size={portrait ? 64 : 52} brand={brand} style={{ opacity: 0.95 }} />
               <div
                 style={{
                   display: "flex",
@@ -1002,7 +1002,7 @@ function ArchiveCard({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <BrandMark size={portrait ? 58 : 48} brand={brand} />
+          <BrandMark size={portrait ? 96 : 76} brand={brand} />
           <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
             ON KICKIO
           </div>
