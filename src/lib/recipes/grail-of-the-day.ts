@@ -47,8 +47,9 @@ interface ListingRow {
   reserved_until: string | null;
   last_stock_checked_at: string | null;
   is_partner_listing: boolean;
-  /** The originating store page - the reference an admin can open to verify. */
+  /** Where Kickio scraped this from (eBay, CFS...) - NOT its page on Kickio. */
   source_url: string | null;
+  source: string | null;
   // Kickio's own review queue lives on the product, not the listing.
   products: { status: string; deleted_at: string | null; slug: string | null } | null;
 }
@@ -142,6 +143,23 @@ export function isLive(
   return true;
 }
 
+/**
+ * The listing's page on Kickio itself, built from the product slug.
+ *
+ * `listings.source_url` is NOT this - it points at wherever the listing was
+ * scraped from (eBay, Classic Football Shirts). Both are surfaced to the
+ * reviewer, but they mean different things and are labelled accordingly.
+ *
+ * Set KICKIO_SITE_URL (e.g. https://kickio.com) and optionally
+ * KICKIO_PRODUCT_PATH (default "/product/{slug}") to enable it.
+ */
+export function kickioUrl(slug: string | null): string | null {
+  const base = process.env.KICKIO_SITE_URL?.replace(/\/$/, "");
+  if (!base || !slug) return null;
+  const path = process.env.KICKIO_PRODUCT_PATH ?? "/product/{slug}";
+  return base + path.replace("{slug}", slug);
+}
+
 function imageUrls(images: unknown): string[] {
   if (!Array.isArray(images)) return [];
   return images
@@ -188,7 +206,7 @@ export async function runGrailOfTheDay(
       "id,title,price_cents,currency,team,season,shirt_type,condition,issue,signed," +
         "special_edition,boxed_edition,player_name,manufacturer,images,created_at," +
         "removed_at,removed_reason,consecutive_gone_count,reserved_until," +
-        "last_stock_checked_at,is_partner_listing,source_url," +
+        "last_stock_checked_at,is_partner_listing,source_url,source," +
         "products!inner(status,deleted_at,slug)",
     )
     .eq("status", "active")
@@ -289,8 +307,11 @@ export async function runGrailOfTheDay(
       special_edition: listing.special_edition,
       player_name: listing.player_name,
       manufacturer: listing.manufacturer,
-      // Shown in the dashboard so a reviewer can open the listing and verify it.
-      source_url: listing.source_url,
+      // Two different things, deliberately named apart: where it lives on
+      // Kickio, and where Kickio scraped it from.
+      kickio_url: kickioUrl(listing.products?.slug ?? null),
+      origin_url: listing.source_url,
+      origin_source: listing.source,
       product_slug: listing.products?.slug ?? null,
       is_partner_listing: listing.is_partner_listing,
       last_stock_checked_at: listing.last_stock_checked_at,

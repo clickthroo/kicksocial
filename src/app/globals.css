@@ -135,6 +135,7 @@ button.reject { color: var(--danger); }
 }
 .export .link:hover { color: var(--text); }
 
-.verify { padding: 10px 16px; border-top: 1px solid var(--border); }
+.verify { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--border); }
 .verify a { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
 .verify a:hover { text-decoration: underline; }
+.verify a.secondary { color: var(--muted); font-weight: 500; }

@@ -7,9 +7,8 @@ import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
 const X_LIMIT = 280;
 
-/** The originating store page, so a reviewer can verify the item is still live. */
-function sourceUrl(sourceData: Record<string, unknown>): string | null {
-  const url = sourceData.source_url;
+function urlField(sourceData: Record<string, unknown>, key: string): string | null {
+  const url = sourceData[key];
   return typeof url === "string" && url.startsWith("http") ? url : null;
 }
 
@@ -141,11 +140,30 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         <pre className="raw">{JSON.stringify(draft.source_data, null, 2)}</pre>
       </details>
 
-      {sourceUrl(draft.source_data) && (
+      {/* Two distinct references: the page on Kickio, and where it was scraped
+          from. Labelled apart so a reviewer is never misled about which. */}
+      {(urlField(draft.source_data, "kickio_url") ||
+        urlField(draft.source_data, "origin_url")) && (
         <div className="verify">
-          <a href={sourceUrl(draft.source_data)!} target="_blank" rel="noopener noreferrer">
-            Open listing to check it&rsquo;s still live &rarr;
-          </a>
+          {urlField(draft.source_data, "kickio_url") && (
+            <a
+              href={urlField(draft.source_data, "kickio_url")!}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open on Kickio &rarr;
+            </a>
+          )}
+          {urlField(draft.source_data, "origin_url") && (
+            <a
+              className="secondary"
+              href={urlField(draft.source_data, "origin_url")!}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Source: {String(draft.source_data.origin_source ?? "external")} &#8599;
+            </a>
+          )}
         </div>
       )}
 

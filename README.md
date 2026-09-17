@@ -69,14 +69,27 @@ Grail of the Day excludes all of these, both in the query and again in
 `isLive()` after fetching, so editing the query cannot silently drop a rule.
 That takes the pool from 409 to 157.
 
-The stock-check rule also, in effect, excludes scraped partner listings: of the
-400 that pass every other test, **all 121 partner listings have never been
-stock-checked and all 157 verified ones are Kickio's own**. There is nothing in
-between. If partner inventory should be featured, it needs a verification
-signal first — do not simply relax this rule.
+The stock-check rule also, in effect, excludes partner listings: of the 400 that
+pass every other test, **all 121 partner listings have never been stock-checked
+and all 157 verified ones are non-partner**. There is nothing in between. If
+partner inventory should be featured, it needs a verification signal first — do
+not simply relax this rule.
 
-Each draft carries `source_url`, surfaced in the dashboard as a link, so a
-reviewer can open the listing and confirm it before approving.
+### Where a listing actually comes from
+
+Almost the whole catalogue is aggregated, including the non-partner listings:
+`listings.source` is `scrape` and `source_url` points at eBay, Classic Football
+Shirts and so on. `is_partner_listing = false` means *not from a partner store*,
+**not** "a Kickio seller's own stock".
+
+So each draft carries two distinct references, labelled apart in the dashboard
+so a reviewer is never misled about which they are opening:
+
+- `kickio_url` — the listing's page on Kickio, built from `products.slug`.
+  Requires `KICKIO_SITE_URL` (and optionally `KICKIO_PRODUCT_PATH`, default
+  `/product/{slug}`). Without it, no Kickio link is shown rather than a guessed
+  one.
+- `origin_url` — where Kickio scraped it from, shown as "Source: scrape ↗"
 
 Sold This Week applies the equivalent rule to sales: `review_state = 'approved'`
 with no `excluded_at` or `dismissed_at`, so figures never come from rows Kickio's
