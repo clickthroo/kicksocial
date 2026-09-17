@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runRecipe } from "@/lib/run-recipe.ts";
+import { checkTriggerAuth } from "@/lib/http-auth.ts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -18,13 +19,8 @@ function recipesForToday(date: Date): string[] {
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const auth = checkTriggerAuth(request);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const keys = recipesForToday(new Date());
   // Sequential: these hit the same rate limits and the volume is tiny.

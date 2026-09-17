@@ -33,8 +33,15 @@ Kickio Supabase (read-only)          Engine Supabase (own project)
                                                     Next.js PWA approval queue
 ```
 
-Recipes run on a Vercel cron (`vercel.json`), or on demand via
-`POST /api/run/<recipe_key>`.
+Recipes run on a Vercel cron (`vercel.json`), from the **Run now** button on
+`/runs`, or on demand via `POST /api/run/<recipe_key>`.
+
+Both HTTP triggers require `Authorization: Bearer $CRON_SECRET`. **If
+`CRON_SECRET` is unset they return 503 rather than running.** The check was
+originally written as "verify the secret if one is configured", which meant an
+unset variable turned it off and left a public URL that spends Anthropic credits
+on every call. The button is a server action, so the dashboard still works
+either way.
 
 **Settings** (`/admin`) edits each recipe's configuration — enabled, which
 sellers may be featured, price floor, cooldown, stock-check window, and the copy
