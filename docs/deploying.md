@@ -1,8 +1,7 @@
 # Deploying to Vercel
 
-The repo has a single branch, `claude/modest-fermi-b5fgw1`, and it is the
-repository's default branch — so Vercel treats it as production. Nothing needs
-merging first.
+`main` is the production branch. Development happens on
+`claude/modest-fermi-b5fgw1`; merging it into `main` is what ships.
 
 ## 1. Project
 
@@ -74,6 +73,31 @@ check Project → Settings → Cron Jobs after the first deployment.
 
 Note that Hobby-plan Vercel accounts are limited to one cron invocation per day,
 which this schedule fits. If cron jobs do not appear, check the plan.
+
+## Troubleshooting
+
+### "No Production Deployment" and the Deployments list is empty
+
+Zero deployments means Vercel has never attempted a build — the GitHub webhook
+is not reaching it. Distinguish it from a *failed* build, which would appear in
+the list in red. Check in this order:
+
+1. **Production Branch** — Project → Settings → Git. If it names a branch that
+   does not exist, no production deployment is ever created. It must be `main`.
+2. **GitHub App repository access** — github.com/settings/installations →
+   Vercel → confirm `clickthroo/kicksocial` is in the allowed list. Vercel's UI
+   can show a repo as "Connected" while the GitHub App still lacks permission
+   to send events for it. This is the most common cause of a silent webhook.
+3. **Webhook deliveries** — the repo's Settings → Webhooks → the Vercel hook →
+   Recent Deliveries. Green ticks mean GitHub sent them and the problem is on
+   Vercel's side; no deliveries at all confirms the app-permission cause above.
+4. **Force a build** — push any commit to `main`, or use Deploy in the Vercel
+   project. If a push produces nothing, it is definitely (2).
+
+### Build succeeds but every recipe run fails
+
+Almost always environment variables. They are scoped per environment, so check
+they are ticked for **Production** and not only Preview.
 
 ## Rolling back
 
