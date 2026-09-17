@@ -24,8 +24,26 @@
 --   grant says "may read this table" and the policy says "may read these rows".
 --   Both are required.
 --
--- ROLLBACK is at the bottom: three statements, no data implications.
+-- THE ONE WAY THIS CAN TOUCH THE LIVE SITE
+--   No row is read or written, but GRANT and CREATE POLICY take a brief
+--   ACCESS EXCLUSIVE lock on each target table. The work itself is a catalog
+--   update - effectively instant - but the statement must first wait for
+--   in-flight transactions on that table to finish, and new queries queue
+--   behind it while it waits. On `listings` and `products`, which serve
+--   kickio.com, a long-running query at the wrong moment could stall traffic.
+--
+--   lock_timeout below caps that at 3 seconds: the script aborts rather than
+--   holding the marketplace up. Re-run it if it does. Prefer a quiet period.
+--
+-- ROLLBACK is at the bottom, no data implications.
 -- ============================================================================
+
+-- Fail rather than queue. Without this, one slow query on `listings` can turn a
+-- catalog update into an outage.
+set lock_timeout = '3s';
+
+-- All or nothing: a half-applied role is harder to reason about than none.
+begin;
 
 
 -- ---------------------------------------------------------------------------
@@ -110,6 +128,9 @@ create policy price_index_history_content_engine_read
 --   teams_public_read, profiles_read, marketplace_settings_public_read
 -- The grant above is still required - a `TO public` policy says which ROWS, the
 -- grant says whether the role may touch the table at all.
+
+
+commit;
 
 
 -- ============================================================================
