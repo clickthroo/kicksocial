@@ -21,7 +21,12 @@
  */
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
-import { recentlyFeatured } from "./cooldown.ts";
+import {
+  selectionHistory,
+  applyHistory,
+  DEFAULT_HISTORY_WINDOWS,
+  type HistoryWindows,
+} from "./history.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
 import { cleanValue, cleanFacts } from "../kickio/values.ts";
 
@@ -62,8 +67,14 @@ export interface GrailConfig {
   minPriceCents: number;
   /** How many top listings to score before picking. */
   poolSize: number;
-  /** Don't re-feature the same listing within this many days. */
+  /**
+   * How long a shirt, a club and a given season's kit stay out of rotation.
+   * Keyed on the PRODUCT, not the listing: 52 products carry more than one
+   * listing, so a listing-level key lets the same shirt return under a new id.
+   */
   cooldownDays: number;
+  comboCooldownDays: number;
+  teamCooldownDays: number;
   /**
    * Scraped listings must have been confirmed in stock within this many days.
    * Only applies to `source = 'scrape'`: Kickio Direct stock has no external
@@ -88,7 +99,9 @@ export const DEFAULT_GRAIL_CONFIG: GrailConfig = {
   // partner listings. £100 keeps the feed premium while including both.
   minPriceCents: 10_000,
   poolSize: 60,
-  cooldownDays: 45,
+  cooldownDays: DEFAULT_HISTORY_WINDOWS.subjectDays,
+  comboCooldownDays: DEFAULT_HISTORY_WINDOWS.comboDays,
+  teamCooldownDays: DEFAULT_HISTORY_WINDOWS.teamDays,
   maxStockCheckAgeDays: 7,
   allowedSellerIds: [KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER],
 };
@@ -200,6 +213,15 @@ function vintagePoints(season: string | null): { points: number; decade: number 
  * every fetched row so that if the query is ever edited and loses a condition,
  * ineligible listings still cannot reach a post.
  */
+/**
+ * Identity for cooldown purposes: the PRODUCT, not the listing. A product can
+ * carry several listings of the same shirt, so keying on the listing id would
+ * let it return under a different id a day later.
+ */
+export function subjectRefFor(listing: ListingRow): string {
+  return listing.products?.slug ?? `listing:${listing.id}`;
+}
+
 export function isLive(
   listing: ListingRow,
   config: Pick<GrailConfig, "maxStockCheckAgeDays" | "allowedSellerIds"> = DEFAULT_GRAIL_CONFIG,
@@ -365,31 +387,54 @@ export async function runGrailOfTheDay(
     };
   }
 
-  const seen = await recentlyFeatured("grail_of_the_day", config.cooldownDays);
-  const eligible = withPhotos.filter((l) => !seen.has(l.id));
-  if (eligible.length === 0) {
-    return {
-      ok: false,
-      reason: `All ${withPhotos.length} candidates featured within ${config.cooldownDays} days`,
-      diagnostics: { cooldownDays: config.cooldownDays, poolSize: withPhotos.length },
-    };
-  }
-
   // A product can carry several listings and kickio.com headlines the cheapest
   // ("lowest asking price"). Quoting a dearer one contradicts the page a reader
   // lands on, so keep only the cheapest listing per product.
   const cheapestPerProduct = new Map<string, ListingRow>();
-  for (const listing of eligible) {
-    const productKey = listing.products?.slug ?? listing.id;
+  for (const listing of withPhotos) {
+    const productKey = subjectRefFor(listing);
     const held = cheapestPerProduct.get(productKey);
     if (!held || listing.price_cents < held.price_cents) {
       cheapestPerProduct.set(productKey, listing);
     }
   }
 
-  const ranked = [...cheapestPerProduct.values()]
+  const scored = [...cheapestPerProduct.values()]
     .map((listing) => ({ listing, ...scoreListing(listing) }))
     .sort((a, b) => b.score - a.score);
+
+  // Keyed on the product so the same shirt cannot return under another listing.
+  const windows: HistoryWindows = {
+    subjectDays: config.cooldownDays,
+    comboDays: config.comboCooldownDays,
+    teamDays: config.teamCooldownDays,
+  };
+  const history = await selectionHistory("grail_of_the_day", windows);
+  const { eligible: ranked, blockedAsRepeat } = applyHistory(
+    scored.map((entry) => ({
+      ...entry,
+      subjectRef: subjectRefFor(entry.listing),
+      team: entry.listing.team,
+      season: entry.listing.season,
+      shirtType: entry.listing.shirt_type,
+    })),
+    history,
+  );
+
+  if (ranked.length === 0) {
+    return {
+      ok: false,
+      reason:
+        `All ${scored.length} candidates have been featured before or were ` +
+        `rejected (rejections never return)`,
+      diagnostics: {
+        candidates: scored.length,
+        blockedAsRepeat,
+        subjectCooldownDays: config.cooldownDays,
+      },
+    };
+  }
+
   const winner = ranked[0];
   const { listing, signals } = winner;
 
@@ -427,7 +472,7 @@ export async function runGrailOfTheDay(
   }
 
   const candidate: RecipeCandidate = {
-    subjectRef: listing.id,
+    subjectRef: subjectRefFor(listing),
     headline: listing.title,
     sourceData: cleanFacts({
       listing_id: listing.id,

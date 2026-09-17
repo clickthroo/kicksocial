@@ -128,6 +128,37 @@ Note the same distinction in labelling: `player_name` is a **printed name**, not
 a player-issue shirt (that is `issue = 'Authentic/Player Version'`). They were
 conflated, which put the wrong word in the copy.
 
+### How repeats are prevented
+
+Deduplication is keyed on the **product**, not the listing: 52 products in the
+candidate pool carry more than one listing, so a listing-level key lets the same
+shirt return the next day under a different id.
+
+Three windows, configurable in Settings:
+
+| Rule | Default | Strength |
+|---|---|---|
+| Same shirt (product) | 365 days | **Hard** — removed from the pool |
+| Same kit (team + season + type) | 120 days | Soft — deprioritised |
+| Same club | 14 days | Soft — deprioritised |
+
+365 days is not arbitrary: 354 distinct products at one post a day is roughly a
+year of material, so there is no reason to repeat inside one.
+
+The kit window exists because 29 team/season/type combinations span several
+distinct products — Chelsea 2020-21 Home has four — which read as the same shirt
+to a follower even though the database disagrees.
+
+Soft rules **reorder** rather than remove, so a thin day still produces a post
+rather than nothing.
+
+**A rejected shirt never returns.** Rejecting means "not this one"; releasing the
+subject, as an earlier version did, hands the same shirt back on the next run
+since it is still the highest-scoring candidate, and the reviewer would have to
+reject it every day. Price Trends and Sold This Week cover subjects that recur by
+nature (a club's trend, a given week), so there a rejection serves the normal
+cooldown rather than blocking permanently.
+
 ### Placeholders are not facts
 
 Several Kickio columns carry stand-ins for "we don't know" rather than being

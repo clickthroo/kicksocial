@@ -31,6 +31,10 @@ export function RecipeEditor({
   const [minPrice, setMinPrice] = useState(num(recipe.selection, "minPriceCents", 10_000) / 100);
   const [cooldown, setCooldown] = useState(num(recipe.selection, "cooldownDays", 45));
   const [stockAge, setStockAge] = useState(num(recipe.selection, "maxStockCheckAgeDays", 7));
+  const [comboCooldown, setComboCooldown] = useState(
+    num(recipe.selection, "comboCooldownDays", 120),
+  );
+  const [teamCooldown, setTeamCooldown] = useState(num(recipe.selection, "teamCooldownDays", 14));
   const [allowed, setAllowed] = useState<string[]>(
     Array.isArray(recipe.selection.allowedSellerIds)
       ? (recipe.selection.allowedSellerIds as string[])
@@ -60,7 +64,12 @@ export function RecipeEditor({
             minPriceCents: Math.round(minPrice * 100),
             cooldownDays: cooldown,
             ...(isListingRecipe
-              ? { maxStockCheckAgeDays: stockAge, allowedSellerIds: allowed }
+              ? {
+                maxStockCheckAgeDays: stockAge,
+                allowedSellerIds: allowed,
+                comboCooldownDays: comboCooldown,
+                teamCooldownDays: teamCooldown,
+              }
               : {}),
           },
         });
@@ -116,7 +125,9 @@ export function RecipeEditor({
           />
         </label>
         <label>
-          <span className="field-label">Cooldown (days)</span>
+          <span className="field-label">
+            {isListingRecipe ? "Same shirt again after (days)" : "Cooldown (days)"}
+          </span>
           <input
             type="number"
             min={0}
@@ -124,6 +135,28 @@ export function RecipeEditor({
             onChange={(e) => setCooldown(Number(e.target.value))}
           />
         </label>
+        {isListingRecipe && (
+          <>
+            <label>
+              <span className="field-label">Same kit again after (days)</span>
+              <input
+                type="number"
+                min={0}
+                value={comboCooldown}
+                onChange={(e) => setComboCooldown(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              <span className="field-label">Same club again after (days)</span>
+              <input
+                type="number"
+                min={0}
+                value={teamCooldown}
+                onChange={(e) => setTeamCooldown(Number(e.target.value))}
+              />
+            </label>
+          </>
+        )}
         {isListingRecipe && (
           <label>
             <span className="field-label">Stock check within (days)</span>
@@ -136,6 +169,14 @@ export function RecipeEditor({
           </label>
         )}
       </div>
+
+      {isListingRecipe && (
+        <p className="hint" style={{ padding: "0 16px" }}>
+          A rejected shirt is never offered again, whatever these windows say.
+          Club and kit windows are preferences — they reorder candidates rather
+          than block a post, so a thin day still produces one.
+        </p>
+      )}
 
       <div className="row">
         <span className="field-label">Copy brief</span>
