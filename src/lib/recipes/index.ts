@@ -7,6 +7,11 @@ import {
   DEFAULT_MARKET_INDEX_CONFIG,
   MARKET_INDEX_BRIEF,
 } from "./market-index.ts";
+import {
+  runClubArchive,
+  DEFAULT_CLUB_ARCHIVE_CONFIG,
+  CLUB_ARCHIVE_BRIEF,
+} from "./club-archive.ts";
 
 export interface Recipe {
   key: string;
@@ -97,6 +102,16 @@ No TikTok variant. Write X and Instagram only.`,
     brief: MARKET_INDEX_BRIEF,
     run: (selection) =>
       runMarketIndex({ ...DEFAULT_MARKET_INDEX_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "club_archive",
+    name: "Club Archive",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "archive_grid",
+    brief: CLUB_ARCHIVE_BRIEF,
+    run: (selection) =>
+      runClubArchive({ ...DEFAULT_CLUB_ARCHIVE_CONFIG, ...(selection as object) }),
   },
 ];
 

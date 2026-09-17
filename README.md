@@ -62,6 +62,7 @@ selection diagnostics behind a disclosure.
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md`. Disabled in Settings meanwhile |
 | `grail_sale` | On demand | Working — an admin names the sale (`/sold`) |
 | `market_index` | Weekly (Thu) | **Skipping** — the index's basket is still filling; see below |
+| `club_archive` | Weekly (Wed) | Working — 21 clubs have the depth; Man Utd leads with 164 shirts, 1975–2025 |
 
 Every variant carries **kickio.com** in its body text, and each network gets its
 own hashtag count (see below).
@@ -265,6 +266,33 @@ its own rows and none of this logic changes.
 
 Before this, approving was a dead end — the draft left the queue, nothing
 recorded where it went, and the rendered assets became unreachable.
+
+### Club Archive counts what Kickio has, not what exists
+
+"50 years of Manchester United" describes **Kickio's shelf**, not football. The
+1975 shirt is the oldest Kickio has listed, not the club's oldest kit, and 164
+shirts is not a complete archive of anything. Every fact is framed "on Kickio",
+the card says so, and the brief forbids implying completeness — a collector who
+owns a 1972 shirt should read this and see a marketplace's holdings, not a claim
+they can disprove in one reply.
+
+It is deliberately the safest post the engine makes: every number is a count of
+rows. No index, no percentage, no comparable cohort — nothing that can be
+arithmetically correct and still mislead.
+
+Two data traps it works around:
+
+- **`teams.listings_count` is not the number to print.** It reports 65 for
+  England where 140 active products exist, and 54 for Arsenal against 86. Good
+  enough to shortlist candidates cheaply; never good enough to publish, so the
+  winner's figures are recounted from `products`.
+- **`products.season_end_year` is null on all 2,597 active rows.** Seasons are
+  text (`"1990-91"`), parseable on 2,596 of them. The era montage in Price Trends
+  filtered on that column and so matched nothing, silently — fixed to a string
+  prefix at the same time.
+
+A club also has to *span* something: 20 shirts from three seasons is a shelf, not
+an archive, so `minSpanYears` (15) rejects it rather than calling it one.
 
 ### Market Index, and why it refuses
 

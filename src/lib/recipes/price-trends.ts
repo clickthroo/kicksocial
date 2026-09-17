@@ -193,10 +193,14 @@ async function montageFor(
   if (scope === "club") {
     query.ilike("team", label);
   } else if (scope === "era") {
-    // key is the decade's first year, e.g. "1990".
+    // `products.season_end_year` is null on all 2,597 active rows - filtering on
+    // it matched nothing and silently dropped the montage with no diagnostic.
+    // The `season` text ("1990-91") is populated on 2,596 of them, so the decade
+    // is matched as a string prefix instead.
     const decade = Number.parseInt(key, 10);
     if (!Number.isFinite(decade)) return { images: [], basis: null };
-    query.gte("season_end_year", decade).lt("season_end_year", decade + 10);
+    const prefix = String(Math.floor(decade / 10));
+    query.like("season", `${prefix}%`);
   } else {
     return { images: [], basis: null };
   }

@@ -948,6 +948,124 @@ function GrailSaleCard({
  * `style` overrides what the draft carries, so the dashboard can preview a look
  * before anyone commits to it.
  */
+/* ------------------------------------------------------------------------- *
+ * Club Archive - a grid of one club's shirts across the decades.
+ *
+ * The photos ARE the post: nine badges of the same club, forty years apart,
+ * does the work before any type lands. So the type stays out of the way - the
+ * club, the span, and the counts, nothing else.
+ * ------------------------------------------------------------------------- */
+
+function ArchiveCard({
+  draft,
+  format,
+  brand,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+}) {
+  const d = draft.source_data as Record<string, unknown>;
+  const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const portrait = format === "ig";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 52 : 42;
+
+  // 3x3 in portrait, 4x2 in landscape - the frame decides the grid, and a row
+  // that cannot be filled is dropped rather than left half empty.
+  const cols = portrait ? 3 : 4;
+  const rows = portrait ? 3 : 2;
+  const gap = 10;
+  // Sized by BOTH axes. Width alone fits 16:9 four-across at 271px, which eats
+  // the whole frame and pushed the club's name off the bottom edge - the grid
+  // has to leave room for the header and the type block, not just the margins.
+  const headerH = portrait ? 74 : 58;
+  const typeH = portrait ? 168 : 124;
+  const gridH = height - pad * 2 - headerH - typeH;
+  const cell = Math.min(
+    Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
+    Math.floor((gridH - gap * (rows - 1)) / rows),
+  );
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
+
+  return (
+    <Frame format={format} background={STUDIO}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width,
+          height,
+          padding: pad,
+          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <BrandMark size={portrait ? 58 : 48} brand={brand} />
+          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
+            ON KICKIO
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
+            <div key={row} style={{ display: "flex", justifyContent: "center", marginBottom: gap }}>
+              {usable.slice(row * cols, row * cols + cols).map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={cell}
+                  height={cell}
+                  style={{
+                    width: cell,
+                    height: cell,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    marginRight: i < cols - 1 ? gap : 0,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 56 : 42,
+              fontWeight: 800,
+              letterSpacing: -1,
+              color: STUDIO_INK,
+            }}
+          >
+            {String(d.team ?? "")}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 30 : 24,
+              fontWeight: 700,
+              color: brand.accent,
+              marginTop: 8,
+            }}
+          >
+            {String(d.shirts ?? "")} shirts · {String(d.earliest ?? "")}–{String(d.latest ?? "")}
+          </div>
+          {/* Said on the card, not just in the caption: these are Kickio's
+              holdings, not the club's kit history. */}
+          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, marginTop: 10 }}>
+            {String(d.kit_types ?? "")} kit types listed on kickio.com
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -963,6 +1081,8 @@ export function templateFor(
       return <TrendCard draft={draft} format={format} brand={brand} />;
     case "roundup_card":
       return <RoundupCard draft={draft} format={format} brand={brand} />;
+    case "archive_grid":
+      return <ArchiveCard draft={draft} format={format} brand={brand} />;
     case "grail_sale_card":
       return (
         <GrailSaleCard

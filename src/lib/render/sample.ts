@@ -116,4 +116,44 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  archive_grid: {
+    ...base,
+    id: "sample-archive",
+    recipe_key: "club_archive",
+    subject_ref: "club:manchester united",
+    headline: "164 Manchester United shirts on Kickio, 1975–2025",
+    generation: { visual_template: "archive_grid" },
+    source_data: {
+      subject: "Manchester United on Kickio",
+      team: "Manchester United",
+      shirts: 164,
+      earliest: 1975,
+      latest: 2025,
+      span_years: 50,
+      kit_types: 7,
+      scope_note: "Counts describe Kickio's listings, not the club's full kit history",
+      // Real Manchester United products, so the grid is judged against real
+      // photography rather than flat placeholders.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/9753952289115/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/MUNH82390340/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/ebay/387996547563/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/580df542-f8a9-4cea-a24b-ae8cf87961bd/8760cdce-c8fd-4cf3-92be-998cf4431610-layflat.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/MUNH86519652/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/9318a7ac-36d8-4463-a8f6-ee6611dc4e2e/d286add7-0233-4ad8-bd69-d561f1bdeab2-layflat.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/review-edits/listing/27e88984-be46-4f4c-8e22-fcf97d8f41b8/1784374678130-nohanger-composite.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/MUNH88702189/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/34db047d-52c6-47a9-841d-c21ed74e7b63/c3e72fa4-a48e-4c09-8564-efa8776a9a19.jpeg",
+      ],
+    },
+  },
 };
