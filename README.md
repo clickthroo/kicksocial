@@ -106,6 +106,28 @@ Sold This Week applies the equivalent rule to sales: `review_state = 'approved'`
 with no `excluded_at` or `dismissed_at`, so figures never come from rows Kickio's
 own team rejected.
 
+### Attribute signals are allowlists, and fail closed
+
+Rarity signals (match issue, special edition, boxed, condition) are read from an
+**allowlist of recognised values**, verified against every distinct value in
+`listings`.
+
+They were originally written as negations — "special unless it reads
+no/none/standard". Kickio writes **"Not A Special Edition"** and **"Not A Boxed
+Edition"**, neither of which matched, so 1,335 and 1,310 listings were flagged
+as rare and a draft went out claiming a shirt was "still boxed" when its listing
+said otherwise. Negation fails open: an unexpected value becomes a confident
+false claim.
+
+An unrecognised value now claims nothing and is recorded in
+`unknown_attribute_values` on the draft, so new vocabulary shows up in review
+rather than in a post. The real values are asserted directly in
+`grail-of-the-day.test.ts`, so a vocabulary change breaks a test.
+
+Note the same distinction in labelling: `player_name` is a **printed name**, not
+a player-issue shirt (that is `issue = 'Authentic/Player Version'`). They were
+conflated, which put the wrong word in the copy.
+
 ### Why posts get suppressed
 
 Both published recipes discard data they could otherwise use:

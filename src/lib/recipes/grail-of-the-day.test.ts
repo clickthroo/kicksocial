@@ -169,7 +169,7 @@ describe("rarity scoring", () => {
 
   test("treats 'Not Signed' as unsigned rather than a signature", () => {
     assert.ok(!scoreListing(live({ signed: "Not Signed" })).signals.includes("Signed"));
-    assert.ok(scoreListing(live({ signed: "Signed by squad" })).signals.includes("Signed"));
+    assert.ok(scoreListing(live({ signed: "Signed" })).signals.includes("Signed"));
   });
 
   test("caps the price contribution so cost cannot beat genuine rarity", () => {
@@ -214,5 +214,84 @@ describe("kickio listing url", () => {
     process.env.KICKIO_PRODUCT_PATH = "/shirts/{slug}";
     assert.equal(kickioUrl("abc"), "https://staging.kickio.com/shirts/abc");
     restore();
+  });
+});
+
+/**
+ * Every distinct value present in Kickio's `listings` on 2026-09-17. These are
+ * the strings the scorer actually has to interpret, so they are asserted
+ * directly rather than paraphrased.
+ */
+describe("attribute vocabulary, against real Kickio values", () => {
+  const claims = (o: Record<string, unknown>) => scoreListing(live(o)).signals;
+
+  test("'Not A Special Edition' is not a special edition", () => {
+    // This exact string was read as a positive signal by the negation-based
+    // test it replaced, flagging 1,335 listings as rare.
+    assert.deepEqual(
+      claims({ special_edition: "Not A Special Edition" }).filter((s) => /edition/i.test(s)),
+      [],
+    );
+  });
+
+  test("'Not A Boxed Edition' is not boxed", () => {
+    // The false claim that shipped: a draft said "still boxed" of a shirt whose
+    // listing read 'Not A Boxed Edition'. Only 2 listings are genuinely boxed.
+    assert.deepEqual(
+      claims({ boxed_edition: "Not A Boxed Edition" }).filter((s) => /box/i.test(s)),
+      [],
+    );
+    assert.ok(claims({ boxed_edition: "Boxed Edition - In Box" }).includes("Boxed, in box"));
+  });
+
+  test("recognises every real special-edition value", () => {
+    for (const [value, label] of [
+      ["Special Edition", "Special edition"],
+      ["Cup Final", "Cup final edition"],
+      ["World Cup", "World Cup edition"],
+      ["Centenary", "Centenary edition"],
+      ["Champions League", "Champions League edition"],
+      ["Champions", "Champions edition"],
+    ] as const) {
+      assert.ok(claims({ special_edition: value }).includes(label), `${value} -> ${label}`);
+    }
+  });
+
+  test("distinguishes the real condition grades", () => {
+    assert.ok(claims({ condition: "Mint" }).includes("Mint condition"));
+    assert.ok(claims({ condition: "Brand New (With Tags)" }).includes("Brand new with tags"));
+    for (const value of ["Very Good", "Good", "Fair", "Needs Attention", "Excellent Condition"]) {
+      assert.deepEqual(
+        claims({ condition: value }).filter((s) => /condition|brand new/i.test(s)),
+        [],
+        `${value} must not be presented as a rarity signal`,
+      );
+    }
+  });
+
+  test("reads the real issue values", () => {
+    assert.ok(claims({ issue: "Match Issue" }).includes("Match issue"));
+    assert.ok(claims({ issue: "Authentic/Player Version" }).includes("Player-issue spec"));
+    assert.deepEqual(claims({ issue: "Standard Retail Version" }).filter((s) => /issue|spec/i.test(s)), []);
+  });
+
+  test("labels a printed name as printing, not as a player-issue shirt", () => {
+    const signals = claims({ player_name: "Maradona" });
+    assert.ok(signals.includes("Maradona printing"));
+    assert.ok(!signals.some((s) => /player-issue/i.test(s)));
+  });
+
+  test("claims nothing about an unrecognised value, and reports it", () => {
+    // Fail closed: new vocabulary must never become a confident false claim.
+    const scored = scoreListing(live({ special_edition: "Testimonial Match" }));
+    assert.deepEqual(scored.signals.filter((s) => /edition/i.test(s)), []);
+    assert.deepEqual(scored.unknown, [
+      { column: "special_edition", value: "Testimonial Match" },
+    ]);
+  });
+
+  test("nulls and blanks are silent, not unknown", () => {
+    const scored = scoreListing(live({ special_edition: null, boxed_edition: "  " }));
+    assert.deepEqual(scored.unknown, []);
   });
 });

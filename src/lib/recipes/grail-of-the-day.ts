@@ -91,35 +91,96 @@ export const DEFAULT_GRAIL_CONFIG: GrailConfig = {
   allowedSellerIds: [KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER],
 };
 
-/** Attribute values that genuinely signal scarcity, with why they count. */
-const RARITY_SIGNALS: Array<{
-  test: (l: ListingRow) => boolean;
+/**
+ * Attribute values that genuinely signal scarcity.
+ *
+ * THESE ARE ALLOWLISTS, DELIBERATELY. An earlier version tested by negation -
+ * "treat it as special unless it reads no/none/standard" - which failed open:
+ * Kickio writes "Not A Special Edition" and "Not A Boxed Edition", neither of
+ * which matched, so 1,335 and 1,310 listings respectively were flagged as rare
+ * and a draft went out claiming a shirt was "still boxed" when the listing said
+ * it was not.
+ *
+ * So a value counts ONLY if it is recognised here. An unrecognised value claims
+ * nothing and is reported in `unknown_attribute_values` on the draft, so new
+ * vocabulary surfaces instead of silently becoming a false claim.
+ *
+ * Verified against every distinct value in `listings` on 2026-09-17.
+ */
+const SIGNAL_VALUES = {
+  issue: {
+    positive: new Map([
+      ["match issue", { points: 40, label: "Match issue" }],
+      ["authentic/player version", { points: 25, label: "Player-issue spec" }],
+    ]),
+    negative: new Set(["standard retail version"]),
+  },
+  signed: {
+    positive: new Map([["signed", { points: 30, label: "Signed" }]]),
+    negative: new Set(["not signed"]),
+  },
+  special_edition: {
+    positive: new Map([
+      ["special edition", { points: 20, label: "Special edition" }],
+      ["cup final", { points: 22, label: "Cup final edition" }],
+      ["world cup", { points: 22, label: "World Cup edition" }],
+      ["centenary", { points: 22, label: "Centenary edition" }],
+      ["champions league", { points: 20, label: "Champions League edition" }],
+      ["champions", { points: 20, label: "Champions edition" }],
+    ]),
+    negative: new Set(["not a special edition"]),
+  },
+  boxed_edition: {
+    positive: new Map([["boxed edition - in box", { points: 18, label: "Boxed, in box" }]]),
+    negative: new Set(["not a boxed edition"]),
+  },
+  condition: {
+    positive: new Map([
+      ["brand new (with tags)", { points: 20, label: "Brand new with tags" }],
+      ["mint", { points: 15, label: "Mint condition" }],
+    ]),
+    negative: new Set([
+      "very good",
+      "good",
+      "fair",
+      "needs attention",
+      "excellent condition",
+    ]),
+  },
+} as const;
+
+type SignalColumn = keyof typeof SIGNAL_VALUES;
+
+export interface SignalResult {
   points: number;
-  label: string;
-}> = [
-  {
-    test: (l) => /match (issue|worn)/i.test(l.issue ?? ""),
-    points: 40,
-    label: "Match issue",
-  },
-  {
-    test: (l) => !!l.signed && !/^not signed$/i.test(l.signed),
-    points: 30,
-    label: "Signed",
-  },
-  {
-    test: (l) => !!l.special_edition && !/^(no|none|standard)$/i.test(l.special_edition),
-    points: 20,
-    label: "Special edition",
-  },
-  {
-    test: (l) => !!l.boxed_edition && !/^(no|none)$/i.test(l.boxed_edition),
-    points: 10,
-    label: "Boxed edition",
-  },
-  { test: (l) => /^mint$/i.test(l.condition ?? ""), points: 15, label: "Mint condition" },
-  { test: (l) => !!l.player_name, points: 10, label: "Player issue" },
-];
+  labels: string[];
+  /** Values we did not recognise, so new vocabulary is visible rather than guessed at. */
+  unknown: Array<{ column: string; value: string }>;
+}
+
+export function readSignals(listing: ListingRow): SignalResult {
+  const labels: string[] = [];
+  const unknown: Array<{ column: string; value: string }> = [];
+  let points = 0;
+
+  for (const column of Object.keys(SIGNAL_VALUES) as SignalColumn[]) {
+    const raw = listing[column];
+    if (typeof raw !== "string" || raw.trim() === "") continue;
+    const value = raw.trim().toLowerCase();
+
+    const spec = SIGNAL_VALUES[column];
+    const hit = spec.positive.get(value);
+    if (hit) {
+      points += hit.points;
+      labels.push(hit.label);
+    } else if (!(spec.negative as ReadonlySet<string>).has(value)) {
+      // Neither a known signal nor a known non-signal - claim nothing, flag it.
+      unknown.push({ column, value: raw });
+    }
+  }
+
+  return { points, labels, unknown };
+}
 
 /** Shirts from the 80s/90s carry a scarcity premium; derive it from the season. */
 function vintagePoints(season: string | null): { points: number; decade: number | null } {
@@ -199,15 +260,20 @@ function imageUrls(images: unknown): string[] {
     .filter((u): u is string => !!u && u.startsWith("http"));
 }
 
-export function scoreListing(listing: ListingRow): { score: number; signals: string[] } {
-  const signals: string[] = [];
-  let score = 0;
+export function scoreListing(listing: ListingRow): {
+  score: number;
+  signals: string[];
+  unknown: SignalResult["unknown"];
+} {
+  const read = readSignals(listing);
+  const signals = [...read.labels];
+  let score = read.points;
 
-  for (const signal of RARITY_SIGNALS) {
-    if (signal.test(listing)) {
-      score += signal.points;
-      signals.push(signal.label);
-    }
+  // A printed name/number is notable, but it is NOT the same thing as a
+  // player-issue shirt (that is `issue`), so it is labelled for what it is.
+  if (listing.player_name && listing.player_name.trim() !== "") {
+    score += 10;
+    signals.push(`${listing.player_name.trim()} printing`);
   }
 
   const vintage = vintagePoints(listing.season);
@@ -220,7 +286,7 @@ export function scoreListing(listing: ListingRow): { score: number; signals: str
   // always beat a genuinely rare one.
   score += Math.min(30, listing.price_cents / 5_000);
 
-  return { score, signals };
+  return { score, signals, unknown: read.unknown };
 }
 
 export async function runGrailOfTheDay(
@@ -346,6 +412,9 @@ export async function runGrailOfTheDay(
       last_stock_checked_at: listing.last_stock_checked_at,
       rarity_signals: signals,
       rarity_score: Math.round(winner.score),
+      // Attribute values the scorer did not recognise. Nothing was claimed
+      // about them; they are listed so new vocabulary is noticed.
+      unknown_attribute_values: winner.unknown,
       runners_up: ranked.slice(1, 4).map((r) => ({
         title: r.listing.title,
         score: Math.round(r.score),
