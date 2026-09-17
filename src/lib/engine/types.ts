@@ -21,10 +21,11 @@ export interface TikTokScript {
   hook: string;
   beats: string[];
   cta: string;
+  hashtags?: string[];
 }
 
 export interface PlatformCopy {
-  x?: { text: string };
+  x?: { text: string; hashtags?: string[] };
   instagram?: { caption: string; hashtags: string[] };
   tiktok?: TikTokScript;
 }

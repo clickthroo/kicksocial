@@ -10,8 +10,8 @@ export default function SoldPage() {
   return (
     <div className="wrap">
       <header className="top">
-        <h1>Post a sale</h1>
-        <div className="sub">One shirt, one post, for each network.</div>
+        <h1>Grail Sale</h1>
+        <div className="sub">One shirt that sold, one post, for each network.</div>
         <Nav current="/sold" />
       </header>
 

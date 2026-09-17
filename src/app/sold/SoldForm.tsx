@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { lookupForForm, generateJustSold, type ProductPreview } from "./actions.ts";
+import { lookupForForm, generateGrailSale, type ProductPreview } from "./actions.ts";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -47,7 +47,7 @@ export function SoldForm() {
     }
     startGenerate(async () => {
       try {
-        const outcome = await generateJustSold({
+        const outcome = await generateGrailSale({
           url,
           priceCents: Math.round(pounds * 100),
           soldAt,

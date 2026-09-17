@@ -7,8 +7,9 @@
  */
 import { engine } from "./engine/client.ts";
 import { generateCopy } from "./copy/generate.ts";
+import { SOLD_CTA_POOL } from "./copy/brand-voice.ts";
 import { recipeByKey, type Recipe } from "./recipes/index.ts";
-import { runJustSold, JUST_SOLD_BRIEF, type JustSoldInput } from "./recipes/just-sold.ts";
+import { runGrailSale, GRAIL_SALE_BRIEF, type GrailSaleInput } from "./recipes/grail-sale.ts";
 import type { PlatformCopy, PostDraft } from "./engine/types.ts";
 
 export interface RunOutcome {
@@ -140,13 +141,13 @@ export async function runRecipe(
 }
 
 /**
- * Just Sold: admin-initiated rather than scheduled, so it does not go through
+ * Grail Sale: admin-initiated rather than scheduled, so it does not go through
  * runRecipe - there is nothing for cron to select and the input comes from a
  * form. It still records a run, because "why is there no draft?" is the same
  * question whether a person or a schedule asked for one.
  */
-export async function createJustSoldDraft(input: JustSoldInput): Promise<RunOutcome> {
-  const key = "just_sold";
+export async function createGrailSaleDraft(input: GrailSaleInput): Promise<RunOutcome> {
+  const key = "grail_sale";
   const startedAt = Date.now();
 
   const record = async (status: string, extra: Record<string, unknown> = {}): Promise<void> => {
@@ -171,7 +172,7 @@ export async function createJustSoldDraft(input: JustSoldInput): Promise<RunOutc
     return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
   }
 
-  const result = await runJustSold(input);
+  const result = await runGrailSale(input);
   if (!result.ok) {
     // A bad link or a missing photo is the admin's to fix, so it comes straight
     // back to the form as well as going into the run log.
@@ -188,7 +189,13 @@ export async function createJustSoldDraft(input: JustSoldInput): Promise<RunOutc
 
   let generated;
   try {
-    generated = await generateCopy(config?.prompt_template?.trim() || JUST_SOLD_BRIEF, candidate);
+    generated = await generateCopy(
+      config?.prompt_template?.trim() || GRAIL_SALE_BRIEF,
+      candidate,
+      // The shirt has gone: "live now on kickio.com" would be an invitation to
+      // buy something that is no longer there.
+      { ctaPool: SOLD_CTA_POOL },
+    );
   } catch (err) {
     const reason = `Copy generation failed: ${(err as Error).message}`;
     await record("failed", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
@@ -208,7 +215,7 @@ export async function createJustSoldDraft(input: JustSoldInput): Promise<RunOutc
       generation: {
         model: "claude-opus-5",
         usage: generated.usage,
-        visual_template: "just_sold_card",
+        visual_template: "grail_sale_card",
       },
     })
     .select("id")

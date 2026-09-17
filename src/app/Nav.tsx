@@ -8,7 +8,7 @@ import Link from "next/link";
 const DESTINATIONS = [
   { href: "/", label: "Queue" },
   { href: "/publish", label: "Publish" },
-  { href: "/sold", label: "Add sale" },
+  { href: "/sold", label: "Grail Sale" },
   { href: "/runs", label: "Runs" },
   { href: "/admin", label: "Settings" },
 ] as const;

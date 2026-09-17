@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { approveDraft, rejectDraft } from "./actions.ts";
+import { exportText, tags, xLength } from "@/lib/copy/export.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
@@ -28,17 +29,8 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [copied, setCopied] = useState(false);
 
   const copyText = async () => {
-    const c = draft.copy;
-    const text =
-      tab === "x"
-        ? (c.x?.text ?? "")
-        : tab === "instagram"
-          ? [c.instagram?.caption, (c.instagram?.hashtags ?? []).map((h) => `#${h.replace(/^#/, "")}`).join(" ")]
-              .filter(Boolean)
-              .join("\n\n")
-          : [c.tiktok?.hook, ...(c.tiktok?.beats ?? []), c.tiktok?.cta].filter(Boolean).join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(exportText(draft.copy, tab));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -90,8 +82,12 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         {tab === "x" && draft.copy.x && (
           <>
             <p>{draft.copy.x.text}</p>
-            <span className={`count${draft.copy.x.text.length > X_LIMIT ? " count over" : ""}`}>
-              {draft.copy.x.text.length}/{X_LIMIT}
+            {draft.copy.x.hashtags?.length ? (
+              <p className="hashtags">{tags(draft.copy.x.hashtags)}</p>
+            ) : null}
+            {/* Counts the tags too - X does, and they are appended on posting. */}
+            <span className={`count${xLength(draft.copy) > X_LIMIT ? " count over" : ""}`}>
+              {xLength(draft.copy)}/{X_LIMIT} with hashtags
             </span>
           </>
         )}
@@ -99,9 +95,8 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         {tab === "instagram" && draft.copy.instagram && (
           <>
             <p>{draft.copy.instagram.caption}</p>
-            <p className="hashtags">
-              {draft.copy.instagram.hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" ")}
-            </p>
+            <p className="hashtags">{tags(draft.copy.instagram.hashtags)}</p>
+            <span className="count">{draft.copy.instagram.hashtags.length}/30 hashtags</span>
           </>
         )}
 
@@ -113,7 +108,10 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
                 <li key={i}>{b}</li>
               ))}
             </ol>
-            <p className="hashtags">{draft.copy.tiktok.cta}</p>
+            <p>{draft.copy.tiktok.cta}</p>
+            {draft.copy.tiktok.hashtags?.length ? (
+              <p className="hashtags">{tags(draft.copy.tiktok.hashtags)}</p>
+            ) : null}
           </>
         )}
       </div>

@@ -4,22 +4,9 @@ import { useState, useTransition } from "react";
 import { markPosted, unmarkPosted } from "./actions.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 import type { PublishEntry } from "@/lib/publish.ts";
+import { exportText } from "@/lib/copy/export.ts";
 
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
-
-function copyFor(draft: PostDraft, platform: Platform): string {
-  const c = draft.copy;
-  if (platform === "x") return c.x?.text ?? "";
-  if (platform === "instagram") {
-    return [
-      c.instagram?.caption,
-      (c.instagram?.hashtags ?? []).map((h) => `#${h.replace(/^#/, "")}`).join(" "),
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-  }
-  return [c.tiktok?.hook, ...(c.tiktok?.beats ?? []), c.tiktok?.cta].filter(Boolean).join("\n");
-}
 
 /**
  * One platform's row: the assets to post with, and the confirmation that it
@@ -46,7 +33,7 @@ function PlatformRow({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(copyFor(draft, platform));
+      await navigator.clipboard.writeText(exportText(draft.copy, platform));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

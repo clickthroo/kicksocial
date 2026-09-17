@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { buildCandidate, productImages, type ProductRow, type LookupResult } from "./just-sold.ts";
+import { buildCandidate, productImages, type ProductRow, type LookupResult } from "./grail-sale.ts";
 
 const product = (over: Partial<ProductRow> = {}): ProductRow => ({
   id: "p1",

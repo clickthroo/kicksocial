@@ -55,13 +55,13 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       })),
     },
   },
-  just_sold_card: {
+  grail_sale_card: {
     ...base,
-    id: "sample-just-sold",
-    recipe_key: "just_sold",
+    id: "sample-grail-sale",
+    recipe_key: "grail_sale",
     subject_ref: "1990-92-england-third-shirt@2026-09-17",
     headline: "Sold: 1990-92 England Third Shirt — £346.99",
-    generation: { visual_template: "just_sold_card" },
+    generation: { visual_template: "grail_sale_card" },
     source_data: {
       title: "1990-92 England Third Shirt",
       price: "£346.99",

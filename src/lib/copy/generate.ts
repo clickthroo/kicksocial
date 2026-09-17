@@ -26,6 +26,17 @@ const MODEL = "claude-opus-5";
  * request with a 400 otherwise). Length guidance lives in each field's
  * `description` and in the brand voice instead.
  */
+/**
+ * How many hashtags each network gets.
+ *
+ * Not one number: the platforms behave differently. Instagram allows 30 and
+ * genuinely rewards filling them, so it is set to the cap. TikTok's caption is
+ * short and the tags carry discovery. X gives no reach for volume, counts them
+ * inside the 280 characters, and a wall of tags reads as spam - so it stays
+ * small on purpose. Raise `x` here if you want to test that.
+ */
+export const HASHTAG_LIMITS = { x: 3, instagram: 30, tiktok: 8 } as const;
+
 const COPY_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -34,9 +45,22 @@ const COPY_SCHEMA = {
     x: {
       type: "object",
       additionalProperties: false,
-      required: ["text"],
+      required: ["text", "hashtags"],
       properties: {
-        text: { type: "string", description: "Up to 260 characters. No hashtags." },
+        text: {
+          type: "string",
+          description:
+            "Up to 260 characters, INCLUDING the hashtags, which are appended to " +
+            "the end when posted. Ends with the CTA and kickio.com.",
+        },
+        hashtags: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            `Exactly ${HASHTAG_LIMITS.x} hashtags, without the leading #. X gives no ` +
+            "reach for volume and a wall of tags reads as spam, so these are the " +
+            "few that a collector would actually follow.",
+        },
       },
     },
     instagram: {
@@ -44,13 +68,23 @@ const COPY_SCHEMA = {
       additionalProperties: false,
       required: ["caption", "hashtags"],
       properties: {
-        caption: { type: "string", description: "Hook line, then 2-4 short paragraphs." },
+        caption: {
+          type: "string",
+          description:
+            "Hook line, then 2-4 short paragraphs, ending with the CTA and kickio.com.",
+        },
         hashtags: {
           type: "array",
           items: { type: "string" },
           // Structured outputs reject minItems above 1, so counts are stated
           // here and in the brand voice rather than enforced by the schema.
-          description: "Between 4 and 8 hashtags, without the leading #.",
+          description:
+            `${HASHTAG_LIMITS.instagram} hashtags, without the leading #. Instagram ` +
+            `allows 30 and rewards reach, so fill it: work outward from the most ` +
+            "specific (club, season, player, manufacturer, sponsor) through the " +
+            "mid-tail (#90sfootball, #awaykit) to the broad (#footballshirt). Every " +
+            "one must be a tag a real collector would browse - never invent a tag, " +
+            "pad with near-duplicates of the same word, or repeat one in the caption.",
         },
       },
     },
@@ -66,7 +100,15 @@ const COPY_SCHEMA = {
           description:
             "Between 3 and 5 on-screen text beats, roughly six words each.",
         },
-        cta: { type: "string" },
+        cta: { type: "string", description: "Closing line, including kickio.com." },
+        hashtags: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            `${HASHTAG_LIMITS.tiktok} hashtags for the caption, without the leading #. ` +
+            "TikTok's caption is short, so these carry the discovery - mix club and " +
+            "era tags with the broad football-shirt ones.",
+        },
       },
     },
   },
@@ -92,9 +134,18 @@ export interface GenerateResult {
   usage: { input: number; output: number; cacheRead: number };
 }
 
+export interface GenerateOptions {
+  /**
+   * Which CTAs this recipe may close on. A sold-item post must not invite
+   * anyone to buy the thing that has gone, so those recipes pass SOLD_CTA_POOL.
+   */
+  ctaPool?: string[];
+}
+
 export async function generateCopy(
   recipeBrief: string,
   candidate: RecipeCandidate,
+  options: GenerateOptions = {},
 ): Promise<GenerateResult> {
   const response = await anthropic().messages.create({
     model: MODEL,
@@ -126,7 +177,7 @@ export async function generateCopy(
               `\`\`\`json\n${JSON.stringify(candidate.sourceData, null, 2)}\n\`\`\`\n\n` +
               `## CLAIMS (every number in your copy must come from one of these, unchanged)\n\n` +
               `${renderClaims(candidate.claims)}\n\n` +
-              `## CTA to use this time\n\n${ctaForDay()}\n\n` +
+              `## CTA to use this time\n\n${ctaForDay(new Date(), options.ctaPool)}\n\n` +
               `Write the three platform variants now.`,
           },
         ],

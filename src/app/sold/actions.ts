@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createJustSoldDraft } from "@/lib/run-recipe.ts";
-import { lookupProduct, type JustSoldInput } from "@/lib/recipes/just-sold.ts";
+import { createGrailSaleDraft } from "@/lib/run-recipe.ts";
+import { lookupProduct, type GrailSaleInput } from "@/lib/recipes/grail-sale.ts";
 import type { RunOutcome } from "@/lib/run-recipe.ts";
 
 export interface ProductPreview {
@@ -53,8 +53,8 @@ export async function lookupForForm(
   };
 }
 
-export async function generateJustSold(input: JustSoldInput): Promise<RunOutcome> {
-  const outcome = await createJustSoldDraft(input);
+export async function generateGrailSale(input: GrailSaleInput): Promise<RunOutcome> {
+  const outcome = await createGrailSaleDraft(input);
   revalidatePath("/");
   revalidatePath("/runs");
   return outcome;

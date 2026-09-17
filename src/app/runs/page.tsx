@@ -23,7 +23,7 @@ interface RunRow {
 }
 
 /** Recipes started by a person rather than by cron, so absent from RECIPES. */
-const ON_DEMAND_RECIPES = [{ key: "just_sold", name: "Just Sold" }];
+const ON_DEMAND_RECIPES = [{ key: "grail_sale", name: "Grail Sale" }];
 
 function titleise(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -111,7 +111,7 @@ export default async function RunsPage() {
   }
 
   // RECIPES holds only the scheduled ones - they are the entries cron can select
-  // and run unattended. Just Sold is started from a form, so it is not in that
+  // and run unattended. Grail Sale is started from a form, so it is not in that
   // registry but still belongs on this page; so does any key that has run and is
   // no longer in the code, which would otherwise vanish from the summary.
   const summary: Array<{ key: string; name: string; onDemand: boolean }> = [

@@ -47,9 +47,9 @@ export function RecipeEditor({
   // Seller choice and the stock window only mean anything for listing-based
   // recipes; the aggregate ones don't select individual listings.
   const isListingRecipe = recipe.key === "grail_of_the_day";
-  // Just Sold selects nothing - an admin names the shirt and types the price -
+  // Grail Sale selects nothing - an admin names the shirt and types the price -
   // so a price floor and a cooldown would be controls that do nothing.
-  const selectsCandidates = recipe.key !== "just_sold";
+  const selectsCandidates = recipe.key !== "grail_sale";
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));

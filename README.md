@@ -60,7 +60,10 @@ selection diagnostics behind a disclosure.
 | `grail_of_the_day` | Daily | Working — 378 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md`. Disabled in Settings meanwhile |
-| `just_sold` | On demand | Working — an admin names the sale (`/sold`) |
+| `grail_sale` | On demand | Working — an admin names the sale (`/sold`) |
+
+Every variant carries **kickio.com** in its body text, and each network gets its
+own hashtag count (see below).
 
 Selection logic is code (each recipe queries a different shape of data and
 carries its own integrity rules). Thresholds, cadence, platforms and the copy
@@ -206,9 +209,9 @@ Two related rules:
 - **Pence are not rounded away.** £945 loses its decimals, £346.99 keeps them —
   rounding it to "£347" overstates the price against the page.
 
-### Just Sold: where a fact came from is part of the post
+### Grail Sale: where a fact came from is part of the post
 
-`sold_this_week` reads Kickio's `sales_history` and is blocked by RLS. `just_sold`
+`sold_this_week` reads Kickio's `sales_history` and is blocked by RLS. `grail_sale`
 needs no new database access: an admin pastes the Kickio link of something that
 sold and types what it went for, at `/sold`.
 
@@ -262,6 +265,26 @@ its own rows and none of this logic changes.
 Before this, approving was a dead end — the draft left the queue, nothing
 recorded where it went, and the rendered assets became unreachable.
 
+### Hashtags are per-network, not one number
+
+`HASHTAG_LIMITS` in `src/lib/copy/generate.ts`:
+
+| Network | Tags | Why |
+|---|---|---|
+| Instagram | **30** | The platform cap, and it genuinely rewards filling it |
+| TikTok | 8 | Short caption, so the tags carry discovery |
+| X | 3 | No reach for volume, they count inside the 280 characters, and a wall of them reads as spam |
+
+The brand voice tells the model to build them in layers — the shirt (club,
+season, player, maker), the category (era, kit type), then the broad ones
+collectors browse — and to stop short of the number rather than invent tags or
+pad with near-duplicates. A padded set is worse than a short one.
+
+`src/lib/copy/export.ts` owns the text that gets pasted, so the queue and the
+publish screen cannot disagree about it. X's counter includes the hashtags,
+because X does and they are appended to the post; counting only the body showed
+posts as comfortably inside 280 when the thing actually posted was over.
+
 ### Why posts get suppressed
 
 Both published recipes discard data they could otherwise use:
@@ -311,7 +334,7 @@ browser. Two sizes: `ig` (1080×1350, 4:5) and `x` (1200×675, 16:9).
 | `grail_card` | The seller's own photo, full bleed, type over a scrim |
 | `trend_chart` | Hero number + supporting sparkline |
 | `roundup_card` | Ranked list of sales |
-| `just_sold_card` | Photo panel + the result set on paper |
+| `grail_sale_card` | Lit plate on a dark studio field, result set beneath |
 
 Iterate on a design without waiting for a real draft:
 
@@ -331,17 +354,38 @@ Two things worth knowing before editing them:
   source (`imageUrls()`), and the card prints "No renderable photo — do not
   post" if one is ever missing, so the failure is loud rather than dark.
 
-`just_sold_card` deliberately does not use the Grail treatment. Type over a
+`grail_sale_card` deliberately does not use the Grail treatment. Type over a
 photograph suits something you can still buy — the shirt is the offer. A sale is
-a finished event, so it is composed like an auction result: photograph in its own
-panel, result set beside it on warm paper. That also removes a risk, since type
-over an unknown photograph is only as legible as the scrim holds up, and the
-price is the one element that must never be hard to read.
+finished, so it is a dark studio field with the shirt on a lit plate and the
+result set beneath. That also removes a risk: type over an unknown photograph is
+only as legible as the scrim holds up, and the price is the one element that
+must never be hard to read.
 
-Portrait gives the photo a smaller share of the frame than instinct suggests
-(0.52, not 0.6). At 0.6 the type panel overflowed and pushed the wordmark off the
-bottom edge — worth checking any layout change against both formats, since the
-landscape one was fine throughout.
+**Two things this card learned the hard way.**
+
+*Satori's `radial-gradient` does not behave like CSS.* It renders, but anchored
+and scaled quite differently — the first pass put the fall-off in one corner and
+swallowed the shirt entirely. The studio light is a `linear-gradient`, which is
+already proven here by the Grail card's scrim. Check any radial by rendering it.
+
+*The photo cannot be feathered into the dark field.* Kickio's photography is
+catalogue shots on their own pale backgrounds, so on a dark card they read as a
+bright rectangle stuck to the surface. Blending that edge needs per-pixel work
+the renderer cannot do, and faking it with a gradient just produced a bright
+rectangle with a smudge round it. So the plate is deliberate instead — inset,
+rounded, lit against the dark — which works with any photo and any background.
+Its fill is white because `contain` letterboxes a photo whose aspect does not
+match, and a warmer plate left visible bars down the sides.
+
+Colours are the engine's own accent (`#35d07f` / `#12a862`) on near-black, so the
+cards and the dashboard read as one system. **Kickio's own brand hex is not
+recorded in either database** — `BRAND` and `BRAND_DEEP` in `templates.tsx` are
+the two values to change if it should match the site exactly.
+
+Portrait gives the photo a smaller share of the frame than instinct suggests. At
+0.6 the type panel overflowed and pushed the wordmark off the bottom edge — worth
+checking any layout change against both formats, since the landscape one was fine
+throughout.
 
 The trend card's direction colours (`#0ca30c` rising / `#9085e9` falling) were
 picked with the dataviz validator against the dark surface: deutan ΔE 25.6,

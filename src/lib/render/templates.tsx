@@ -432,27 +432,38 @@ function RoundupCard({ draft, format }: { draft: PostDraft; format: FormatKey })
 }
 
 /* ------------------------------------------------------------------------- *
- * Just Sold
+ * Grail Sale
  *
- * Deliberately not the Grail card's treatment. That one lays type over the
- * photograph, which suits something you can still buy - the shirt is the offer.
- * A sale is a finished event, so this is composed like an auction result: the
- * photograph in its own panel, the result set beside it on paper.
+ * A dark studio treatment: the shirt lifted out of a near-black field, lit from
+ * the centre, with the result set beneath it.
  *
- * It also removes a real risk. Type over an unknown photograph is legible only
- * as far as the scrim holds up, and the price is the one element here that must
- * never be hard to read. On paper it is near-black on off-white at any size.
+ * The photography Kickio holds is flat product shots on plain backgrounds, and
+ * that cannot be changed from here. What can be changed is the field it sits in
+ * - so the shirt is shown whole on a vignette rather than cropped full-bleed,
+ * which is what gives it the hung-in-a-studio feeling rather than the
+ * catalogue-thumbnail one.
+ *
+ * `contain`, not `cover`, for the same reason: a sale is a record of a specific
+ * shirt, and cropping the sleeves off it to fill a frame loses the thing the
+ * post is about.
  * ------------------------------------------------------------------------- */
 
-const PAPER = "#f2efe9";
-const PAPER_INK = "#14181d";
-const PAPER_MUTED = "#6f6b64";
-/** Deep green on warm paper: settled, not "available". ~7:1 against PAPER. */
-const SOLD_ACCENT = "#0f6b43";
+/** Near-black with a little warmth, so a maroon or navy shirt does not go flat. */
+const STUDIO = "#0b0c0e";
+const STUDIO_LIFT = "#1c1f24";
+const STUDIO_INK = "#f6f7f9";
+const STUDIO_MUTED = "#8b95a3";
+/**
+ * The engine's accent, so the cards and the dashboard read as one system.
+ * Kickio's own brand hex was not recorded anywhere in either database - swap
+ * these two values and every Grail Sale card follows.
+ */
+const BRAND = "#35d07f";
+const BRAND_DEEP = "#12a862";
 
 /** Long product names are the norm, so the title sizes itself to fit. */
 function titleSize(title: string, portrait: boolean): number {
-  const base = portrait ? 58 : 40;
+  const base = portrait ? 56 : 38;
   if (title.length > 62) return Math.round(base * 0.68);
   if (title.length > 44) return Math.round(base * 0.8);
   if (title.length > 30) return Math.round(base * 0.9);
@@ -465,12 +476,12 @@ function SoldBadge({ scale = 1 }: { scale?: number }) {
       <div
         style={{
           display: "flex",
-          fontSize: 20 * scale,
+          fontSize: 19 * scale,
           fontWeight: 800,
           letterSpacing: 4 * scale,
-          padding: `${9 * scale}px ${18 * scale}px`,
-          background: PAPER_INK,
-          color: PAPER,
+          padding: `${8 * scale}px ${17 * scale}px`,
+          background: BRAND,
+          color: "#06210f",
         }}
       >
         SOLD
@@ -503,7 +514,32 @@ function MissingPhoto({ width, height }: { width: number; height: number }) {
   );
 }
 
-function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+/**
+ * The field behind the shirt.
+ *
+ * Linear, not radial. Satori accepts `radial-gradient` and then renders it
+ * anchored and scaled quite differently from a browser - the first attempt at
+ * this card came back with the fall-off pushed into one corner and the shirt
+ * swallowed. Linear gradients are already proven here (the Grail card's scrim),
+ * so the light is built from one.
+ */
+function StudioField({ width, height }: { width: number; height: number }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        display: "flex",
+        width,
+        height,
+        background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 58%, #06070a 100%)`,
+      }}
+    />
+  );
+}
+
+function GrailSaleCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
@@ -516,45 +552,75 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
   // Season and club are already in the title; these add what it does not carry.
   const meta = [d.condition, d.size, d.printing].filter(Boolean).map(String);
 
-  // Portrait gets the smaller share of the frame for the photo than instinct
-  // suggests: at 0.6 the type panel overflowed and cut the wordmark off the
-  // bottom. The price is the point of the card, so the panel wins the argument.
-  const photoBox = portrait
-    ? { width, height: Math.round(height * 0.52) }
-    : { width: Math.round(width * 0.46), height };
-  const pad = portrait ? 56 : 48;
+  const stageHeight = portrait ? Math.round(height * 0.58) : height;
+  const stageWidth = portrait ? width : Math.round(width * 0.48);
+  const pad = portrait ? 56 : 46;
 
   return (
-    <Frame format={format} background={PAPER}>
+    <Frame format={format} background={STUDIO}>
+      <StudioField width={width} height={height} />
+
       <div
         style={{
           display: "flex",
           flexDirection: portrait ? "column" : "row",
           width,
           height,
+          position: "relative",
         }}
       >
-        {photo ? (
-          <img
-            src={photo}
-            alt=""
-            width={photoBox.width}
-            height={photoBox.height}
-            style={{ ...photoBox, objectFit: "cover" }}
-          />
-        ) : (
-          <MissingPhoto {...photoBox} />
-        )}
+        <div
+          style={{
+            display: "flex",
+            width: stageWidth,
+            height: stageHeight,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: pad,
+          }}
+        >
+          {photo ? (
+            /* Kickio's photography is catalogue shots on their own pale
+               backgrounds, and nothing here can change that. Feathering that
+               background into a dark field needs per-pixel work the renderer
+               cannot do, and faking it with a gradient left a bright rectangle
+               with a smudge around it. So the panel is deliberate instead: an
+               inset, rounded plate, lit against the dark - a shirt presented
+               under glass rather than a photo pasted onto a card. Any photo,
+               any background, and it still reads as designed. */
+            <img
+              src={photo}
+              alt=""
+              width={stageWidth - pad * 2}
+              height={stageHeight - pad * 2}
+              style={{
+                width: stageWidth - pad * 2,
+                height: stageHeight - pad * 2,
+                // The whole shirt, never a crop of it - a sale is a record of
+                // one specific shirt, and cropping its sleeves off to fill a
+                // frame loses the thing the post is about.
+                objectFit: "contain",
+                borderRadius: 10,
+                // White, because `contain` letterboxes a photo whose aspect does
+                // not match the plate, and these are catalogue shots on white or
+                // near-white. A warmer plate leaves visible bars down the sides.
+                background: "#ffffff",
+              }}
+            />
+          ) : (
+            <MissingPhoto width={stageWidth - pad * 2} height={stageHeight - pad * 2} />
+          )}
+        </div>
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
-            width: portrait ? width : width - photoBox.width,
-            height: portrait ? height - photoBox.height : height,
+            justifyContent: portrait ? "flex-end" : "space-between",
+            width: portrait ? width : width - stageWidth,
+            height: portrait ? height - stageHeight : height,
             padding: pad,
-            color: PAPER_INK,
+            color: STUDIO_INK,
           }}
         >
           <div style={{ display: "flex", flexDirection: "column" }}>
@@ -563,12 +629,12 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: portrait ? 26 : 20,
+                marginBottom: portrait ? 24 : 18,
               }}
             >
               <SoldBadge scale={portrait ? 1 : 0.85} />
               {d.sold_at ? (
-                <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: PAPER_MUTED }}>
+                <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: STUDIO_MUTED }}>
                   {String(d.sold_at)}
                 </div>
               ) : null}
@@ -590,9 +656,9 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
               <div
                 style={{
                   display: "flex",
-                  fontSize: portrait ? 23 : 19,
-                  color: PAPER_MUTED,
-                  marginTop: 14,
+                  fontSize: portrait ? 22 : 18,
+                  color: STUDIO_MUTED,
+                  marginTop: 12,
                 }}
               >
                 {meta.join("  ·  ")}
@@ -600,20 +666,20 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
             )}
 
             {signals.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", marginTop: portrait ? 22 : 16 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", marginTop: portrait ? 18 : 14 }}>
                 {signals.slice(0, 2).map((sig) => (
                   <div
                     key={sig}
                     style={{
                       display: "flex",
-                      fontSize: portrait ? 19 : 16,
+                      fontSize: portrait ? 18 : 15,
                       fontWeight: 700,
                       letterSpacing: 1,
-                      padding: portrait ? "7px 13px" : "6px 11px",
+                      padding: portrait ? "6px 12px" : "5px 10px",
                       marginRight: 9,
                       marginTop: 8,
-                      border: `1px solid ${PAPER_INK}`,
-                      color: PAPER_INK,
+                      border: `1px solid rgba(246,247,249,0.3)`,
+                      color: STUDIO_INK,
                     }}
                   >
                     {sig.toUpperCase()}
@@ -623,27 +689,15 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
             )}
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 18 : 0 }}>
-            {/* Hairline: the one accent on the card, and it points at the price.
-                Wider than a chip on purpose - at chip width it read as an
-                underline of the chip above it rather than as a rule. */}
+          <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 26 : 0 }}>
             <div
               style={{
                 display: "flex",
-                width: portrait ? 140 : 76,
-                height: 4,
-                background: SOLD_ACCENT,
-                marginBottom: portrait ? 22 : 14,
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                fontSize: portrait ? 26 : 21,
+                fontSize: portrait ? 24 : 20,
                 fontWeight: 700,
                 letterSpacing: 3,
-                color: SOLD_ACCENT,
-                marginBottom: portrait ? 6 : 4,
+                color: BRAND,
+                marginBottom: portrait ? 8 : 5,
               }}
             >
               SOLD FOR
@@ -651,7 +705,7 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
             <div
               style={{
                 display: "flex",
-                fontSize: portrait ? 92 : 76,
+                fontSize: portrait ? 96 : 72,
                 fontWeight: 800,
                 letterSpacing: -3,
                 lineHeight: 1,
@@ -665,13 +719,20 @@ function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginTop: portrait ? 34 : 24,
-                paddingTop: portrait ? 22 : 16,
-                borderTop: `1px solid rgba(20,24,29,0.16)`,
+                marginTop: portrait ? 30 : 22,
+                paddingTop: portrait ? 20 : 15,
+                borderTop: `1px solid rgba(246,247,249,0.16)`,
               }}
             >
-              <Wordmark style={{ color: PAPER_INK, opacity: 1, fontSize: portrait ? 26 : 22 }} />
-              <div style={{ display: "flex", fontSize: portrait ? 19 : 16, color: PAPER_MUTED }}>
+              <Wordmark style={{ fontSize: portrait ? 25 : 21, opacity: 1 }} />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: portrait ? 19 : 16,
+                  fontWeight: 600,
+                  color: BRAND_DEEP,
+                }}
+              >
                 kickio.com
               </div>
             </div>
@@ -691,8 +752,8 @@ export function templateFor(draft: PostDraft, format: FormatKey): React.ReactEle
       return <TrendCard draft={draft} format={format} />;
     case "roundup_card":
       return <RoundupCard draft={draft} format={format} />;
-    case "just_sold_card":
-      return <JustSoldCard draft={draft} format={format} />;
+    case "grail_sale_card":
+      return <GrailSaleCard draft={draft} format={format} />;
     default:
       return <GrailCard draft={draft} format={format} />;
   }

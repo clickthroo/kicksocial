@@ -88,34 +88,86 @@ cautious post always beats one clever wrong one.
 
 Write all three. They are different pieces of writing, not one caption resized.
 
-**X** - Punchy, stat-forward. One post, up to 260 characters so it has room to be
-quoted. Lead with the most surprising concrete fact. No hashtags.
+**X** - Punchy, stat-forward. One post, up to 260 characters INCLUDING the three
+hashtags that get appended when it is posted. Lead with the most surprising
+concrete fact.
 
 **Instagram** - Caption-led storytelling. Open with a hook line that works as the
 truncated preview (roughly the first 125 characters), then 2-4 short paragraphs.
-Earn the read. Supply 4-8 hashtags separately, mixing broad (#footballshirt) and
-specific (#mufc, #90sfootball) - never in the caption body.
+Earn the read. Hashtags go in their own field, never in the caption body.
 
 **TikTok** - A script, not a caption. Give a hook line for the first two seconds,
-3-5 on-screen text beats that each land one idea, and a closing CTA. Beats must be
-short enough to read on screen - roughly six words each.
+3-5 on-screen text beats that each land one idea, a closing CTA, and hashtags for
+the caption. Beats must be short enough to read on screen - roughly six words
+each.
+
+## Hashtags
+
+Each platform states its own count in the output schema. Fill it - the number is
+chosen per network, not a ceiling to stay under.
+
+Build them in layers, most specific first, so the set reaches both the people
+looking for this exact shirt and the people browsing the category:
+
+1. The shirt: club, season, player, manufacturer, sponsor (#nufc, #shearer)
+2. The category: era, kit type, style (#90sfootball, #awaykit, #retrokit)
+3. The broad ones collectors actually browse (#footballshirt, #shirtcollector)
+
+Rules that matter more than the count:
+
+- Every tag must be one a real collector would browse. If filling the number
+  means inventing tags or padding with near-duplicates of the same word, stop
+  short - a shorter honest set beats a padded one.
+- Never contradict the facts. Do not tag a player, club or competition that the
+  facts do not support.
+- Lowercase, no punctuation, no leading #. The dashboard adds it.
+- Never repeat a hashtag inside the caption body.
+
+## Always name the site
+
+Every variant must contain **kickio.com** in the body text - the X post, the
+Instagram caption, and the TikTok CTA. Written plainly and lowercase, as part of
+the closing line. Not "Kickio" alone, and never a shortened or tracking link.
 
 ## CTA
 
-Rotate, keep it low-key, never repeat the previous post's. Good: "Full listing on
-Kickio." / "On Kickio now." / "More in the link." Bad: anything with an
-exclamation mark or urgency.`;
+Rotate, keep it low-key, never repeat the previous post's. You are given the one
+to use. It carries kickio.com; use it as written rather than paraphrasing the
+domain away.
 
-/** Rotated so posts don't develop a repetitive sign-off. */
+Bad: anything with an exclamation mark or urgency.
+
+One thing to get right: a post about something that has **sold** must never carry
+a CTA that implies it is still for sale. The brief tells you which kind of post
+this is.`;
+
+/**
+ * Rotated so posts don't develop a repetitive sign-off. Each one names the
+ * domain, because "Kickio" alone does not tell a reader where to go.
+ */
 export const CTA_POOL = [
-  "Full listing on Kickio.",
-  "On Kickio now.",
-  "Live on Kickio.",
-  "Details on Kickio.",
-  "Find it on Kickio.",
+  "Full listing on kickio.com.",
+  "It's on kickio.com.",
+  "Live now on kickio.com.",
+  "More on kickio.com.",
+  "Find it on kickio.com.",
 ];
 
-export function ctaForDay(date = new Date()): string {
+/**
+ * A sold shirt cannot be bought, so it gets its own pool. The available-item
+ * CTAs ("live now", "full listing") would read as an invitation to buy
+ * something that has gone - the single most obvious way for one of these posts
+ * to look careless.
+ */
+export const SOLD_CTA_POOL = [
+  "More sales like this on kickio.com.",
+  "Tracking the market on kickio.com.",
+  "See what else is listed on kickio.com.",
+  "More on kickio.com.",
+  "Browse the rest on kickio.com.",
+];
+
+export function ctaForDay(date = new Date(), pool = CTA_POOL): string {
   const dayIndex = Math.floor(date.getTime() / 86_400_000);
-  return CTA_POOL[dayIndex % CTA_POOL.length];
+  return pool[dayIndex % pool.length];
 }

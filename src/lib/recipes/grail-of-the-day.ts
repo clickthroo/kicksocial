@@ -168,7 +168,7 @@ type SignalColumn = keyof typeof SIGNAL_VALUES;
 
 /**
  * Anything carrying the attribute columns. A listing is one; so is a product
- * row plus an admin-entered condition (Just Sold). Deliberately structural, so
+ * row plus an admin-entered condition (Grail Sale). Deliberately structural, so
  * there is exactly one copy of the allowlist - a second one would drift, which
  * is precisely how the "still boxed" claim got out.
  */

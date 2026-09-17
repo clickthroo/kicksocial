@@ -1,5 +1,5 @@
 /**
- * Just Sold - one notable sale, entered by an admin.
+ * Grail Sale - one notable sale, entered by an admin.
  *
  * WHY THIS EXISTS ALONGSIDE sold_this_week
  *
@@ -61,7 +61,7 @@ const PRODUCT_COLUMNS =
   "special_edition,boxed_edition,sleeves,colour,latest_condition,latest_size,status," +
   "deleted_at,primary_image_url,images";
 
-export interface JustSoldInput {
+export interface GrailSaleInput {
   /** A kickio.com product link, or a bare slug. */
   url: string;
   /** What it actually sold for, in pence. Entered by the admin. */
@@ -143,7 +143,7 @@ function printingLabel(product: ProductRow): string | null {
   return name ?? (number ? `#${number}` : null);
 }
 
-export function buildCandidate(lookup: LookupResult, input: JustSoldInput): RecipeResult {
+export function buildCandidate(lookup: LookupResult, input: GrailSaleInput): RecipeResult {
   const { product, images } = lookup;
 
   if (images.length === 0) {
@@ -240,13 +240,13 @@ export function buildCandidate(lookup: LookupResult, input: JustSoldInput): Reci
 }
 
 /** Look up, verify and build in one call. */
-export async function runJustSold(input: JustSoldInput): Promise<RecipeResult> {
+export async function runGrailSale(input: GrailSaleInput): Promise<RecipeResult> {
   const lookup = await lookupProduct(input.url);
   if (!lookup.ok) return { ok: false, reason: lookup.reason };
   return buildCandidate(lookup.value, input);
 }
 
-export const JUST_SOLD_BRIEF = `**Just Sold** - one shirt that has just sold, on Kickio.
+export const GRAIL_SALE_BRIEF = `**Grail Sale** - one shirt that has just sold, on Kickio.
 
 The hook is the sale itself: this shirt is gone, and here is what it went for.
 That is a fact about the market a collector can use, and a quiet signal that
