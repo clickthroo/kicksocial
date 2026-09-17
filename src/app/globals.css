@@ -280,3 +280,45 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 }
 .style-chip:disabled { opacity: 0.6; cursor: default; }
 .styles-note { font-size: 12px; color: var(--muted); margin: 8px 0 6px; line-height: 1.45; min-height: 17px; }
+
+/* --- branding --- */
+.brand-mark-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+.brand-mark-preview {
+  flex: 0 0 auto; width: 84px; height: 84px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  /* The dark card is where the logo has to work, so preview it there. */
+  background: #14181d; border: 1px solid var(--border); overflow: hidden;
+}
+.brand-mark-preview img { width: 70px; height: 70px; object-fit: contain; }
+.brand-mark-empty { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #f4f6f8; }
+.brand-mark-meta { display: flex; flex-direction: column; gap: 7px; font-size: 13px; min-width: 0; }
+.brand-mark-actions { display: flex; gap: 14px; }
+.brand-mark-actions .link {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--accent);
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+.brand-mark-actions .link:disabled { opacity: 0.5; cursor: default; }
+
+.brand-swatches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.brand-swatch { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+.brand-swatch input[type="color"] {
+  flex: 0 0 auto; width: 46px; height: 46px; padding: 0; cursor: pointer;
+  background: none; border: 1px solid var(--border); border-radius: 10px;
+}
+.brand-swatch-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.brand-swatch-label { font-size: 13px; font-weight: 600; }
+.settings input.brand-hex {
+  font-family: ui-monospace, monospace; font-size: 13px; width: 110px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px;
+}
+.settings input.brand-hex.invalid { border-color: var(--danger); }
+.brand-swatch .hint { margin: 0; }
+
+.brand-check {
+  font-size: 12px; line-height: 1.5; padding: 8px 11px; border-radius: 8px;
+  margin-top: 7px; background: var(--surface-2); color: var(--muted);
+  border-left: 3px solid var(--border);
+}
+.brand-check.ok { border-left-color: var(--accent); }
+.brand-check.warn { border-left-color: var(--warn); color: var(--text); }

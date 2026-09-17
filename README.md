@@ -366,6 +366,36 @@ Two things worth knowing before editing them:
   source (`imageUrls()`), and the card prints "No renderable photo — do not
   post" if one is ever missing, so the failure is loud rather than dark.
 
+### Branding lives in the app, not in the code
+
+**Settings → Branding** holds the logo and the card colours, in the engine's own
+`brand_settings` table (one row, enforced by a check constraint — two rows would
+mean cards rendering in whichever branding the query happened to return).
+
+The logo is **uploaded, not committed**: PNG or JPEG, re-encoded to a 512px
+square PNG and stored inline as a data URI. Inlined rather than linked because
+Satori needs the bytes at render time — a URL means a network round trip on every
+card, and a different answer in dev, preview and production if the file moves.
+Re-encoded because the uploaded file would otherwise decide the cost of every
+render for good. With no logo uploaded, cards fall back to the KICKIO wordmark.
+
+Four colours: `accent` and `accentDeep` (the SOLD badge, "SOLD FOR",
+kickio.com), and `rising`/`falling` for price trends.
+
+**The direction pair is re-checked as you type.** Rising and falling were chosen
+so a red-green colourblind reader can still tell them apart, and nothing about a
+colour picker communicates that — so the editor reports the live ΔE and contrast
+figures. `src/lib/brand/colour.ts` is ported from the dataviz skill's validator
+(Machado et al. 2009 CVD transforms, OKLab ΔE ×100) and its tests assert it
+reproduces the validator's numbers exactly, so the app and the README cannot
+drift apart. They are **warnings, not refusals**: direction is also carried by an
+arrow and a signed number, so colour is never the only cue, and it is the
+operator's brand to set.
+
+Branding failures are never fatal — an unreadable row, a bad hex, a failed query
+all fall back to the defaults. A card in default colours is a far smaller problem
+than a card that does not render.
+
 ### Card styles are chosen in the app, not in the code
 
 Six looks for `grail_sale_card`, listed in `src/lib/render/styles.ts`:
@@ -431,10 +461,8 @@ rounded, lit against the dark — which works with any photo and any background.
 Its fill is white because `contain` letterboxes a photo whose aspect does not
 match, and a warmer plate left visible bars down the sides.
 
-Colours are the engine's own accent (`#35d07f` / `#12a862`) on near-black, so the
-cards and the dashboard read as one system. **Kickio's own brand hex is not
-recorded in either database** — `BRAND` and `BRAND_DEEP` in `templates.tsx` are
-the two values to change if it should match the site exactly.
+Colours come from **Settings → Branding**; the constants in `templates.tsx` are
+only the fallback for when that read fails.
 
 Portrait gives the photo a smaller share of the frame than instinct suggests. At
 0.6 the type panel overflowed and pushed the wordmark off the bottom edge — worth

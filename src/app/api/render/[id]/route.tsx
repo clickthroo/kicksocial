@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { engine } from "@/lib/engine/client.ts";
 import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx";
 import { asCardStyle } from "@/lib/render/styles.ts";
+import { loadBrand } from "@/lib/brand/settings.ts";
 import type { PostDraft } from "@/lib/engine/types.ts";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +22,15 @@ export async function GET(
   // can show every option before anyone saves one.
   const style = query.has("style") ? asCardStyle(query.get("style")) : undefined;
 
-  const { data, error } = await engine().from("post_drafts").select("*").eq("id", id).maybeSingle();
+  const [{ data, error }, brand] = await Promise.all([
+    engine().from("post_drafts").select("*").eq("id", id).maybeSingle(),
+    loadBrand(),
+  ]);
 
   if (error) return new Response(`Lookup failed: ${error.message}`, { status: 500 });
   if (!data) return new Response("Draft not found", { status: 404 });
 
-  return new ImageResponse(templateFor(data as PostDraft, format, style), {
+  return new ImageResponse(templateFor(data as PostDraft, format, { style, brand }), {
     ...FORMATS[format],
     headers: { "cache-control": "public, max-age=60" },
   });

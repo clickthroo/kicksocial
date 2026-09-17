@@ -13,7 +13,7 @@
  */
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, type CardStyle } from "./styles.ts";
-import { KICKIO_MARK } from "./brand-mark.ts";
+import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
 /** Output sizes per platform. */
 export const FORMATS = {
@@ -31,8 +31,7 @@ const SURFACE = "#14181d";
  * contrast. Red/green was rejected - it measures deutan ΔE 4.1.
  * Colour is never the only cue: an arrow and a signed number carry it too.
  */
-const UP = "#2bd14a";
-const DOWN = "#9085e9";
+
 
 function Frame({
   format,
@@ -67,15 +66,23 @@ function Frame({
  * wordmark otherwise - so a card is never missing its attribution just because
  * the artwork has not been added yet.
  */
-function Brand({ size, style }: { size: number; style?: React.CSSProperties }) {
-  if (KICKIO_MARK) {
+function BrandMark({
+  size,
+  brand,
+  style,
+}: {
+  size: number;
+  brand: Brand;
+  style?: React.CSSProperties;
+}) {
+  if (brand.markDataUri) {
     return (
       <img
-        src={KICKIO_MARK}
+        src={brand.markDataUri}
         alt="Kickio"
         width={size}
         height={size}
-        style={{ width: size, height: size, ...style }}
+        style={{ width: size, height: size, objectFit: "contain", ...style }}
       />
     );
   }
@@ -101,7 +108,8 @@ function Wordmark({ style }: { style?: React.CSSProperties }) {
 }
 
 /** Grail of the Day - the photo is the hero, type sits over a scrim. */
-function GrailCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
+  void brand;
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
@@ -299,11 +307,11 @@ function sparklineDataUri(series: number[], colour: string, w: number, h: number
  * Price Trends - a hero number, not a chart. Read on a phone in two seconds,
  * the figure is the story; the series is supporting texture beneath it.
  */
-function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
   const d = draft.source_data as Record<string, unknown>;
   const pct = Number(d.pct_change ?? 0);
   const rising = pct >= 0;
-  const colour = rising ? UP : DOWN;
+  const colour = rising ? brand.rising : brand.falling;
   const portrait = format === "ig";
 
   const series = Array.isArray(d.series)
@@ -332,7 +340,7 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Brand size={portrait ? 62 : 52} />
+          <BrandMark size={portrait ? 62 : 52} brand={brand} />
           <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, letterSpacing: 2 }}>
             MARKET TREND
           </div>
@@ -428,7 +436,8 @@ function TrendCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
 }
 
 /** Sold This Week - a ranked list; the pattern is the story. */
-function RoundupCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
+  void brand;
   const d = draft.source_data as Record<string, unknown>;
   const featured = Array.isArray(d.featured)
     ? (d.featured as Array<Record<string, unknown>>).slice(0, format === "ig" ? 5 : 3)
@@ -545,13 +554,13 @@ interface Style {
   titleScale: number;
 }
 
-function styleFor(key: CardStyle, shirt?: { hex: string; deep: string }): Style {
+function styleFor(key: CardStyle, brand: Brand, shirt?: { hex: string; deep: string }): Style {
   const dark: Style = {
     from: STUDIO_LIFT,
     to: STUDIO,
     ink: STUDIO_INK,
     muted: STUDIO_MUTED,
-    accent: BRAND,
+    accent: brand.accent,
     hairline: "rgba(246,247,249,0.3)",
     stage: 0.58,
     inset: 1,
@@ -584,7 +593,7 @@ function styleFor(key: CardStyle, shirt?: { hex: string; deep: string }): Style 
         to: PAPER,
         ink: PAPER_INK,
         muted: PAPER_MUTED,
-        accent: "#0f6b43",
+        accent: brand.accentDeep,
         hairline: "rgba(20,24,29,0.55)",
         stage: 0.52,
         inset: 1,
@@ -601,12 +610,11 @@ function styleFor(key: CardStyle, shirt?: { hex: string; deep: string }): Style 
 }
 
 /**
- * The engine's accent, so the cards and the dashboard read as one system.
- * Kickio's own brand hex was not recorded anywhere in either database - swap
- * these two values and every Grail Sale card follows.
+ * Fallbacks only. The live values come from Settings -> Branding, so changing
+ * them needs no deploy; these are what a card renders in if that read fails.
  */
-const BRAND = "#35d07f";
-const BRAND_DEEP = "#12a862";
+const BRAND = DEFAULT_BRAND.accent;
+const BRAND_DEEP = DEFAULT_BRAND.accentDeep;
 
 /** Long product names are the norm, so the title sizes itself to fit. */
 function titleSize(title: string, portrait: boolean): number {
@@ -617,7 +625,7 @@ function titleSize(title: string, portrait: boolean): number {
   return base;
 }
 
-function SoldBadge({ scale = 1 }: { scale?: number }) {
+function SoldBadge({ scale = 1, accent }: { scale?: number; accent: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center" }}>
       <div
@@ -627,7 +635,7 @@ function SoldBadge({ scale = 1 }: { scale?: number }) {
           fontWeight: 800,
           letterSpacing: 4 * scale,
           padding: `${8 * scale}px ${17 * scale}px`,
-          background: BRAND,
+          background: accent,
           color: "#06210f",
         }}
       >
@@ -698,10 +706,12 @@ function GrailSaleCard({
   draft,
   format,
   style,
+  brand,
 }: {
   draft: PostDraft;
   format: FormatKey;
   style: CardStyle;
+  brand: Brand;
 }) {
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
@@ -710,7 +720,7 @@ function GrailSaleCard({
   const portrait = format === "ig";
   const { width, height } = FORMATS[format];
   const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
-  const palette = styleFor(style, shirt);
+  const palette = styleFor(style, brand, shirt);
 
   const title = String(d.title ?? draft.headline ?? "");
   const price = String(d.price ?? "");
@@ -823,7 +833,7 @@ function GrailSaleCard({
                 marginBottom: portrait ? 24 : 18,
               }}
             >
-              <SoldBadge scale={portrait ? 1 : 0.85} />
+              <SoldBadge scale={portrait ? 1 : 0.85} accent={palette.accent} />
               {d.sold_at ? (
                 <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: palette.muted }}>
                   {String(d.sold_at)}
@@ -941,25 +951,28 @@ function GrailSaleCard({
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
-  style?: CardStyle,
+  options: { style?: CardStyle; brand?: Brand } = {},
 ): React.ReactElement {
+  const brand = options.brand ?? DEFAULT_BRAND;
+  const style = options.style;
   const template =
     (draft.generation as { visual_template?: string })?.visual_template ?? "grail_card";
 
   switch (template) {
     case "trend_chart":
-      return <TrendCard draft={draft} format={format} />;
+      return <TrendCard draft={draft} format={format} brand={brand} />;
     case "roundup_card":
-      return <RoundupCard draft={draft} format={format} />;
+      return <RoundupCard draft={draft} format={format} brand={brand} />;
     case "grail_sale_card":
       return (
         <GrailSaleCard
           draft={draft}
           format={format}
+          brand={brand}
           style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
         />
       );
     default:
-      return <GrailCard draft={draft} format={format} />;
+      return <GrailCard draft={draft} format={format} brand={brand} />;
   }
 }

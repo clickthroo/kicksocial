@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx";
 import { SAMPLE_DRAFTS } from "@/lib/render/sample.ts";
 import { asCardStyle } from "@/lib/render/styles.ts";
+import { loadBrand } from "@/lib/brand/settings.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +23,6 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  return new ImageResponse(templateFor(draft, format, style), FORMATS[format]);
+  const brand = await loadBrand();
+  return new ImageResponse(templateFor(draft, format, { style, brand }), FORMATS[format]);
 }
