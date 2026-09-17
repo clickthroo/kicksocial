@@ -182,10 +182,10 @@ header.top .sub a:hover { color: var(--text); }
 .pill.failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 
 .run-latest {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 11px 16px; border-top: 1px solid var(--border);
 }
-.run-latest-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.run-latest-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .run-latest-name strong { font-size: 14px; font-weight: 600; }
 .run-when { font-size: 12px; color: var(--muted); }
 
@@ -201,3 +201,7 @@ header.top .sub a:hover { color: var(--text); }
   padding: 0 16px 12px; font-size: 12px; line-height: 1.6; color: var(--muted);
   font-family: ui-monospace, monospace; overflow-wrap: anywhere;
 }
+
+.run-now { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.btn.run-now-btn { flex: 0 0 auto; font-size: 13px; padding: 7px 14px; border-radius: 8px; }
+.run-now-result { font-size: 12px; color: var(--muted); }

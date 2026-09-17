@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { engine } from "@/lib/engine/client.ts";
 import { RECIPES } from "@/lib/recipes/index.ts";
+import { RunNowButton } from "./RunNowButton.tsx";
 
 export const dynamic = "force-dynamic";
+// A manual run queries Kickio and then waits on Claude; the default limit cuts
+// it off mid-generation.
+export const maxDuration = 300;
 
 interface RunRow {
   id: string;
@@ -134,13 +138,14 @@ export default async function RunsPage() {
         </div>
       )}
 
-      {runs.length > 0 && (
+      {!loadError && (
         <section className="card settings">
           <div className="card-head">
             <h2>Latest per recipe</h2>
             <p className="desc">
-              A recipe that skips is working as intended — the reason says what it was
-              looking for and did not find.
+              Run one on demand, or read why the last one produced nothing. A recipe
+              that skips is working as intended — the reason says what it was looking
+              for and did not find.
             </p>
           </div>
           {RECIPES.map((recipe) => {
@@ -156,6 +161,7 @@ export default async function RunsPage() {
                 <span className={`pill ${run ? run.status : "none"}`}>
                   {run ? (STATUS_LABEL[run.status] ?? run.status) : "No runs"}
                 </span>
+                <RunNowButton recipeKey={recipe.key} />
               </div>
             );
           })}
