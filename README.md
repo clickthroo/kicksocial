@@ -59,7 +59,8 @@ selection diagnostics behind a disclosure.
 |---|---|---|
 | `grail_of_the_day` | Daily | Working — 378 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
-| `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md` |
+| `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md`. Disabled in Settings meanwhile |
+| `just_sold` | On demand | Working — an admin names the sale (`/sold`) |
 
 Selection logic is code (each recipe queries a different shape of data and
 carries its own integrity rules). Thresholds, cadence, platforms and the copy
@@ -205,6 +206,35 @@ Two related rules:
 - **Pence are not rounded away.** £945 loses its decimals, £346.99 keeps them —
   rounding it to "£347" overstates the price against the page.
 
+### Just Sold: where a fact came from is part of the post
+
+`sold_this_week` reads Kickio's `sales_history` and is blocked by RLS. `just_sold`
+needs no new database access: an admin pastes the Kickio link of something that
+sold and types what it went for, at `/sold`.
+
+Only the URL is user input, and it is validated against an **allowlist** — host
+and path both have to match, and a bare slug is accepted. A parser that hunted
+for a slug-shaped substring would happily take an eBay link, miss, and look up
+something else entirely.
+
+Everything describing the shirt — name, club, season, maker, rarity attributes,
+photography — is read from Kickio's `products` row. Nothing is parsed out of a
+web page, so there is no HTML to break and no third-party image to borrow.
+
+**The price is the exception, and the draft says so.** Every other recipe can
+point a reviewer at the column a number came from; this one cannot, so the claim
+reads `source: entered by an admin, not read from Kickio` rather than dressing a
+typed figure up as a verified one. A reviewer checking this post is checking the
+admin, and should be able to see that.
+
+No buyer protection fee is applied here. Elsewhere the engine adds it because
+`listings.price_cents` is an asking price and the site shows more; here the admin
+enters what was actually paid, so adding a fee would invent money that never
+changed hands.
+
+The lookup is a separate step from generation: confirming the shirt first means a
+wrong link costs a database read rather than a Claude call and a draft to reject.
+
 ### Why posts get suppressed
 
 Both published recipes discard data they could otherwise use:
@@ -254,6 +284,7 @@ browser. Two sizes: `ig` (1080×1350, 4:5) and `x` (1200×675, 16:9).
 | `grail_card` | The seller's own photo, full bleed, type over a scrim |
 | `trend_chart` | Hero number + supporting sparkline |
 | `roundup_card` | Ranked list of sales |
+| `just_sold_card` | Photo panel + the result set on paper |
 
 Iterate on a design without waiting for a real draft:
 
@@ -272,6 +303,18 @@ Two things worth knowing before editing them:
   where the shirt should be. Recipes therefore require a `jpg`/`jpeg`/`png`
   source (`imageUrls()`), and the card prints "No renderable photo — do not
   post" if one is ever missing, so the failure is loud rather than dark.
+
+`just_sold_card` deliberately does not use the Grail treatment. Type over a
+photograph suits something you can still buy — the shirt is the offer. A sale is
+a finished event, so it is composed like an auction result: photograph in its own
+panel, result set beside it on warm paper. That also removes a risk, since type
+over an unknown photograph is only as legible as the scrim holds up, and the
+price is the one element that must never be hard to read.
+
+Portrait gives the photo a smaller share of the frame than instinct suggests
+(0.52, not 0.6). At 0.6 the type panel overflowed and pushed the wordmark off the
+bottom edge — worth checking any layout change against both formats, since the
+landscape one was fine throughout.
 
 The trend card's direction colours (`#0ca30c` rising / `#9085e9` falling) were
 picked with the dataviz validator against the dark surface: deutan ΔE 25.6,

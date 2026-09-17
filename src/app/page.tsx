@@ -23,6 +23,9 @@ export default async function QueuePage() {
           <Link className="top-link" href="/runs">
             Runs
           </Link>
+          <Link className="top-link" href="/sold">
+            Post a sale
+          </Link>
           <Link className="top-link" href="/admin">
             Settings
           </Link>

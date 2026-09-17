@@ -55,6 +55,32 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       })),
     },
   },
+  just_sold_card: {
+    ...base,
+    id: "sample-just-sold",
+    recipe_key: "just_sold",
+    subject_ref: "1990-92-england-third-shirt@2026-09-17",
+    headline: "Sold: 1990-92 England Third Shirt — £346.99",
+    generation: { visual_template: "just_sold_card" },
+    source_data: {
+      title: "1990-92 England Third Shirt",
+      price: "£346.99",
+      sold_at: "2026-09-17",
+      team: "England",
+      season: "1990-91",
+      shirt_type: "Third",
+      manufacturer: "Umbro",
+      condition: "Very Good",
+      size: "L",
+      rarity_signals: ["1990s", "Match issue"],
+      // A real product photo, so the composition is judged against a real
+      // shirt on a real background rather than a flat placeholder.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ENGT90860264/0.jpg",
+      ],
+    },
+  },
   roundup_card: {
     ...base,
     id: "sample-roundup",

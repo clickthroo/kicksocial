@@ -47,6 +47,9 @@ export function RecipeEditor({
   // Seller choice and the stock window only mean anything for listing-based
   // recipes; the aggregate ones don't select individual listings.
   const isListingRecipe = recipe.key === "grail_of_the_day";
+  // Just Sold selects nothing - an admin names the shirt and types the price -
+  // so a price floor and a cooldown would be controls that do nothing.
+  const selectsCandidates = recipe.key !== "just_sold";
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -61,8 +64,9 @@ export function RecipeEditor({
           prompt_template: brief,
           selection: {
             ...recipe.selection,
-            minPriceCents: Math.round(minPrice * 100),
-            cooldownDays: cooldown,
+            ...(selectsCandidates
+              ? { minPriceCents: Math.round(minPrice * 100), cooldownDays: cooldown }
+              : {}),
             ...(isListingRecipe
               ? {
                 maxStockCheckAgeDays: stockAge,
@@ -114,6 +118,7 @@ export function RecipeEditor({
         </div>
       )}
 
+      {selectsCandidates && (
       <div className="row grid">
         <label>
           <span className="field-label">Minimum price (£)</span>
@@ -169,6 +174,7 @@ export function RecipeEditor({
           </label>
         )}
       </div>
+      )}
 
       {isListingRecipe && (
         <p className="hint" style={{ padding: "0 16px" }}>

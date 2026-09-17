@@ -166,6 +166,14 @@ const SIGNAL_VALUES = {
 
 type SignalColumn = keyof typeof SIGNAL_VALUES;
 
+/**
+ * Anything carrying the attribute columns. A listing is one; so is a product
+ * row plus an admin-entered condition (Just Sold). Deliberately structural, so
+ * there is exactly one copy of the allowlist - a second one would drift, which
+ * is precisely how the "still boxed" claim got out.
+ */
+export type SignalSource = { [K in SignalColumn]?: string | null };
+
 export interface SignalResult {
   points: number;
   labels: string[];
@@ -173,7 +181,7 @@ export interface SignalResult {
   unknown: Array<{ column: string; value: string }>;
 }
 
-export function readSignals(listing: ListingRow): SignalResult {
+export function readSignals(listing: SignalSource): SignalResult {
   const labels: string[] = [];
   const unknown: Array<{ column: string; value: string }> = [];
   let points = 0;

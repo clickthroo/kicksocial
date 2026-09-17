@@ -21,6 +21,13 @@ interface RunRow {
   post_drafts: { headline: string | null; status: string } | null;
 }
 
+/** Recipes started by a person rather than by cron, so absent from RECIPES. */
+const ON_DEMAND_RECIPES = [{ key: "just_sold", name: "Just Sold" }];
+
+function titleise(key: string): string {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 const STATUS_LABEL: Record<string, string> = {
   created: "Draft created",
   skipped: "Nothing to post",
@@ -102,6 +109,19 @@ export default async function RunsPage() {
     if (!latestByRecipe.has(run.recipe_key)) latestByRecipe.set(run.recipe_key, run);
   }
 
+  // RECIPES holds only the scheduled ones - they are the entries cron can select
+  // and run unattended. Just Sold is started from a form, so it is not in that
+  // registry but still belongs on this page; so does any key that has run and is
+  // no longer in the code, which would otherwise vanish from the summary.
+  const summary: Array<{ key: string; name: string; onDemand: boolean }> = [
+    ...RECIPES.map((r) => ({ key: r.key, name: r.name, onDemand: false })),
+    ...ON_DEMAND_RECIPES.map((r) => ({ ...r, onDemand: true })),
+  ];
+  for (const key of latestByRecipe.keys()) {
+    if (summary.some((r) => r.key === key)) continue;
+    summary.push({ key, name: titleise(key), onDemand: true });
+  }
+
   const now = Date.now();
   const last7 = runs.filter((r) => now - new Date(r.created_at).getTime() < 7 * 86_400_000);
   const counts = {
@@ -116,6 +136,9 @@ export default async function RunsPage() {
         <nav className="top-nav">
           <Link className="top-link" href="/">
             Queue
+          </Link>
+          <Link className="top-link" href="/sold">
+            Post a sale
           </Link>
           <Link className="top-link" href="/admin">
             Settings
@@ -148,7 +171,7 @@ export default async function RunsPage() {
               for and did not find.
             </p>
           </div>
-          {RECIPES.map((recipe) => {
+          {summary.map((recipe) => {
             const run = latestByRecipe.get(recipe.key);
             return (
               <div className="run-latest" key={recipe.key}>
@@ -161,7 +184,14 @@ export default async function RunsPage() {
                 <span className={`pill ${run ? run.status : "none"}`}>
                   {run ? (STATUS_LABEL[run.status] ?? run.status) : "No runs"}
                 </span>
-                <RunNowButton recipeKey={recipe.key} />
+                {recipe.onDemand ? (
+                  // Nothing for a button to run: this one needs the admin's input.
+                  <Link className="btn run-now-btn" href="/sold">
+                    Add a sale
+                  </Link>
+                ) : (
+                  <RunNowButton recipeKey={recipe.key} />
+                )}
               </div>
             );
           })}

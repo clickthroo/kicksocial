@@ -32,6 +32,9 @@ export default async function AdminPage() {
           <Link className="top-link" href="/runs">
             Runs
           </Link>
+          <Link className="top-link" href="/sold">
+            Post a sale
+          </Link>
         </nav>
         <h1>Settings</h1>
         <div className="sub">Changes take effect on the next run — no redeploy needed.</div>

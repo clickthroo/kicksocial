@@ -431,6 +431,257 @@ function RoundupCard({ draft, format }: { draft: PostDraft; format: FormatKey })
   );
 }
 
+/* ------------------------------------------------------------------------- *
+ * Just Sold
+ *
+ * Deliberately not the Grail card's treatment. That one lays type over the
+ * photograph, which suits something you can still buy - the shirt is the offer.
+ * A sale is a finished event, so this is composed like an auction result: the
+ * photograph in its own panel, the result set beside it on paper.
+ *
+ * It also removes a real risk. Type over an unknown photograph is legible only
+ * as far as the scrim holds up, and the price is the one element here that must
+ * never be hard to read. On paper it is near-black on off-white at any size.
+ * ------------------------------------------------------------------------- */
+
+const PAPER = "#f2efe9";
+const PAPER_INK = "#14181d";
+const PAPER_MUTED = "#6f6b64";
+/** Deep green on warm paper: settled, not "available". ~7:1 against PAPER. */
+const SOLD_ACCENT = "#0f6b43";
+
+/** Long product names are the norm, so the title sizes itself to fit. */
+function titleSize(title: string, portrait: boolean): number {
+  const base = portrait ? 58 : 40;
+  if (title.length > 62) return Math.round(base * 0.68);
+  if (title.length > 44) return Math.round(base * 0.8);
+  if (title.length > 30) return Math.round(base * 0.9);
+  return base;
+}
+
+function SoldBadge({ scale = 1 }: { scale?: number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          fontSize: 20 * scale,
+          fontWeight: 800,
+          letterSpacing: 4 * scale,
+          padding: `${9 * scale}px ${18 * scale}px`,
+          background: PAPER_INK,
+          color: PAPER,
+        }}
+      >
+        SOLD
+      </div>
+    </div>
+  );
+}
+
+function MissingPhoto({ width, height }: { width: number; height: number }) {
+  /* Satori renders WebP as an empty frame with no error. A card with no photo is
+     a fault, not a layout state, so it says so instead of looking merely dark. */
+  return (
+    <div
+      style={{
+        display: "flex",
+        width,
+        height,
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#2a1416",
+        color: "#f2565a",
+        fontSize: 30,
+        fontWeight: 700,
+        textAlign: "center",
+        padding: 40,
+      }}
+    >
+      No renderable photo — do not post
+    </div>
+  );
+}
+
+function JustSoldCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
+  const d = draft.source_data as Record<string, unknown>;
+  const images = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const photo = images[0];
+  const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
+  const portrait = format === "ig";
+  const { width, height } = FORMATS[format];
+
+  const title = String(d.title ?? draft.headline ?? "");
+  const price = String(d.price ?? "");
+  // Season and club are already in the title; these add what it does not carry.
+  const meta = [d.condition, d.size, d.printing].filter(Boolean).map(String);
+
+  // Portrait gets the smaller share of the frame for the photo than instinct
+  // suggests: at 0.6 the type panel overflowed and cut the wordmark off the
+  // bottom. The price is the point of the card, so the panel wins the argument.
+  const photoBox = portrait
+    ? { width, height: Math.round(height * 0.52) }
+    : { width: Math.round(width * 0.46), height };
+  const pad = portrait ? 56 : 48;
+
+  return (
+    <Frame format={format} background={PAPER}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: portrait ? "column" : "row",
+          width,
+          height,
+        }}
+      >
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            width={photoBox.width}
+            height={photoBox.height}
+            style={{ ...photoBox, objectFit: "cover" }}
+          />
+        ) : (
+          <MissingPhoto {...photoBox} />
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            width: portrait ? width : width - photoBox.width,
+            height: portrait ? height - photoBox.height : height,
+            padding: pad,
+            color: PAPER_INK,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: portrait ? 26 : 20,
+              }}
+            >
+              <SoldBadge scale={portrait ? 1 : 0.85} />
+              {d.sold_at ? (
+                <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: PAPER_MUTED }}>
+                  {String(d.sold_at)}
+                </div>
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                fontSize: titleSize(title, portrait),
+                fontWeight: 800,
+                lineHeight: 1.08,
+                letterSpacing: -1,
+              }}
+            >
+              {title}
+            </div>
+
+            {meta.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: portrait ? 23 : 19,
+                  color: PAPER_MUTED,
+                  marginTop: 14,
+                }}
+              >
+                {meta.join("  ·  ")}
+              </div>
+            )}
+
+            {signals.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", marginTop: portrait ? 22 : 16 }}>
+                {signals.slice(0, 2).map((sig) => (
+                  <div
+                    key={sig}
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 19 : 16,
+                      fontWeight: 700,
+                      letterSpacing: 1,
+                      padding: portrait ? "7px 13px" : "6px 11px",
+                      marginRight: 9,
+                      marginTop: 8,
+                      border: `1px solid ${PAPER_INK}`,
+                      color: PAPER_INK,
+                    }}
+                  >
+                    {sig.toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 18 : 0 }}>
+            {/* Hairline: the one accent on the card, and it points at the price.
+                Wider than a chip on purpose - at chip width it read as an
+                underline of the chip above it rather than as a rule. */}
+            <div
+              style={{
+                display: "flex",
+                width: portrait ? 140 : 76,
+                height: 4,
+                background: SOLD_ACCENT,
+                marginBottom: portrait ? 22 : 14,
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 26 : 21,
+                fontWeight: 700,
+                letterSpacing: 3,
+                color: SOLD_ACCENT,
+                marginBottom: portrait ? 6 : 4,
+              }}
+            >
+              SOLD FOR
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 92 : 76,
+                fontWeight: 800,
+                letterSpacing: -3,
+                lineHeight: 1,
+              }}
+            >
+              {price}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginTop: portrait ? 34 : 24,
+                paddingTop: portrait ? 22 : 16,
+                borderTop: `1px solid rgba(20,24,29,0.16)`,
+              }}
+            >
+              <Wordmark style={{ color: PAPER_INK, opacity: 1, fontSize: portrait ? 26 : 22 }} />
+              <div style={{ display: "flex", fontSize: portrait ? 19 : 16, color: PAPER_MUTED }}>
+                kickio.com
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(draft: PostDraft, format: FormatKey): React.ReactElement {
   const template =
     (draft.generation as { visual_template?: string })?.visual_template ?? "grail_card";
@@ -440,6 +691,8 @@ export function templateFor(draft: PostDraft, format: FormatKey): React.ReactEle
       return <TrendCard draft={draft} format={format} />;
     case "roundup_card":
       return <RoundupCard draft={draft} format={format} />;
+    case "just_sold_card":
+      return <JustSoldCard draft={draft} format={format} />;
     default:
       return <GrailCard draft={draft} format={format} />;
   }

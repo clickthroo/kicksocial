@@ -8,6 +8,7 @@
 import { engine } from "./engine/client.ts";
 import { generateCopy } from "./copy/generate.ts";
 import { recipeByKey, type Recipe } from "./recipes/index.ts";
+import { runJustSold, JUST_SOLD_BRIEF, type JustSoldInput } from "./recipes/just-sold.ts";
 import type { PlatformCopy, PostDraft } from "./engine/types.ts";
 
 export interface RunOutcome {
@@ -136,6 +137,92 @@ export async function runRecipe(
     draftId,
     headline: candidate.headline,
   };
+}
+
+/**
+ * Just Sold: admin-initiated rather than scheduled, so it does not go through
+ * runRecipe - there is nothing for cron to select and the input comes from a
+ * form. It still records a run, because "why is there no draft?" is the same
+ * question whether a person or a schedule asked for one.
+ */
+export async function createJustSoldDraft(input: JustSoldInput): Promise<RunOutcome> {
+  const key = "just_sold";
+  const startedAt = Date.now();
+
+  const record = async (status: string, extra: Record<string, unknown> = {}): Promise<void> => {
+    await engine()
+      .from("recipe_runs")
+      .insert({ recipe_key: key, trigger: "manual", status, duration_ms: Date.now() - startedAt, ...extra });
+  };
+
+  const { data: configRow } = await engine()
+    .from("recipes")
+    .select("enabled,prompt_template,platforms")
+    .eq("key", key)
+    .maybeSingle();
+  const config = configRow as {
+    enabled: boolean;
+    prompt_template: string | null;
+    platforms: string[] | null;
+  } | null;
+
+  if (config && !config.enabled) {
+    await record("skipped", { skipped_reason: "Recipe is disabled" });
+    return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
+  }
+
+  const result = await runJustSold(input);
+  if (!result.ok) {
+    // A bad link or a missing photo is the admin's to fix, so it comes straight
+    // back to the form as well as going into the run log.
+    await record("skipped", { skipped_reason: result.reason, diagnostics: result.diagnostics ?? {} });
+    return { recipeKey: key, status: "skipped", reason: result.reason };
+  }
+
+  const { candidate } = result;
+  const platforms = (config?.platforms as Recipe["platforms"] | undefined) ?? [
+    "x",
+    "instagram",
+    "tiktok",
+  ];
+
+  let generated;
+  try {
+    generated = await generateCopy(config?.prompt_template?.trim() || JUST_SOLD_BRIEF, candidate);
+  } catch (err) {
+    const reason = `Copy generation failed: ${(err as Error).message}`;
+    await record("failed", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .insert({
+      recipe_key: key,
+      status: "draft",
+      subject_ref: candidate.subjectRef,
+      headline: candidate.headline,
+      copy: forPlatforms(generated.copy, platforms),
+      source_data: { ...candidate.sourceData, images: candidate.images },
+      claims: candidate.claims,
+      generation: {
+        model: "claude-opus-5",
+        usage: generated.usage,
+        visual_template: "just_sold_card",
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    const reason = `Saving draft failed: ${error.message}`;
+    await record("failed", { skipped_reason: reason });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const draftId = (data as { id: string }).id;
+  await record("created", { draft_id: draftId });
+  return { recipeKey: key, status: "created", draftId, headline: candidate.headline };
 }
 
 /** Drafts awaiting review, newest first. */
