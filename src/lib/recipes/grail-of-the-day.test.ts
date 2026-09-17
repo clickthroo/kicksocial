@@ -1,6 +1,19 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { isLive, scoreListing, kickioUrl } from "./grail-of-the-day.ts";
+import {
+  isLive,
+  scoreListing,
+  kickioUrl,
+  DEFAULT_GRAIL_CONFIG,
+  KICKIO_DIRECT_SELLER,
+  APPROVED_PARTNER_SELLER,
+} from "./grail-of-the-day.ts";
+
+/** Shorthand for the default rules with a chosen staleness window. */
+const rules = (maxStockCheckAgeDays = 7) => ({
+  maxStockCheckAgeDays,
+  allowedSellerIds: DEFAULT_GRAIL_CONFIG.allowedSellerIds,
+});
 
 /** A listing that is genuinely live and sellable. */
 function live(overrides: Record<string, unknown> = {}) {
@@ -27,6 +40,8 @@ function live(overrides: Record<string, unknown> = {}) {
     reserved_until: null,
     last_stock_checked_at: "2026-09-16T00:00:00Z",
     is_partner_listing: false,
+    seller_id: KICKIO_DIRECT_SELLER,
+    source: "kickio",
     source_url: "https://example.com/listing",
     products: { status: "active", deleted_at: null, slug: "arsenal-1993-94-away" },
     ...overrides,
@@ -77,39 +92,70 @@ describe("live-listing eligibility", () => {
 
   test("rejects one reserved for a buyer mid-checkout", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    assert.equal(isLive(live({ reserved_until: "2026-09-16T12:30:00Z" }), 7, now), false);
+    assert.equal(isLive(live({ reserved_until: "2026-09-16T12:30:00Z" }), rules(), now), false);
   });
 
   test("accepts one whose reservation has lapsed", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    assert.equal(isLive(live({ reserved_until: "2026-09-16T11:00:00Z" }), 7, now), true);
+    assert.equal(isLive(live({ reserved_until: "2026-09-16T11:00:00Z" }), rules(), now), true);
   });
 
   test("rejects a listing with no linked product at all", () => {
     assert.equal(isLive(live({ products: null })), false);
   });
 
-  test("rejects one never confirmed in stock, despite a clean gone-count", () => {
-    // The trap: consecutive_gone_count = 0 is also the value for a listing that
-    // has never been checked. Every scraped partner listing looks like this -
-    // one reached a real draft before this rule existed.
+  test("rejects a scraped listing never confirmed in stock", () => {
+    // consecutive_gone_count = 0 is also the value for one never checked.
     assert.equal(
-      isLive(live({ last_stock_checked_at: null, consecutive_gone_count: 0 })),
+      isLive(live({ source: "scrape", last_stock_checked_at: null, consecutive_gone_count: 0 })),
       false,
     );
   });
 
-  test("rejects one whose stock check has gone stale", () => {
+  test("rejects a scraped listing whose stock check has gone stale", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    assert.equal(isLive(live({ last_stock_checked_at: "2026-09-01T00:00:00Z" }), 7, now), false);
-    assert.equal(isLive(live({ last_stock_checked_at: "2026-09-14T00:00:00Z" }), 7, now), true);
+    const scraped = (checked: string) =>
+      live({ source: "scrape", seller_id: APPROVED_PARTNER_SELLER, last_stock_checked_at: checked });
+    assert.equal(isLive(scraped("2026-09-01T00:00:00Z"), rules(), now), false);
+    assert.equal(isLive(scraped("2026-09-14T00:00:00Z"), rules(), now), true);
+  });
+
+  test("does NOT demand a stock check of Kickio Direct stock", () => {
+    // Kickio Direct has no external source to verify, so the column is null for
+    // all of it. Requiring it unconditionally excluded every Kickio listing -
+    // which is how scraped eBay inventory ended up in the drafts instead.
+    assert.equal(
+      isLive(live({ source: "kickio", last_stock_checked_at: null })),
+      true,
+    );
+  });
+
+  test("rejects sellers whose listings do not appear on kickio.com", () => {
+    const cfs = "00000000-0000-0000-0000-0000000000c1";
+    assert.equal(isLive(live({ seller_id: cfs })), false);
+  });
+
+  test("accepts both sellers that do appear on the site", () => {
+    assert.equal(isLive(live({ seller_id: KICKIO_DIRECT_SELLER })), true);
+    assert.equal(
+      isLive(live({
+        seller_id: APPROVED_PARTNER_SELLER,
+        source: "scrape",
+        last_stock_checked_at: new Date().toISOString(),
+      })),
+      true,
+    );
   });
 
   test("the staleness window is configurable", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    const twelveDaysOld = live({ last_stock_checked_at: "2026-09-04T00:00:00Z" });
-    assert.equal(isLive(twelveDaysOld, 7, now), false);
-    assert.equal(isLive(twelveDaysOld, 30, now), true);
+    const old = live({
+      source: "scrape",
+      seller_id: APPROVED_PARTNER_SELLER,
+      last_stock_checked_at: "2026-09-04T00:00:00Z",
+    });
+    assert.equal(isLive(old, rules(7), now), false);
+    assert.equal(isLive(old, rules(30), now), true);
   });
 });
 

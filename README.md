@@ -36,6 +36,10 @@ Kickio Supabase (read-only)          Engine Supabase (own project)
 Recipes run on a Vercel cron (`vercel.json`), or on demand via
 `POST /api/run/<recipe_key>`.
 
+**Settings** (`/admin`) edits each recipe's configuration — enabled, which
+sellers may be featured, price floor, cooldown, stock-check window, and the copy
+brief — without a redeploy.
+
 ## Recipes
 
 | Recipe | Cadence | Status |
@@ -60,27 +64,35 @@ active while:
   those states)
 - its product is soft-deleted
 - the stock checker has stopped finding it (`consecutive_gone_count > 0`)
-- **it has never been stock-checked at all.** `consecutive_gone_count = 0` is
-  also the default for a listing nobody has verified, so it is not evidence of
-  being in stock. A listing must have `last_stock_checked_at` within 7 days.
 - it is reserved for a buyer mid-checkout
+- **its seller's listings do not appear on kickio.com at all** — see below
 
 Grail of the Day excludes all of these, both in the query and again in
 `isLive()` after fetching, so editing the query cannot silently drop a rule.
 That takes the pool from 409 to 157.
 
-The stock-check rule also, in effect, excludes partner listings: of the 400 that
-pass every other test, **all 121 partner listings have never been stock-checked
-and all 157 verified ones are non-partner**. There is nothing in between. If
-partner inventory should be featured, it needs a verification signal first — do
-not simply relax this rule.
+### Whether a listing is live on kickio.com is a property of the SELLER
 
-### Where a listing actually comes from
+No column on a listing or product records it. What decides it is who is selling:
 
-Almost the whole catalogue is aggregated, including the non-partner listings:
-`listings.source` is `scrape` and `source_url` points at eBay, Classic Football
-Shirts and so on. `is_partner_listing = false` means *not from a partner store*,
-**not** "a Kickio seller's own stock".
+| Seller | Active listings | On kickio.com |
+|---|---|---|
+| `kickio` ("Kickio Direct") | 722 | yes |
+| `approved_partner_seller` | 785 | yes |
+| `classic_football_shirts` | 140 | no |
+
+So the recipe carries an explicit `allowedSellerIds`, editable in **Settings**.
+
+**`last_stock_checked_at` is a scraper timestamp, not a liveness signal.** It
+only exists for listings pulled from an external site. Kickio Direct stock has
+no external source, so it is null for all 722 of those listings. Requiring it
+unconditionally excluded every Kickio Direct listing and left only scraped
+inventory — which is how eBay items ended up in the drafts. It is now applied
+only where `source = 'scrape'`.
+
+Note also that `is_partner_listing = false` does **not** mean "a Kickio seller's
+own stock" — most non-partner listings are still scraped, with `source_url`
+pointing at eBay.
 
 So each draft carries two distinct references, labelled apart in the dashboard
 so a reviewer is never misled about which they are opening:

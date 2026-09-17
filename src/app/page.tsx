@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { pendingDrafts } from "@/lib/run-recipe.ts";
 import { DraftCard } from "./DraftCard.tsx";
 import type { PostDraft } from "@/lib/engine/types.ts";
@@ -18,6 +19,9 @@ export default async function QueuePage() {
   return (
     <div className="wrap">
       <header className="top">
+        <Link className="top-link" href="/admin">
+          Settings
+        </Link>
         <h1>Approval queue</h1>
         <div className="sub">
           {loadError

@@ -47,6 +47,7 @@ interface ListingRow {
   reserved_until: string | null;
   last_stock_checked_at: string | null;
   is_partner_listing: boolean;
+  seller_id: string;
   /** Where Kickio scraped this from (eBay, CFS...) - NOT its page on Kickio. */
   source_url: string | null;
   source: string | null;
@@ -62,18 +63,32 @@ export interface GrailConfig {
   /** Don't re-feature the same listing within this many days. */
   cooldownDays: number;
   /**
-   * A listing must have been confirmed in stock within this many days.
-   * `consecutive_gone_count = 0` alone is NOT evidence of being in stock - it is
-   * also the value for a listing that has never been checked.
+   * Scraped listings must have been confirmed in stock within this many days.
+   * Only applies to `source = 'scrape'`: Kickio Direct stock has no external
+   * source to check, so the column is null for it by design. Requiring it
+   * unconditionally excluded every Kickio Direct listing.
    */
   maxStockCheckAgeDays: number;
+  /**
+   * Sellers whose listings actually appear on kickio.com. This is the real
+   * signal for "live on Kickio" - no column in the listing or product says so.
+   * Editable in the admin screen.
+   */
+  allowedSellerIds: string[];
 }
 
+/** Kickio Direct, and the approved partner seller - both appear on the site. */
+export const KICKIO_DIRECT_SELLER = "ee2ce3bb-30d8-4f94-8cfd-a575866af57e";
+export const APPROVED_PARTNER_SELLER = "00000000-0000-0000-0000-0000000000b0";
+
 export const DEFAULT_GRAIL_CONFIG: GrailConfig = {
-  minPriceCents: 15_000,
-  poolSize: 40,
+  // Kickio Direct stock tops out at £199, so a £150 floor admitted almost only
+  // partner listings. £100 keeps the feed premium while including both.
+  minPriceCents: 10_000,
+  poolSize: 60,
   cooldownDays: 45,
   maxStockCheckAgeDays: 7,
+  allowedSellerIds: [KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER],
 };
 
 /** Attribute values that genuinely signal scarcity, with why they count. */
@@ -124,17 +139,24 @@ function vintagePoints(season: string | null): { points: number; decade: number 
  */
 export function isLive(
   listing: ListingRow,
-  maxStockCheckAgeDays = DEFAULT_GRAIL_CONFIG.maxStockCheckAgeDays,
+  config: Pick<GrailConfig, "maxStockCheckAgeDays" | "allowedSellerIds"> = DEFAULT_GRAIL_CONFIG,
   now = new Date(),
 ): boolean {
   if (listing.removed_at !== null) return false;
   if (listing.consecutive_gone_count > 0) return false;
-  // Positively verified in stock recently. A null check date means Kickio has
-  // never confirmed this listing exists at its source - which is the case for
-  // every scraped partner listing - so absence of failure is not evidence.
-  if (listing.last_stock_checked_at === null) return false;
-  const checkedAgeMs = now.getTime() - new Date(listing.last_stock_checked_at).getTime();
-  if (checkedAgeMs > maxStockCheckAgeDays * 86_400_000) return false;
+
+  // Whether it appears on kickio.com is a property of the seller, not of any
+  // status column. Only these sellers' listings are shown on the site.
+  if (!config.allowedSellerIds.includes(listing.seller_id)) return false;
+
+  // A scraped listing lives on someone else's site and can vanish, so it must
+  // have been confirmed recently. Kickio Direct stock has no external source -
+  // last_stock_checked_at is null for all of it - so the check does not apply.
+  if (listing.source === "scrape") {
+    if (listing.last_stock_checked_at === null) return false;
+    const ageMs = now.getTime() - new Date(listing.last_stock_checked_at).getTime();
+    if (ageMs > config.maxStockCheckAgeDays * 86_400_000) return false;
+  }
   if (listing.reserved_until !== null && new Date(listing.reserved_until) > now) return false;
   const product = listing.products;
   if (!product) return false;
@@ -210,7 +232,7 @@ export async function runGrailOfTheDay(
       "id,title,price_cents,currency,team,season,shirt_type,condition,issue,signed," +
         "special_edition,boxed_edition,player_name,manufacturer,images,created_at," +
         "removed_at,removed_reason,consecutive_gone_count,reserved_until," +
-        "last_stock_checked_at,is_partner_listing,source_url,source," +
+        "last_stock_checked_at,is_partner_listing,seller_id,source_url,source," +
         "products!inner(status,deleted_at,slug)",
     )
     .eq("status", "active")
@@ -218,14 +240,16 @@ export async function runGrailOfTheDay(
     .gt("stock_quantity", 0)
     // Not withdrawn, and not already sold somewhere else.
     .is("removed_at", null)
-    // The stock checker has not seen it disappear from its source...
+    // The stock checker has not seen it disappear from its source.
     .eq("consecutive_gone_count", 0)
-    // ...and has positively confirmed it recently. Without this, never-checked
-    // listings look identical to verified ones.
-    .not("last_stock_checked_at", "is", null)
-    .gte(
-      "last_stock_checked_at",
-      new Date(Date.now() - config.maxStockCheckAgeDays * 86_400_000).toISOString(),
+    // Only sellers whose listings appear on kickio.com.
+    .in("seller_id", config.allowedSellerIds)
+    // Scraped listings must be recently verified; Kickio Direct is exempt
+    // because it has no external source to verify against.
+    .or(
+      `source.neq.scrape,last_stock_checked_at.gte.${new Date(
+        Date.now() - config.maxStockCheckAgeDays * 86_400_000,
+      ).toISOString()}`,
     )
     // Through Kickio's own product review, and not archived or rejected.
     .eq("products.status", "active")
@@ -237,7 +261,7 @@ export async function runGrailOfTheDay(
   if (error) return { ok: false, reason: `Kickio query failed: ${error.message}` };
 
   const listings = (data ?? []) as unknown as ListingRow[];
-  const live = listings.filter((l) => isLive(l, config.maxStockCheckAgeDays));
+  const live = listings.filter((l) => isLive(l, config));
   const withPhotos = live.filter((l) => imageUrls(l.images).length > 0);
   if (withPhotos.length === 0) {
     return {
@@ -318,6 +342,7 @@ export async function runGrailOfTheDay(
       origin_source: listing.source,
       product_slug: listing.products?.slug ?? null,
       is_partner_listing: listing.is_partner_listing,
+      seller_id: listing.seller_id,
       last_stock_checked_at: listing.last_stock_checked_at,
       rarity_signals: signals,
       rarity_score: Math.round(winner.score),

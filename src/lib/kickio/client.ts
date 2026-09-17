@@ -25,7 +25,9 @@ export type KickioTable =
   | "teams"
   | "price_index_aggregates"
   | "price_index_history"
-  | "sales_history";
+  | "sales_history"
+  // Read-only, and only to label sellers in the settings screen.
+  | "profiles";
 
 /**
  * Postgres roles this engine is allowed to connect to Kickio as. An allowlist,

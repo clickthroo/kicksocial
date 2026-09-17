@@ -139,3 +139,29 @@ button.reject { color: var(--danger); }
 .verify a { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
 .verify a:hover { text-decoration: underline; }
 .verify a.secondary { color: var(--muted); font-weight: 500; }
+
+/* --- settings screen --- */
+.settings .card-head { padding-bottom: 4px; }
+.settings .desc { font-size: 13px; color: var(--muted); margin: 6px 0 0; line-height: 1.45; }
+.settings .row { padding: 12px 16px; border-top: 1px solid var(--border); }
+.settings .row.grid { display: flex; gap: 14px; flex-wrap: wrap; }
+.settings .row.grid label { display: flex; flex-direction: column; gap: 5px; flex: 1 1 130px; }
+.field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.settings .hint { font-size: 12px; color: var(--muted); margin: 5px 0 9px; line-height: 1.45; }
+.settings input[type="number"], .settings textarea {
+  font: inherit; font-size: 14px; width: 100%;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+}
+.settings textarea { line-height: 1.5; resize: vertical; }
+.settings label.toggle, .settings label.check {
+  display: flex; align-items: center; gap: 9px; font-size: 14px; cursor: pointer;
+}
+.settings label.check { padding: 5px 0; }
+.settings input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--accent); }
+.settings .actions { justify-content: flex-end; }
+.settings .actions .btn { flex: 0 0 auto; padding-left: 28px; padding-right: 28px; }
+header.top .sub a { color: var(--muted); text-decoration: none; }
+header.top .sub a:hover { color: var(--text); }
+.top-link { float: right; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
+.top-link:hover { color: var(--text); }
