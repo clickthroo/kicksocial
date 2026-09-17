@@ -19,9 +19,14 @@ export default async function QueuePage() {
   return (
     <div className="wrap">
       <header className="top">
-        <Link className="top-link" href="/admin">
-          Settings
-        </Link>
+        <nav className="top-nav">
+          <Link className="top-link" href="/runs">
+            Runs
+          </Link>
+          <Link className="top-link" href="/admin">
+            Settings
+          </Link>
+        </nav>
         <h1>Approval queue</h1>
         <div className="sub">
           {loadError

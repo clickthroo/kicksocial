@@ -165,3 +165,39 @@ header.top .sub a { color: var(--muted); text-decoration: none; }
 header.top .sub a:hover { color: var(--text); }
 .top-link { float: right; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
 .top-link:hover { color: var(--text); }
+
+/* --- run history --- */
+.top-nav { float: right; display: flex; gap: 14px; }
+
+/* Status is carried by the word, not just the colour - the pill reads the same
+   to anyone who cannot separate green from amber. */
+.pill {
+  display: inline-block; flex: 0 0 auto; white-space: nowrap;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  padding: 4px 9px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
+}
+.pill.created { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.pill.skipped { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.pill.failed { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+
+.run-latest {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 16px; border-top: 1px solid var(--border);
+}
+.run-latest-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.run-latest-name strong { font-size: 14px; font-weight: 600; }
+.run-when { font-size: 12px; color: var(--muted); }
+
+.run-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 14px 16px 0;
+}
+.run-title { font-size: 15px; line-height: 1.35; margin-top: 4px; }
+.run-meta { font-size: 12px; color: var(--muted); padding: 8px 16px 0; }
+.run-reason { font-size: 13px; line-height: 1.5; margin: 8px 0 0; padding: 0 16px 12px; }
+.run:not(:has(.run-reason)) .run-meta { padding-bottom: 12px; }
+.run-diagnostics {
+  padding: 0 16px 12px; font-size: 12px; line-height: 1.6; color: var(--muted);
+  font-family: ui-monospace, monospace; overflow-wrap: anywhere;
+}

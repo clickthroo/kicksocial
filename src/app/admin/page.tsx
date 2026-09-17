@@ -25,10 +25,16 @@ export default async function AdminPage() {
   return (
     <div className="wrap">
       <header className="top">
+        <nav className="top-nav">
+          <Link className="top-link" href="/">
+            Queue
+          </Link>
+          <Link className="top-link" href="/runs">
+            Runs
+          </Link>
+        </nav>
         <h1>Settings</h1>
-        <div className="sub">
-          <Link href="/">&larr; Approval queue</Link>
-        </div>
+        <div className="sub">Changes take effect on the next run — no redeploy needed.</div>
       </header>
 
       {loadError && <div className="banner">{loadError}</div>}

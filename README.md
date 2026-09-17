@@ -40,6 +40,12 @@ Recipes run on a Vercel cron (`vercel.json`), or on demand via
 sellers may be featured, price floor, cooldown, stock-check window, and the copy
 brief — without a redeploy.
 
+**Run history** (`/runs`) answers "why was there no post today?". Every run is
+recorded, skips included, so a quiet day is explainable without reading logs — a
+recipe that finds nothing worth posting is working as intended, and the screen
+leads with the latest outcome per recipe and the reason it gives, with the
+selection diagnostics behind a disclosure.
+
 ## Recipes
 
 | Recipe | Cadence | Status |
