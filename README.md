@@ -128,6 +128,19 @@ Note the same distinction in labelling: `player_name` is a **printed name**, not
 a player-issue shirt (that is `issue = 'Authentic/Player Version'`). They were
 conflated, which put the wrong word in the copy.
 
+### Placeholders are not facts
+
+Several Kickio columns carry stand-ins for "we don't know" rather than being
+null: `player_name` is literally **"Unknown"** on 7 active listings and empty on
+27, `manufacturer` is **"Other"** on 12, `size` is **"N/A"** on one. Passed
+through, these become copy — one card carried a badge reading "Unknown
+printing".
+
+`src/lib/kickio/values.ts` strips them before any fact reaches the prompt or the
+card, so the post simply says less. The brand voice also forbids narrating a gap
+("manufacturer unclear", "season unconfirmed") — absent facts were removed
+deliberately and are not a subject to comment on.
+
 ### Posted prices are buyer-facing, not asking prices
 
 `listings.price_cents` is what the seller asks. kickio.com adds a **buyer

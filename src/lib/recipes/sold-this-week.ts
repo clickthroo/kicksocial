@@ -19,6 +19,7 @@ import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
 import { formatPrice } from "../kickio/pricing.ts";
+import { cleanValue } from "../kickio/values.ts";
 
 interface SaleRow {
   id: string;
@@ -151,14 +152,16 @@ export async function runSoldThisWeek(
       aggregate_value: gbp(total),
       source_breakdown: sourceBreakdown,
       data_scope: "market-wide (third-party sales data aggregated by Kickio)",
+      // Placeholders ("Unknown", "N/A", "Other") are dropped rather than
+      // written into copy as though they were facts.
       featured: featured.map((s) => ({
         id: s.id,
         price: gbp(s.price_cents),
-        team: s.team,
-        season: s.season,
-        shirt_type: s.shirt_type,
-        condition: s.condition,
-        player_name: s.player_name,
+        team: cleanValue(s.team),
+        season: cleanValue(s.season),
+        shirt_type: cleanValue(s.shirt_type),
+        condition: cleanValue(s.condition),
+        player_name: cleanValue(s.player_name),
         sold_at: s.sold_at,
         source: s.source,
       })),

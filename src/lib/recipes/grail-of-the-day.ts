@@ -23,6 +23,7 @@ import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
+import { cleanValue, cleanFacts } from "../kickio/values.ts";
 
 interface ListingRow {
   id: string;
@@ -284,11 +285,14 @@ export function scoreListing(listing: ListingRow): {
   const signals = [...read.labels];
   let score = read.points;
 
-  // A printed name/number is notable, but it is NOT the same thing as a
-  // player-issue shirt (that is `issue`), so it is labelled for what it is.
-  if (listing.player_name && listing.player_name.trim() !== "") {
+  // A printed name is notable, but it is NOT the same thing as a player-issue
+  // shirt (that is `issue`), so it is labelled for what it is. "Unknown" is a
+  // placeholder rather than a player, and produced a badge reading "Unknown
+  // printing" before it was scrubbed.
+  const printedName = cleanValue(listing.player_name);
+  if (printedName) {
     score += 10;
-    signals.push(`${listing.player_name.trim()} printing`);
+    signals.push(`${printedName} printing`);
   }
 
   const vintage = vintagePoints(listing.season);
@@ -425,7 +429,7 @@ export async function runGrailOfTheDay(
   const candidate: RecipeCandidate = {
     subjectRef: listing.id,
     headline: listing.title,
-    sourceData: {
+    sourceData: cleanFacts({
       listing_id: listing.id,
       title: listing.title,
       price,
@@ -458,7 +462,7 @@ export async function runGrailOfTheDay(
         title: r.listing.title,
         score: Math.round(r.score),
       })),
-    },
+    }) as Record<string, unknown>,
     claims,
     images: imageUrls(listing.images),
   };

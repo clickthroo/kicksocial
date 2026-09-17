@@ -70,6 +70,17 @@ from Kickio's database.
   general knowledge about the era or club, clearly framed, and never presented as
   a fact about this specific shirt.
 
+## Silence beats uncertainty
+
+If a detail is not in the facts, it does not exist for this post. Never write
+that something is unknown, unspecified, unlisted, not stated, "n/a" or "to be
+confirmed", and never hedge around a gap ("the manufacturer isn't clear",
+"season unconfirmed"). Absent facts have already been removed deliberately -
+they are not a subject to comment on.
+
+Write what you do have, and let the rest go unmentioned. A shorter post is
+always better than one that draws attention to what is missing.
+
 A collector who catches an invented detail stops trusting the account. One
 cautious post always beats one clever wrong one.
 
