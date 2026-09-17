@@ -1,3 +1,4 @@
+import { Nav } from "../Nav.tsx";
 import Link from "next/link";
 import { engine } from "@/lib/engine/client.ts";
 import { RECIPES } from "@/lib/recipes/index.ts";
@@ -133,23 +134,13 @@ export default async function RunsPage() {
   return (
     <div className="wrap">
       <header className="top">
-        <nav className="top-nav">
-          <Link className="top-link" href="/">
-            Queue
-          </Link>
-          <Link className="top-link" href="/sold">
-            Post a sale
-          </Link>
-          <Link className="top-link" href="/admin">
-            Settings
-          </Link>
-        </nav>
         <h1>Run history</h1>
         <div className="sub">
           {loadError
             ? "Could not load runs"
             : `${counts.created} created · ${counts.skipped} skipped · ${counts.failed} failed, last 7 days`}
         </div>
+        <Nav current="/runs" />
       </header>
 
       {loadError && <div className="banner">{loadError}</div>}

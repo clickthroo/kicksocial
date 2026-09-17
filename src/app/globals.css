@@ -163,11 +163,24 @@ button.reject { color: var(--danger); }
 .settings .actions .btn { flex: 0 0 auto; padding-left: 28px; padding-right: 28px; }
 header.top .sub a { color: var(--muted); text-decoration: none; }
 header.top .sub a:hover { color: var(--text); }
-.top-link { float: right; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; }
-.top-link:hover { color: var(--text); }
+/* Scrolls rather than wraps: five destinations do not fit a phone's width, and
+   a wrapped nav pushes the page content below the fold. */
+.nav {
+  display: flex; gap: 6px; margin: 11px -16px -4px; padding: 0 16px 2px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav-link {
+  flex: 0 0 auto; font-size: 13px; font-weight: 600; text-decoration: none;
+  color: var(--muted); padding: 6px 11px; border-radius: 999px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.nav-link:hover { color: var(--text); }
+.nav-link[aria-current="page"] {
+  color: var(--text); background: var(--surface-2); border-color: var(--border);
+}
 
 /* --- run history --- */
-.top-nav { float: right; display: flex; gap: 14px; }
 
 /* Status is carried by the word, not just the colour - the pill reads the same
    to anyone who cannot separate green from amber. */
@@ -217,3 +230,35 @@ header.top .sub a:hover { color: var(--text); }
 }
 .settings .row > label { display: flex; flex-direction: column; gap: 5px; }
 a.btn { display: block; text-decoration: none; }
+
+/* --- publish --- */
+h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted); margin: 26px 0 8px; }
+.section-note { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 14px; }
+
+.pub-row { padding: 12px 16px; border-top: 1px solid var(--border); }
+.pub-row.posted { opacity: 0.62; }
+.pub-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pub-platform { font-size: 14px; font-weight: 700; }
+.pub-tools { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 9px; }
+.pub-tools .link, .pub-row .link {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
+  background: none; border: none; padding: 0; cursor: pointer; text-decoration: none;
+}
+.pub-tools .link:hover { color: var(--text); }
+.pub-url {
+  font: inherit; font-size: 14px; width: 100%; margin-top: 9px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+}
+.btn.pub-mark { width: 100%; margin-top: 11px; font-size: 13px; padding: 9px; }
+
+.log-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 16px; border-top: 1px solid var(--border);
+}
+.log-row:first-child { border-top: none; }
+.log-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.log-headline { font-size: 14px; line-height: 1.35; }
+.log-meta { font-size: 12px; color: var(--muted); }
+.log-side { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }

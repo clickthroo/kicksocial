@@ -1,3 +1,4 @@
+import { Nav } from "../Nav.tsx";
 import Link from "next/link";
 import { engine } from "@/lib/engine/client.ts";
 import { listSellers, type SellerOption } from "@/lib/kickio/sellers.ts";
@@ -25,19 +26,9 @@ export default async function AdminPage() {
   return (
     <div className="wrap">
       <header className="top">
-        <nav className="top-nav">
-          <Link className="top-link" href="/">
-            Queue
-          </Link>
-          <Link className="top-link" href="/runs">
-            Runs
-          </Link>
-          <Link className="top-link" href="/sold">
-            Post a sale
-          </Link>
-        </nav>
         <h1>Settings</h1>
         <div className="sub">Changes take effect on the next run — no redeploy needed.</div>
+        <Nav current="/admin" />
       </header>
 
       {loadError && <div className="banner">{loadError}</div>}

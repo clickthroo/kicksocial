@@ -1,3 +1,4 @@
+import { Nav } from "../Nav.tsx";
 import Link from "next/link";
 import { SoldForm } from "./SoldForm.tsx";
 
@@ -9,16 +10,9 @@ export default function SoldPage() {
   return (
     <div className="wrap">
       <header className="top">
-        <nav className="top-nav">
-          <Link className="top-link" href="/">
-            Queue
-          </Link>
-          <Link className="top-link" href="/runs">
-            Runs
-          </Link>
-        </nav>
         <h1>Post a sale</h1>
         <div className="sub">One shirt, one post, for each network.</div>
+        <Nav current="/sold" />
       </header>
 
       <SoldForm />

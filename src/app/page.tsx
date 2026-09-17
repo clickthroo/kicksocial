@@ -1,3 +1,4 @@
+import { Nav } from "./Nav.tsx";
 import Link from "next/link";
 import { pendingDrafts } from "@/lib/run-recipe.ts";
 import { DraftCard } from "./DraftCard.tsx";
@@ -19,17 +20,6 @@ export default async function QueuePage() {
   return (
     <div className="wrap">
       <header className="top">
-        <nav className="top-nav">
-          <Link className="top-link" href="/runs">
-            Runs
-          </Link>
-          <Link className="top-link" href="/sold">
-            Post a sale
-          </Link>
-          <Link className="top-link" href="/admin">
-            Settings
-          </Link>
-        </nav>
         <h1>Approval queue</h1>
         <div className="sub">
           {loadError
@@ -38,6 +28,7 @@ export default async function QueuePage() {
               ? "Nothing waiting"
               : `${drafts.length} post${drafts.length === 1 ? "" : "s"} awaiting review`}
         </div>
+        <Nav current="/" />
       </header>
 
       {loadError && <div className="banner">{loadError}</div>}
@@ -46,6 +37,10 @@ export default async function QueuePage() {
         <div className="empty">
           <h2>All clear</h2>
           <p>New drafts appear here as recipes run.</p>
+          <p>
+            Already approved something? It is waiting in{" "}
+            <Link href="/publish">Publish</Link>.
+          </p>
         </div>
       )}
 

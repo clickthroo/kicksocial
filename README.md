@@ -25,7 +25,7 @@ start if the two URLs match.
 Kickio Supabase (read-only)          Engine Supabase (own project)
   listings                             recipes        - config per post type
   price_index_aggregates               post_drafts    - the approval queue
-  price_index_history                  publish_log    - what went out
+  price_index_history                  publish_log    - what went out, per platform
   teams                                recipe_runs    - why a day produced nothing
         │                                    ▲
         └──► recipe selects + verifies ──► Claude writes copy ──► draft
@@ -235,6 +235,33 @@ changed hands.
 The lookup is a separate step from generation: confirming the shirt first means a
 wrong link costs a database read rather than a Claude call and a draft to reject.
 
+### Approving is not publishing
+
+v1 posts by export: a person downloads the card and posts it. The engine cannot
+observe that happening, and must not pretend otherwise — so the two are separate
+states, and the person who posted confirms it.
+
+- **Approve** (`/`) means *cleared to post*. It does not send anything.
+- **Publish** (`/publish`) holds everything cleared but not yet out, with the
+  image and text for each network, and a per-platform confirmation.
+- A draft becomes `published` only once **every platform it carries copy for**
+  has been confirmed. Until then it stays `approved` and keeps showing up.
+
+The draft's status is **derived** from `publish_log` rather than tracked
+alongside it (`nextStatus()`), so the two cannot drift apart. Undoing a mark
+moves the draft back to `approved`. A rejected or unreviewed draft is never
+pulled into the flow by a stray log row, and a draft with no platforms is never
+called published — completeness over an empty list is vacuously true, which
+would put a post in the log that was never written.
+
+A partial unique index enforces one success per `(draft_id, platform)`, so a
+double tap updates the row it already wrote instead of claiming the post went out
+twice. `method` is `export` throughout; when a platform API is wired up it writes
+its own rows and none of this logic changes.
+
+Before this, approving was a dead end — the draft left the queue, nothing
+recorded where it went, and the rendered assets became unreachable.
+
 ### Why posts get suppressed
 
 Both published recipes discard data they could otherwise use:
@@ -325,6 +352,7 @@ signed number, so it never rests on colour alone.
 ## Not built yet
 
 - **TikTok video** — scripts are generated; the animated render is not built.
-- **Publishing** — v1 is export-only by design: download the PNG, copy the text.
-  `publish_log` exists; no platform API is wired up.
+- **Publishing via platform APIs** — v1 is export-only by design: download the
+  PNG, copy the text, confirm it on `/publish`. No platform API is wired up, so
+  nothing posts on its own.
 - **Featured Collector** — deferred, no data. See `docs/schema-findings.md`.
