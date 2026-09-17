@@ -40,13 +40,35 @@ Recipes run on a Vercel cron (`vercel.json`), or on demand via
 
 | Recipe | Cadence | Status |
 |---|---|---|
-| `grail_of_the_day` | Daily | Working — 1,633 eligible listings |
+| `grail_of_the_day` | Daily | Working — 400 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md` |
 
 Selection logic is code (each recipe queries a different shape of data and
 carries its own integrity rules). Thresholds, cadence, platforms and the copy
 brief are rows in the `recipes` table, editable without a redeploy.
+
+### What counts as a live listing
+
+`listings.status = 'active'` is **not** sufficient on its own. A listing can be
+active while:
+
+- `removed_at` is set — including `removed_reason = 'sold_detected'`, meaning it
+  already sold somewhere else
+- its linked product is still in Kickio's review queue (`products.status` is
+  `pending`, `rejected` or `archived` — 905 products are currently in one of
+  those states)
+- its product is soft-deleted
+- the stock checker has stopped finding it (`consecutive_gone_count > 0`)
+- it is reserved for a buyer mid-checkout
+
+Grail of the Day excludes all of these, both in the query and again in
+`isLive()` after fetching, so editing the query cannot silently drop a rule.
+That takes the pool from 409 to 400.
+
+Sold This Week applies the equivalent rule to sales: `review_state = 'approved'`
+with no `excluded_at` or `dismissed_at`, so figures never come from rows Kickio's
+own team rejected.
 
 ### Why posts get suppressed
 

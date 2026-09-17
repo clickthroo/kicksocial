@@ -2,8 +2,14 @@
  * Grail of the Day - the standout active listing.
  *
  * Honesty rules baked in:
- *  - Only `active`, in-stock, non-deleted listings with photography are eligible,
- *    so we never point followers at something they cannot buy.
+ *  - Only genuinely live listings are eligible. `listings.status = 'active'` is
+ *    NOT sufficient on its own: a listing can be active while `removed_at` is
+ *    set (including `removed_reason = 'sold_detected'`, i.e. already sold
+ *    elsewhere), while its linked product is still in Kickio's review queue
+ *    (`products.status` is pending/rejected/archived), or while it is reserved
+ *    for a buyer mid-checkout. Each of those is excluded below, so we never
+ *    point followers at something they cannot buy or that Kickio has not
+ *    itself approved.
  *  - Rarity is scored from attributes that are actually recorded on the listing
  *    (match issue, signed, special edition, condition, age). We never assert
  *    "rarest shirt on the site" - that is not something the data supports. The
@@ -30,6 +36,14 @@ interface ListingRow {
   manufacturer: string | null;
   images: unknown;
   created_at: string;
+  // Lifecycle state - a listing can be `active` and still not be sellable.
+  removed_at: string | null;
+  removed_reason: string | null;
+  consecutive_gone_count: number;
+  reserved_until: string | null;
+  last_stock_checked_at: string | null;
+  // Kickio's own review queue lives on the product, not the listing.
+  products: { status: string; deleted_at: string | null } | null;
 }
 
 export interface GrailConfig {
@@ -88,6 +102,22 @@ function vintagePoints(season: string | null): { points: number; decade: number 
   return { points: 0, decade };
 }
 
+/**
+ * Belt-and-braces eligibility check, mirroring the query filters. Applied to
+ * every fetched row so that if the query is ever edited and loses a condition,
+ * ineligible listings still cannot reach a post.
+ */
+export function isLive(listing: ListingRow, now = new Date()): boolean {
+  if (listing.removed_at !== null) return false;
+  if (listing.consecutive_gone_count > 0) return false;
+  if (listing.reserved_until !== null && new Date(listing.reserved_until) > now) return false;
+  const product = listing.products;
+  if (!product) return false;
+  if (product.status !== "active") return false;
+  if (product.deleted_at !== null) return false;
+  return true;
+}
+
 function imageUrls(images: unknown): string[] {
   if (!Array.isArray(images)) return [];
   return images
@@ -132,11 +162,20 @@ export async function runGrailOfTheDay(
     .from("listings")
     .select(
       "id,title,price_cents,currency,team,season,shirt_type,condition,issue,signed," +
-        "special_edition,boxed_edition,player_name,manufacturer,images,created_at",
+        "special_edition,boxed_edition,player_name,manufacturer,images,created_at," +
+        "removed_at,removed_reason,consecutive_gone_count,reserved_until," +
+        "last_stock_checked_at,products!inner(status,deleted_at)",
     )
     .eq("status", "active")
     .is("deleted_at", null)
     .gt("stock_quantity", 0)
+    // Not withdrawn, and not already sold somewhere else.
+    .is("removed_at", null)
+    // The stock checker has not seen it disappear from its source.
+    .eq("consecutive_gone_count", 0)
+    // Through Kickio's own product review, and not archived or rejected.
+    .eq("products.status", "active")
+    .is("products.deleted_at", null)
     .gte("price_cents", config.minPriceCents)
     .order("price_cents", { ascending: false })
     .limit(config.poolSize);
@@ -144,12 +183,16 @@ export async function runGrailOfTheDay(
   if (error) return { ok: false, reason: `Kickio query failed: ${error.message}` };
 
   const listings = (data ?? []) as unknown as ListingRow[];
-  const withPhotos = listings.filter((l) => imageUrls(l.images).length > 0);
+  const live = listings.filter((l) => isLive(l));
+  const withPhotos = live.filter((l) => imageUrls(l.images).length > 0);
   if (withPhotos.length === 0) {
     return {
       ok: false,
-      reason: "No eligible active listings with photography",
-      diagnostics: { fetched: listings.length },
+      reason: "No eligible live listings with photography",
+      diagnostics: {
+        fetched: listings.length,
+        rejectedAsNotLive: listings.length - live.length,
+      },
     };
   }
 
@@ -214,6 +257,7 @@ export async function runGrailOfTheDay(
       special_edition: listing.special_edition,
       player_name: listing.player_name,
       manufacturer: listing.manufacturer,
+      last_stock_checked_at: listing.last_stock_checked_at,
       rarity_signals: signals,
       rarity_score: Math.round(winner.score),
       runners_up: ranked.slice(1, 4).map((r) => ({
