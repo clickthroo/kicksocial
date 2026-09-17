@@ -7,6 +7,12 @@ import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
 const X_LIMIT = 280;
 
+/** The originating store page, so a reviewer can verify the item is still live. */
+function sourceUrl(sourceData: Record<string, unknown>): string | null {
+  const url = sourceData.source_url;
+  return typeof url === "string" && url.startsWith("http") ? url : null;
+}
+
 /** Instagram is the 4:5 portrait crop; X is 16:9. */
 function renderUrl(id: string, format: "ig" | "x"): string {
   return `/api/render/${id}?format=${format}`;
@@ -134,6 +140,14 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         <summary>Source data</summary>
         <pre className="raw">{JSON.stringify(draft.source_data, null, 2)}</pre>
       </details>
+
+      {sourceUrl(draft.source_data) && (
+        <div className="verify">
+          <a href={sourceUrl(draft.source_data)!} target="_blank" rel="noopener noreferrer">
+            Open listing to check it&rsquo;s still live &rarr;
+          </a>
+        </div>
+      )}
 
       <div className="export">
         <a className="link" href={renderUrl(draft.id, "ig")} download={`${draft.recipe_key}-ig.png`}>

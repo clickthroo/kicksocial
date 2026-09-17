@@ -40,7 +40,7 @@ Recipes run on a Vercel cron (`vercel.json`), or on demand via
 
 | Recipe | Cadence | Status |
 |---|---|---|
-| `grail_of_the_day` | Daily | Working — 400 eligible listings |
+| `grail_of_the_day` | Daily | Working — 157 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md` |
 
@@ -60,11 +60,23 @@ active while:
   those states)
 - its product is soft-deleted
 - the stock checker has stopped finding it (`consecutive_gone_count > 0`)
+- **it has never been stock-checked at all.** `consecutive_gone_count = 0` is
+  also the default for a listing nobody has verified, so it is not evidence of
+  being in stock. A listing must have `last_stock_checked_at` within 7 days.
 - it is reserved for a buyer mid-checkout
 
 Grail of the Day excludes all of these, both in the query and again in
 `isLive()` after fetching, so editing the query cannot silently drop a rule.
-That takes the pool from 409 to 400.
+That takes the pool from 409 to 157.
+
+The stock-check rule also, in effect, excludes scraped partner listings: of the
+400 that pass every other test, **all 121 partner listings have never been
+stock-checked and all 157 verified ones are Kickio's own**. There is nothing in
+between. If partner inventory should be featured, it needs a verification
+signal first — do not simply relax this rule.
+
+Each draft carries `source_url`, surfaced in the dashboard as a link, so a
+reviewer can open the listing and confirm it before approving.
 
 Sold This Week applies the equivalent rule to sales: `review_state = 'approved'`
 with no `excluded_at` or `dismissed_at`, so figures never come from rows Kickio's

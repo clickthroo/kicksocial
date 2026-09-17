@@ -26,7 +26,9 @@ function live(overrides: Record<string, unknown> = {}) {
     consecutive_gone_count: 0,
     reserved_until: null,
     last_stock_checked_at: "2026-09-16T00:00:00Z",
-    products: { status: "active", deleted_at: null },
+    is_partner_listing: false,
+    source_url: "https://example.com/listing",
+    products: { status: "active", deleted_at: null, slug: "arsenal-1993-94-away" },
     ...overrides,
   } as Parameters<typeof isLive>[0];
 }
@@ -55,7 +57,7 @@ describe("live-listing eligibility", () => {
   test("rejects a product still in Kickio's review queue", () => {
     for (const status of ["pending", "rejected", "archived"]) {
       assert.equal(
-        isLive(live({ products: { status, deleted_at: null } })),
+        isLive(live({ products: { status, deleted_at: null, slug: "s" } })),
         false,
         `product status '${status}' must not be featured`,
       );
@@ -64,7 +66,7 @@ describe("live-listing eligibility", () => {
 
   test("rejects a soft-deleted product", () => {
     assert.equal(
-      isLive(live({ products: { status: "active", deleted_at: "2026-09-10T00:00:00Z" } })),
+      isLive(live({ products: { status: "active", deleted_at: "2026-09-10T00:00:00Z", slug: "s" } })),
       false,
     );
   });
@@ -75,16 +77,39 @@ describe("live-listing eligibility", () => {
 
   test("rejects one reserved for a buyer mid-checkout", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    assert.equal(isLive(live({ reserved_until: "2026-09-16T12:30:00Z" }), now), false);
+    assert.equal(isLive(live({ reserved_until: "2026-09-16T12:30:00Z" }), 7, now), false);
   });
 
   test("accepts one whose reservation has lapsed", () => {
     const now = new Date("2026-09-16T12:00:00Z");
-    assert.equal(isLive(live({ reserved_until: "2026-09-16T11:00:00Z" }), now), true);
+    assert.equal(isLive(live({ reserved_until: "2026-09-16T11:00:00Z" }), 7, now), true);
   });
 
   test("rejects a listing with no linked product at all", () => {
     assert.equal(isLive(live({ products: null })), false);
+  });
+
+  test("rejects one never confirmed in stock, despite a clean gone-count", () => {
+    // The trap: consecutive_gone_count = 0 is also the value for a listing that
+    // has never been checked. Every scraped partner listing looks like this -
+    // one reached a real draft before this rule existed.
+    assert.equal(
+      isLive(live({ last_stock_checked_at: null, consecutive_gone_count: 0 })),
+      false,
+    );
+  });
+
+  test("rejects one whose stock check has gone stale", () => {
+    const now = new Date("2026-09-16T12:00:00Z");
+    assert.equal(isLive(live({ last_stock_checked_at: "2026-09-01T00:00:00Z" }), 7, now), false);
+    assert.equal(isLive(live({ last_stock_checked_at: "2026-09-14T00:00:00Z" }), 7, now), true);
+  });
+
+  test("the staleness window is configurable", () => {
+    const now = new Date("2026-09-16T12:00:00Z");
+    const twelveDaysOld = live({ last_stock_checked_at: "2026-09-04T00:00:00Z" });
+    assert.equal(isLive(twelveDaysOld, 7, now), false);
+    assert.equal(isLive(twelveDaysOld, 30, now), true);
   });
 });
 

@@ -134,3 +134,7 @@ button.reject { color: var(--danger); }
   background: none; border: none; padding: 0; cursor: pointer; text-decoration: none;
 }
 .export .link:hover { color: var(--text); }
+
+.verify { padding: 10px 16px; border-top: 1px solid var(--border); }
+.verify a { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.verify a:hover { text-decoration: underline; }

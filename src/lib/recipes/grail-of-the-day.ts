@@ -7,7 +7,11 @@
  *    set (including `removed_reason = 'sold_detected'`, i.e. already sold
  *    elsewhere), while its linked product is still in Kickio's review queue
  *    (`products.status` is pending/rejected/archived), or while it is reserved
- *    for a buyer mid-checkout. Each of those is excluded below, so we never
+ *    for a buyer mid-checkout. It must also have been positively confirmed in
+ *    stock recently: `consecutive_gone_count = 0` is the value for a listing
+ *    that has never been checked at all, so it is not evidence of anything on
+ *    its own. In practice this also excludes scraped partner listings, none of
+ *    which carry a stock check. Each of those is excluded below, so we never
  *    point followers at something they cannot buy or that Kickio has not
  *    itself approved.
  *  - Rarity is scored from attributes that are actually recorded on the listing
@@ -42,8 +46,11 @@ interface ListingRow {
   consecutive_gone_count: number;
   reserved_until: string | null;
   last_stock_checked_at: string | null;
+  is_partner_listing: boolean;
+  /** The originating store page - the reference an admin can open to verify. */
+  source_url: string | null;
   // Kickio's own review queue lives on the product, not the listing.
-  products: { status: string; deleted_at: string | null } | null;
+  products: { status: string; deleted_at: string | null; slug: string | null } | null;
 }
 
 export interface GrailConfig {
@@ -53,12 +60,19 @@ export interface GrailConfig {
   poolSize: number;
   /** Don't re-feature the same listing within this many days. */
   cooldownDays: number;
+  /**
+   * A listing must have been confirmed in stock within this many days.
+   * `consecutive_gone_count = 0` alone is NOT evidence of being in stock - it is
+   * also the value for a listing that has never been checked.
+   */
+  maxStockCheckAgeDays: number;
 }
 
 export const DEFAULT_GRAIL_CONFIG: GrailConfig = {
   minPriceCents: 15_000,
   poolSize: 40,
   cooldownDays: 45,
+  maxStockCheckAgeDays: 7,
 };
 
 /** Attribute values that genuinely signal scarcity, with why they count. */
@@ -107,9 +121,19 @@ function vintagePoints(season: string | null): { points: number; decade: number 
  * every fetched row so that if the query is ever edited and loses a condition,
  * ineligible listings still cannot reach a post.
  */
-export function isLive(listing: ListingRow, now = new Date()): boolean {
+export function isLive(
+  listing: ListingRow,
+  maxStockCheckAgeDays = DEFAULT_GRAIL_CONFIG.maxStockCheckAgeDays,
+  now = new Date(),
+): boolean {
   if (listing.removed_at !== null) return false;
   if (listing.consecutive_gone_count > 0) return false;
+  // Positively verified in stock recently. A null check date means Kickio has
+  // never confirmed this listing exists at its source - which is the case for
+  // every scraped partner listing - so absence of failure is not evidence.
+  if (listing.last_stock_checked_at === null) return false;
+  const checkedAgeMs = now.getTime() - new Date(listing.last_stock_checked_at).getTime();
+  if (checkedAgeMs > maxStockCheckAgeDays * 86_400_000) return false;
   if (listing.reserved_until !== null && new Date(listing.reserved_until) > now) return false;
   const product = listing.products;
   if (!product) return false;
@@ -164,15 +188,23 @@ export async function runGrailOfTheDay(
       "id,title,price_cents,currency,team,season,shirt_type,condition,issue,signed," +
         "special_edition,boxed_edition,player_name,manufacturer,images,created_at," +
         "removed_at,removed_reason,consecutive_gone_count,reserved_until," +
-        "last_stock_checked_at,products!inner(status,deleted_at)",
+        "last_stock_checked_at,is_partner_listing,source_url," +
+        "products!inner(status,deleted_at,slug)",
     )
     .eq("status", "active")
     .is("deleted_at", null)
     .gt("stock_quantity", 0)
     // Not withdrawn, and not already sold somewhere else.
     .is("removed_at", null)
-    // The stock checker has not seen it disappear from its source.
+    // The stock checker has not seen it disappear from its source...
     .eq("consecutive_gone_count", 0)
+    // ...and has positively confirmed it recently. Without this, never-checked
+    // listings look identical to verified ones.
+    .not("last_stock_checked_at", "is", null)
+    .gte(
+      "last_stock_checked_at",
+      new Date(Date.now() - config.maxStockCheckAgeDays * 86_400_000).toISOString(),
+    )
     // Through Kickio's own product review, and not archived or rejected.
     .eq("products.status", "active")
     .is("products.deleted_at", null)
@@ -183,7 +215,7 @@ export async function runGrailOfTheDay(
   if (error) return { ok: false, reason: `Kickio query failed: ${error.message}` };
 
   const listings = (data ?? []) as unknown as ListingRow[];
-  const live = listings.filter((l) => isLive(l));
+  const live = listings.filter((l) => isLive(l, config.maxStockCheckAgeDays));
   const withPhotos = live.filter((l) => imageUrls(l.images).length > 0);
   if (withPhotos.length === 0) {
     return {
@@ -257,6 +289,10 @@ export async function runGrailOfTheDay(
       special_edition: listing.special_edition,
       player_name: listing.player_name,
       manufacturer: listing.manufacturer,
+      // Shown in the dashboard so a reviewer can open the listing and verify it.
+      source_url: listing.source_url,
+      product_slug: listing.products?.slug ?? null,
+      is_partner_listing: listing.is_partner_listing,
       last_stock_checked_at: listing.last_stock_checked_at,
       rarity_signals: signals,
       rarity_score: Math.round(winner.score),
