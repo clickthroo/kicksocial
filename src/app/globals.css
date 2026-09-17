@@ -336,3 +336,26 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 .settings .row > label.check, .settings .row > label.toggle {
   flex-direction: row; align-items: center; gap: 9px;
 }
+
+/* --- club archive queue --- */
+ol.queue { list-style: none; margin: 4px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+ol.queue li {
+  display: flex; align-items: center; gap: 10px; font-size: 14px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 11px;
+}
+.queue-pos {
+  flex: 0 0 auto; width: 20px; height: 20px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; background: var(--accent); color: var(--accent-ink);
+}
+.queue-name { flex: 1; min-width: 0; }
+ol.queue .link {
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
+  background: none; border: none; padding: 0; cursor: pointer;
+}
+ol.queue .link:hover { color: var(--danger); }
+.queue-empty { margin-top: 4px; }
+.queue-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.queue-add select { flex: 1; min-width: 0; }
+.queue-add .btn { flex: 0 0 auto; padding: 9px 18px; font-size: 13px; }

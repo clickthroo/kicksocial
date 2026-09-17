@@ -294,11 +294,27 @@ Two data traps it works around:
 A club also has to *span* something: 20 shirts from three seasons is a shelf, not
 an archive, so `minSpanYears` (15) rejects it rather than calling it one.
 
-**The club can be pinned in Settings.** Left on automatic, the deepest club not
-on cooldown is chosen. Pick one and it runs for that club, cooldown or not — an
-admin asking for Arsenal is asking for Arsenal, not for a reminder that Arsenal
-ran in June. It does **not** bypass the depth and span checks, so a thin choice
-is refused by name rather than turned into a thin post.
+**Clubs are queued in Settings — a running order, not a setting.** Each run takes
+the club at the head and removes it *once the draft exists*; an empty queue means
+the deepest available club is chosen automatically.
+
+That distinction is the whole design. The first version was a single pinned
+`team` that stayed where it was put, which meant choosing Arsenal once posted
+Arsenal every week thereafter. A stored choice that outlives the post it was made
+for is exactly how a feed starts repeating itself. Consuming the entry on publish
+— and only on publish, so a failed generation does not eat it — makes the choice
+an override rather than a policy.
+
+The list offers clubs **not posted in six months**, ranked by shirt count, with
+the recent ones shown greyed and dated rather than hidden: an admin should be
+able to see that Arsenal ran two months ago, not wonder where it went. Picking a
+greyed club is blocked, because the run would only refuse itself and lose the
+week.
+
+The counts in that list are recounted from `products`, never read off
+`teams.listings_count`, and the query **pages explicitly** — PostgREST caps a
+response at a server-configured row count, so a single large `.limit()` silently
+returns a prefix and every count comes out short.
 
 ### Market Index, and why it refuses
 

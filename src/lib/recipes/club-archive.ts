@@ -57,14 +57,20 @@ export interface ClubArchiveConfig {
   /** A club should not come round again for a long while. */
   cooldownDays: number;
   /**
-   * Pin the post to one club. Empty means "whichever has the most depth".
+   * Clubs queued by an admin, in order. The head is used and then removed.
    *
-   * A pinned club bypasses the cooldown - an admin asking for Arsenal is asking
-   * for Arsenal, not for a reminder that Arsenal ran in June - but it does NOT
-   * bypass the quality gates. A club without the depth is refused by name, so
-   * the answer is a clear no rather than a thin post.
+   * A RUNNING ORDER, NOT A SETTING. The first version of this was a single
+   * pinned `team` that stayed put, which meant choosing Arsenal once posted
+   * Arsenal every week thereafter - a setting that outlives the post it was
+   * made for is exactly how a feed starts repeating itself. Entries are
+   * consumed on publish (see RecipeCandidate.consumeFromQueue), so the queue
+   * drains and automatic selection resumes on its own.
+   *
+   * The cooldown still applies. Settings only offers clubs that are off
+   * cooldown, so the two cannot normally conflict; if one gets in anyway, the
+   * run says so rather than repeating a club.
    */
-  team?: string | null;
+  upNext?: string[];
 }
 
 export const DEFAULT_CLUB_ARCHIVE_CONFIG: ClubArchiveConfig = {
@@ -73,8 +79,9 @@ export const DEFAULT_CLUB_ARCHIVE_CONFIG: ClubArchiveConfig = {
   minPhotos: 6,
   gridSize: 9,
   shortlistSize: 14,
-  cooldownDays: 120,
-  team: null,
+  // Six months: long enough that a club does not come round twice in a season.
+  cooldownDays: 180,
+  upNext: [],
 };
 
 /** Seasons are text ("1990-91"); `season_end_year` is null on every row. */
@@ -178,11 +185,12 @@ export function qualifies(summary: ClubSummary, config: ClubArchiveConfig): Club
 export async function runClubArchive(
   config: ClubArchiveConfig = DEFAULT_CLUB_ARCHIVE_CONFIG,
 ): Promise<RecipeResult> {
-  const pinned = config.team?.trim() || null;
+  const queue = (config.upNext ?? []).map((t) => t.trim()).filter(Boolean);
+  const queued = queue[0] ?? null;
   let names: string[];
 
-  if (pinned) {
-    names = [pinned];
+  if (queued) {
+    names = [queued];
   } else {
     // Cheap shortlist. teams.listings_count disagrees with the real product
     // count, so it is used only to decide who is worth counting properly.
@@ -226,17 +234,19 @@ export async function runClubArchive(
   const rejected: Array<{ key: string; reason: string }> = [];
   const eligible: ClubSummary[] = [];
 
-  if (pinned && byTeam.size === 0) {
+  if (queued && byTeam.size === 0) {
     return {
       ok: false,
-      reason: `No active products on Kickio for "${pinned}". Check the club's name matches Kickio's.`,
-      diagnostics: { pinned },
+      reason: `No active products on Kickio for "${queued}". Check the club's name matches Kickio's.`,
+      diagnostics: { queued, queue },
     };
   }
 
   for (const [team, products] of byTeam) {
-    // A pinned club was asked for by name; the cooldown is for the rotation.
-    if (!pinned && seen.has(subjectRefFor(team))) {
+    // Applies to queued clubs too. Settings only offers clubs that are off
+    // cooldown, so this only fires if one was forced in - and repeating a club
+    // is the thing this whole mechanism exists to prevent.
+    if (seen.has(subjectRefFor(team))) {
       rejected.push({ key: team, reason: `covered within the last ${config.cooldownDays} days` });
       continue;
     }
@@ -253,10 +263,10 @@ export async function runClubArchive(
   if (eligible.length === 0) {
     return {
       ok: false,
-      reason: pinned
-        ? `${pinned} does not have the depth for a retrospective: ${rejected[0]?.reason ?? "no qualifying products"}`
+      reason: queued
+        ? `${queued} is queued but cannot run: ${rejected[0]?.reason ?? "no qualifying products"}`
         : "No club has enough depth on Kickio for a retrospective right now",
-      diagnostics: { pinned, shortlisted: names.length, rejected },
+      diagnostics: { queued, queue, shortlisted: names.length, rejected },
     };
   }
 
@@ -301,6 +311,8 @@ export async function runClubArchive(
       },
       claims,
       images: winner.photos,
+      // Drains the queue, so a choice made once does not become policy.
+      ...(queued ? { consumeFromQueue: queued } : {}),
     },
   };
 }

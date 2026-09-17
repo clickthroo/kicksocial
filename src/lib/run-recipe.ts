@@ -133,12 +133,49 @@ export async function runRecipe(
   const draftId = (data as { id: string }).id;
   await record("created", { draft_id: draftId });
 
+  // Only after the draft exists. A queue entry consumed before the post it was
+  // for would be lost to a generation failure.
+  if (candidate.consumeFromQueue) {
+    await consumeQueueEntry(key, config?.selection ?? {}, candidate.consumeFromQueue);
+  }
+
   return {
     recipeKey: key,
     status: "created",
     draftId,
     headline: candidate.headline,
   };
+}
+
+/**
+ * Drop one entry from a recipe's `selection.upNext`.
+ *
+ * Re-reads the row rather than writing back the copy loaded at the start of the
+ * run: a run can take a minute, and an admin editing the queue meanwhile should
+ * not have their change reverted by a stale write.
+ */
+async function consumeQueueEntry(
+  key: string,
+  fallback: Record<string, unknown>,
+  entry: string,
+): Promise<void> {
+  const { data, error } = await engine()
+    .from("recipes")
+    .select("selection")
+    .eq("key", key)
+    .maybeSingle();
+  if (error) return;
+
+  const selection = ((data as { selection: Record<string, unknown> } | null)?.selection ??
+    fallback) as Record<string, unknown>;
+  const queue = Array.isArray(selection.upNext) ? (selection.upNext as unknown[]) : [];
+  const next = queue.filter((q) => typeof q === "string" && q !== entry);
+  if (next.length === queue.length) return;
+
+  await engine()
+    .from("recipes")
+    .update({ selection: { ...selection, upNext: next }, updated_at: new Date().toISOString() })
+    .eq("key", key);
 }
 
 /**

@@ -60,6 +60,16 @@ export interface RecipeCandidate {
   claims: Claim[];
   /** Photography to composite into the card, best first. */
   images: string[];
+  /**
+   * An entry to remove from this recipe's `selection.upNext` once a draft is
+   * successfully created.
+   *
+   * The queue is a running order, not a setting: a stored choice that survives
+   * the post it was made for is how a recipe ends up publishing the same
+   * subject every week. Consumed by run-recipe after the insert, so a failed
+   * generation leaves the queue intact and the entry comes round again.
+   */
+  consumeFromQueue?: string;
 }
 
 export type RecipeResult =

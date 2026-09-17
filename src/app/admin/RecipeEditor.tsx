@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { saveRecipe } from "./actions.ts";
-import type { SellerOption, TeamOption } from "@/lib/kickio/sellers.ts";
+import type { SellerOption } from "@/lib/kickio/sellers.ts";
+import type { ArchiveTeamOption } from "@/lib/recipes/archive-options.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 
 export interface RecipeRow {
@@ -13,6 +14,16 @@ export interface RecipeRow {
   cadence: string;
   selection: Record<string, unknown>;
   prompt_template: string;
+}
+
+/** "3 months ago" / "yesterday" - enough to judge whether a club is due again. */
+function monthsAgo(iso: string | null): string {
+  if (!iso) return "recently";
+  const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days < 1) return "today";
+  if (days < 2) return "yesterday";
+  if (days < 45) return `${days} days ago`;
+  return `${Math.round(days / 30)} months ago`;
 }
 
 function num(selection: Record<string, unknown>, key: string, fallback: number): number {
@@ -27,7 +38,7 @@ export function RecipeEditor({
 }: {
   recipe: RecipeRow;
   sellers: SellerOption[];
-  teams: TeamOption[];
+  teams: ArchiveTeamOption[];
 }) {
   const [enabled, setEnabled] = useState(recipe.enabled);
   const [brief, setBrief] = useState(recipe.prompt_template);
@@ -44,9 +55,12 @@ export function RecipeEditor({
       : [],
   );
   const [style, setStyle] = useState<CardStyle>(asCardStyle(recipe.selection.style));
-  const [team, setTeam] = useState(
-    typeof recipe.selection.team === "string" ? recipe.selection.team : "",
+  const [upNext, setUpNext] = useState<string[]>(
+    Array.isArray(recipe.selection.upNext)
+      ? (recipe.selection.upNext as string[]).filter((t) => typeof t === "string")
+      : [],
   );
+  const [picking, setPicking] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -60,6 +74,7 @@ export function RecipeEditor({
   // Only the sale card has style variants so far.
   const hasStyles = recipe.key === "grail_sale";
   const picksClub = recipe.key === "club_archive";
+  const cooldownDays = num(recipe.selection, "cooldownDays", 180);
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -78,7 +93,7 @@ export function RecipeEditor({
               ? { minPriceCents: Math.round(minPrice * 100), cooldownDays: cooldown }
               : {}),
             ...(hasStyles ? { style } : {}),
-            ...(picksClub ? { team: team || null } : {}),
+            ...(picksClub ? { upNext } : {}),
             ...(isListingRecipe
               ? {
                 maxStockCheckAgeDays: stockAge,
@@ -226,23 +241,71 @@ export function RecipeEditor({
 
       {picksClub && (
         <div className="row">
-          <label>
-            <span className="field-label">Club</span>
-            <p className="hint">
-              Leave on automatic and the deepest club that is not on cooldown is chosen.
-              Pick one and it runs for that club, cooldown or not — but it still has to
-              clear the depth and span checks, so a thin choice is refused by name
-              rather than turned into a thin post.
+          <div className="field-label">Up next</div>
+          <p className="hint">
+            A running order, not a setting. Each run takes the club at the top and
+            removes it once the draft exists, so a choice made once does not become
+            every week. When the list is empty the deepest available club is chosen
+            automatically.
+          </p>
+
+          {upNext.length > 0 ? (
+            <ol className="queue">
+              {upNext.map((name, i) => (
+                <li key={`${name}-${i}`}>
+                  <span className="queue-pos">{i + 1}</span>
+                  <span className="queue-name">{name}</span>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => setUpNext(upNext.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="hint queue-empty">
+              Nothing queued — the next run picks the deepest club that has not been
+              posted in {Math.round(cooldownDays / 30)} months.
             </p>
-            <select value={team} onChange={(e) => setTeam(e.target.value)}>
-              <option value="">Automatic — deepest club available</option>
+          )}
+
+          <div className="queue-add">
+            <select value={picking} onChange={(e) => setPicking(e.target.value)}>
+              <option value="">Add a club…</option>
               {teams.map((option) => (
-                <option key={option.name} value={option.name}>
-                  {option.name} ({option.listings} listings)
+                <option
+                  key={option.name}
+                  value={option.name}
+                  disabled={!option.available || upNext.includes(option.name)}
+                >
+                  {option.name} — {option.shirts} shirts
+                  {option.earliest && option.latest ? `, ${option.earliest}–${option.latest}` : ""}
+                  {option.available
+                    ? ""
+                    : ` (posted ${monthsAgo(option.lastPostedAt)})`}
+                  {upNext.includes(option.name) ? " (queued)" : ""}
                 </option>
               ))}
             </select>
-          </label>
+            <button
+              type="button"
+              className="btn"
+              disabled={!picking}
+              onClick={() => {
+                if (picking && !upNext.includes(picking)) setUpNext([...upNext, picking]);
+                setPicking("");
+              }}
+            >
+              Add
+            </button>
+          </div>
+          <p className="hint">
+            Clubs posted in the last {Math.round(cooldownDays / 30)} months are listed but
+            cannot be chosen — picking one would only produce a run that refuses itself.
+          </p>
         </div>
       )}
 
