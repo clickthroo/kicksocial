@@ -70,6 +70,11 @@ export function RecipeEditor({
   const isListingRecipe = recipe.key === "grail_of_the_day";
   // Grail Sale selects nothing - an admin names the shirt and types the price -
   // so a price floor and a cooldown would be controls that do nothing.
+  // A control that does nothing is worse than no control: it invites someone to
+  // set a price floor on Club Archive and wonder why nothing changed. Only
+  // these two recipes read minPriceCents; the cooldown is used by everything
+  // except Grail Sale, which selects nothing.
+  const usesPriceFloor = recipe.key === "grail_of_the_day" || recipe.key === "sold_this_week";
   const selectsCandidates = recipe.key !== "grail_sale";
   // Only the sale card has style variants so far.
   const hasStyles = recipe.key === "grail_sale";
@@ -89,9 +94,8 @@ export function RecipeEditor({
           prompt_template: brief,
           selection: {
             ...recipe.selection,
-            ...(selectsCandidates
-              ? { minPriceCents: Math.round(minPrice * 100), cooldownDays: cooldown }
-              : {}),
+            ...(usesPriceFloor ? { minPriceCents: Math.round(minPrice * 100) } : {}),
+            ...(selectsCandidates ? { cooldownDays: cooldown } : {}),
             ...(hasStyles ? { style } : {}),
             ...(picksClub ? { upNext } : {}),
             ...(isListingRecipe
@@ -147,18 +151,24 @@ export function RecipeEditor({
 
       {selectsCandidates && (
       <div className="row grid">
-        <label>
-          <span className="field-label">Minimum price (£)</span>
-          <input
-            type="number"
-            min={0}
-            value={minPrice}
-            onChange={(e) => setMinPrice(Number(e.target.value))}
-          />
-        </label>
+        {usesPriceFloor && (
+          <label>
+            <span className="field-label">Minimum price (£)</span>
+            <input
+              type="number"
+              min={0}
+              value={minPrice}
+              onChange={(e) => setMinPrice(Number(e.target.value))}
+            />
+          </label>
+        )}
         <label>
           <span className="field-label">
-            {isListingRecipe ? "Same shirt again after (days)" : "Cooldown (days)"}
+            {isListingRecipe
+              ? "Same shirt again after (days)"
+              : picksClub
+                ? "Same club again after (days)"
+                : "Cooldown (days)"}
           </span>
           <input
             type="number"

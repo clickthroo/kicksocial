@@ -11,28 +11,45 @@ import { loadBrand, DEFAULT_BRAND, type Brand } from "@/lib/brand/settings.ts";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  let recipes: RecipeRow[] = [];
-  let sellers: SellerOption[] = [];
-  let teams: ArchiveTeamOption[] = [];
-  let brand: Brand = DEFAULT_BRAND;
-  let loadError: string | null = null;
-
-  try {
-    const { data, error } = await engine()
+  // Loaded independently, and in parallel. These came from four different
+  // places behind one try/catch, which meant a blip fetching sellers from
+  // Kickio left the club list silently empty AND made saved branding look
+  // reset - one slow external read taking out three unrelated panels, with
+  // nothing on screen to say which had failed.
+  const [recipeResult, sellerResult, teamResult, brandResult] = await Promise.allSettled([
+    engine()
       .from("recipes")
       .select("key,name,description,enabled,cadence,selection,prompt_template")
-      .order("key");
-    if (error) throw new Error(error.message);
-    recipes = (data ?? []) as RecipeRow[];
-    sellers = await listSellers();
-    teams = await archiveTeamOptions(
+      .order("key")
+      .then(({ data, error }) => {
+        if (error) throw new Error(error.message);
+        return (data ?? []) as RecipeRow[];
+      }),
+    listSellers(),
+    archiveTeamOptions(
       DEFAULT_CLUB_ARCHIVE_CONFIG.cooldownDays,
       DEFAULT_CLUB_ARCHIVE_CONFIG.minShirts,
-    );
-    brand = await loadBrand();
-  } catch (err) {
-    loadError = (err as Error).message;
-  }
+    ),
+    loadBrand(),
+  ]);
+
+  const recipes: RecipeRow[] = recipeResult.status === "fulfilled" ? recipeResult.value : [];
+  const sellers: SellerOption[] = sellerResult.status === "fulfilled" ? sellerResult.value : [];
+  const teams: ArchiveTeamOption[] = teamResult.status === "fulfilled" ? teamResult.value : [];
+  const brand: Brand = brandResult.status === "fulfilled" ? brandResult.value : DEFAULT_BRAND;
+
+  // Name what is missing. An empty club list with no explanation reads as "there
+  // are no clubs", which is a different and much more alarming thing.
+  const failures = [
+    ["Recipes", recipeResult],
+    ["Seller list", sellerResult],
+    ["Club list", teamResult],
+    ["Branding", brandResult],
+  ] as const;
+  const loadError = failures
+    .filter(([, r]) => r.status === "rejected")
+    .map(([label, r]) => `${label}: ${(r as PromiseRejectedResult).reason?.message ?? "failed to load"}`)
+    .join(" · ") || null;
 
   return (
     <div className="wrap">
