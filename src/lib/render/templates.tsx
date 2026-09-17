@@ -88,7 +88,7 @@ function GrailCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
 
   return (
     <Frame format={format}>
-      {photo && (
+      {photo ? (
         <img
           src={photo}
           alt=""
@@ -103,6 +103,28 @@ function GrailCard({ draft, format }: { draft: PostDraft; format: FormatKey }) {
             objectFit: "cover",
           }}
         />
+      ) : (
+        /* Recipes only produce drafts with renderable photography, so this is a
+           fault, not a layout state. Say so plainly rather than shipping a card
+           that merely looks dark. */
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: FORMATS[format].width,
+            height: FORMATS[format].height,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "#2a1416",
+            color: "#f2565a",
+            fontSize: 34,
+            fontWeight: 700,
+          }}
+        >
+          No renderable photo — do not post
+        </div>
       )}
       {/* Scrim: keeps type legible over any photograph. */}
       <div

@@ -4,6 +4,7 @@ import {
   isLive,
   scoreListing,
   kickioUrl,
+  imageUrls,
   DEFAULT_GRAIL_CONFIG,
   KICKIO_DIRECT_SELLER,
   APPROVED_PARTNER_SELLER,
@@ -293,5 +294,44 @@ describe("attribute vocabulary, against real Kickio values", () => {
   test("nulls and blanks are silent, not unknown", () => {
     const scored = scoreListing(live({ special_edition: null, boxed_edition: "  " }));
     assert.deepEqual(scored.unknown, []);
+  });
+});
+
+describe("renderable photography", () => {
+  const SB = "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images";
+
+  test("drops WebP, which the card renderer cannot decode", () => {
+    // A WebP source renders as an empty frame with no error - a draft reached
+    // review with no shirt in it. 533 listings are WebP-only.
+    assert.deepEqual(imageUrls([`${SB}/scraped/ebay/389186049708/0.webp`]), []);
+  });
+
+  test("keeps jpg, jpeg and png, in the listing's own order", () => {
+    const urls = [`${SB}/a.png`, `${SB}/b.jpg`, `${SB}/c.jpeg`];
+    assert.deepEqual(imageUrls(urls), urls);
+  });
+
+  test("prefers a renderable image when the array mixes formats", () => {
+    assert.deepEqual(
+      imageUrls([`${SB}/0.webp`, `${SB}/1.jpg`, `${SB}/2.webp`]),
+      [`${SB}/1.jpg`],
+    );
+  });
+
+  test("tolerates a query string after the extension", () => {
+    assert.deepEqual(imageUrls([`${SB}/a.jpg?width=800`]), [`${SB}/a.jpg?width=800`]);
+  });
+
+  test("accepts objects with a url field, as well as bare strings", () => {
+    assert.deepEqual(imageUrls([{ url: `${SB}/a.jpg` }]), [`${SB}/a.jpg`]);
+  });
+
+  test("ignores malformed entries rather than passing them to the renderer", () => {
+    assert.deepEqual(imageUrls([null, 42, "not-a-url", {}, `${SB}/ok.png`]), [`${SB}/ok.png`]);
+  });
+
+  test("returns nothing for a non-array", () => {
+    assert.deepEqual(imageUrls(null), []);
+    assert.deepEqual(imageUrls("string"), []);
   });
 });

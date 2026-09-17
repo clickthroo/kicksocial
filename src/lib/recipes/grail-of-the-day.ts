@@ -247,7 +247,16 @@ export function kickioUrl(slug: string | null): string | null {
   return base + path.replace("{slug}", slug);
 }
 
-function imageUrls(images: unknown): string[] {
+/**
+ * Formats Satori can actually decode when rendering the card.
+ *
+ * WebP is NOT among them - it renders as an empty frame with no error, so a
+ * draft looks fine in the queue but has no shirt in it. 533 of Kickio's
+ * listings are WebP-only, and one reached review before this was caught.
+ */
+const RENDERABLE_IMAGE = /\.(jpe?g|png)(\?|$)/i;
+
+function allImageUrls(images: unknown): string[] {
   if (!Array.isArray(images)) return [];
   return images
     .map((entry) =>
@@ -258,6 +267,11 @@ function imageUrls(images: unknown): string[] {
           : null,
     )
     .filter((u): u is string => !!u && u.startsWith("http"));
+}
+
+/** Only images the card renderer can display, in the listing's own order. */
+export function imageUrls(images: unknown): string[] {
+  return allImageUrls(images).filter((u) => RENDERABLE_IMAGE.test(u));
 }
 
 export function scoreListing(listing: ListingRow): {
@@ -328,14 +342,20 @@ export async function runGrailOfTheDay(
 
   const listings = (data ?? []) as unknown as ListingRow[];
   const live = listings.filter((l) => isLive(l, config));
+  // A listing whose only photography is WebP cannot be rendered onto a card, so
+  // it is not a candidate - better no post than a post with an empty frame.
   const withPhotos = live.filter((l) => imageUrls(l.images).length > 0);
   if (withPhotos.length === 0) {
+    const hadUnrenderableOnly = live.filter(
+      (l) => allImageUrls(l.images).length > 0 && imageUrls(l.images).length === 0,
+    ).length;
     return {
       ok: false,
-      reason: "No eligible live listings with photography",
+      reason: "No eligible live listings with renderable photography",
       diagnostics: {
         fetched: listings.length,
         rejectedAsNotLive: listings.length - live.length,
+        rejectedForUnrenderableImagesOnly: hadUnrenderableOnly,
       },
     };
   }

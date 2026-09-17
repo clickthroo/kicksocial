@@ -44,7 +44,7 @@ brief — without a redeploy.
 
 | Recipe | Cadence | Status |
 |---|---|---|
-| `grail_of_the_day` | Daily | Working — 157 eligible listings |
+| `grail_of_the_day` | Daily | Working — 378 eligible listings |
 | `price_trends` | Weekly (Tue) | Working — like-for-like figures only |
 | `sold_this_week` | Weekly (Fri) | **Blocked** — see `docs/unblocking-sold-this-week.md` |
 
@@ -190,6 +190,11 @@ Two things worth knowing before editing them:
   more than one child needs an explicit `display: flex`.
 - **No glyphs outside the bundled font.** `▲`/`▼` render as tofu boxes, so the
   trend arrow is drawn as SVG. Check any new glyph actually renders.
+- **No WebP.** Satori silently renders an empty frame — no error, no warning.
+  536 of Kickio's images are WebP, and a draft reached review with a black hole
+  where the shirt should be. Recipes therefore require a `jpg`/`jpeg`/`png`
+  source (`imageUrls()`), and the card prints "No renderable photo — do not
+  post" if one is ever missing, so the failure is loud rather than dark.
 
 The trend card's direction colours (`#0ca30c` rising / `#9085e9` falling) were
 picked with the dataviz validator against the dark surface: deutan ΔE 25.6,
