@@ -85,10 +85,9 @@ Shirts and so on. `is_partner_listing = false` means *not from a partner store*,
 So each draft carries two distinct references, labelled apart in the dashboard
 so a reviewer is never misled about which they are opening:
 
-- `kickio_url` — the listing's page on Kickio, built from `products.slug`.
-  Requires `KICKIO_SITE_URL` (and optionally `KICKIO_PRODUCT_PATH`, default
-  `/product/{slug}`). Without it, no Kickio link is shown rather than a guessed
-  one.
+- `kickio_url` — the listing's page on Kickio, built from `products.slug` as
+  `https://kickio.com/marketplace/{slug}`. Override with `KICKIO_SITE_URL` /
+  `KICKIO_PRODUCT_PATH` only if the site moves.
 - `origin_url` — where Kickio scraped it from, shown as "Source: scrape ↗"
 
 Sold This Week applies the equivalent rule to sales: `review_state = 'approved'`

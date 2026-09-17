@@ -150,13 +150,17 @@ export function isLive(
  * scraped from (eBay, Classic Football Shirts). Both are surfaced to the
  * reviewer, but they mean different things and are labelled accordingly.
  *
- * Set KICKIO_SITE_URL (e.g. https://kickio.com) and optionally
- * KICKIO_PRODUCT_PATH (default "/product/{slug}") to enable it.
+ * Defaults to the live pattern, e.g.
+ * https://kickio.com/marketplace/1990-92-england-third-shirt
+ * KICKIO_SITE_URL / KICKIO_PRODUCT_PATH override it if the site moves.
  */
+export const KICKIO_SITE_DEFAULT = "https://kickio.com";
+export const KICKIO_PRODUCT_PATH_DEFAULT = "/marketplace/{slug}";
+
 export function kickioUrl(slug: string | null): string | null {
-  const base = process.env.KICKIO_SITE_URL?.replace(/\/$/, "");
-  if (!base || !slug) return null;
-  const path = process.env.KICKIO_PRODUCT_PATH ?? "/product/{slug}";
+  if (!slug) return null;
+  const base = (process.env.KICKIO_SITE_URL || KICKIO_SITE_DEFAULT).replace(/\/$/, "");
+  const path = process.env.KICKIO_PRODUCT_PATH || KICKIO_PRODUCT_PATH_DEFAULT;
   return base + path.replace("{slug}", slug);
 }
 

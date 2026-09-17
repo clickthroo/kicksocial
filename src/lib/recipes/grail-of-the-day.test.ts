@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { isLive, scoreListing } from "./grail-of-the-day.ts";
+import { isLive, scoreListing, kickioUrl } from "./grail-of-the-day.ts";
 
 /** A listing that is genuinely live and sellable. */
 function live(overrides: Record<string, unknown> = {}) {
@@ -136,5 +136,37 @@ describe("rarity scoring", () => {
   test("credits vintage from the season", () => {
     assert.ok(scoreListing(live({ season: "1986-87" })).signals.includes("1980s"));
     assert.ok(!scoreListing(live({ season: "2023-24" })).signals.includes("2020s"));
+  });
+});
+
+describe("kickio listing url", () => {
+  const env = { ...process.env };
+  const restore = () => {
+    process.env = { ...env };
+  };
+
+  test("builds the live marketplace pattern from a product slug", () => {
+    restore();
+    delete process.env.KICKIO_SITE_URL;
+    delete process.env.KICKIO_PRODUCT_PATH;
+    assert.equal(
+      kickioUrl("1990-92-england-third-shirt"),
+      "https://kickio.com/marketplace/1990-92-england-third-shirt",
+    );
+    restore();
+  });
+
+  test("returns null without a slug rather than a broken link", () => {
+    restore();
+    assert.equal(kickioUrl(null), null);
+    restore();
+  });
+
+  test("can be overridden if the site moves", () => {
+    restore();
+    process.env.KICKIO_SITE_URL = "https://staging.kickio.com/";
+    process.env.KICKIO_PRODUCT_PATH = "/shirts/{slug}";
+    assert.equal(kickioUrl("abc"), "https://staging.kickio.com/shirts/abc");
+    restore();
   });
 });
