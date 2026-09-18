@@ -89,7 +89,13 @@ function BrandMark({
   return <Wordmark style={{ fontSize: Math.round(size * 0.55), ...style }} />;
 }
 
-function Wordmark({ style }: { style?: React.CSSProperties }) {
+function Wordmark({
+  style,
+  children,
+}: {
+  style?: React.CSSProperties;
+  children?: React.ReactNode;
+}) {
   return (
     <div
       style={{
@@ -102,14 +108,99 @@ function Wordmark({ style }: { style?: React.CSSProperties }) {
         ...style,
       }}
     >
-      KICKIO
+      {children ?? "KICKIO"}
     </div>
   );
 }
 
+/**
+ * The brand lockup every card wears: the mark, bigger than it was, with the
+ * address under it.
+ *
+ * Two of the seven templates carried no logo and no URL at all - Grail of the
+ * Day and Sold This Week rendered only the text wordmark - so a post could go
+ * out with nothing on it saying where to go. One component means that cannot
+ * quietly become true again for a template added later.
+ *
+ * Stacked in portrait, inline in landscape. A stacked lockup on 16:9 eats the
+ * header twice over and the photo grid pays for it; the frame decides, not the
+ * template.
+ *
+ * When no logo has been uploaded the mark IS the word "KICKIO", so the address
+ * replaces it rather than sitting beneath it - otherwise the card reads
+ * "KICKIO / KICKIO.COM".
+ */
+function BrandLockup({
+  format,
+  brand,
+  label,
+  muted = INK_MUTED,
+}: {
+  format: FormatKey;
+  brand: Brand;
+  label?: string;
+  muted?: string;
+}) {
+  const portrait = format === "ig";
+  const size = portrait ? 120 : 92;
+  const urlSize = portrait ? 21 : 18;
+
+  const url = (
+    <div
+      style={{
+        display: "flex",
+        fontSize: urlSize,
+        fontWeight: 700,
+        letterSpacing: 2.5,
+        color: muted,
+        ...(portrait ? { marginTop: 7 } : { marginLeft: 14 }),
+      }}
+    >
+      KICKIO.COM
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {brand.markDataUri ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: portrait ? "column" : "row",
+            alignItems: portrait ? "flex-start" : "center",
+          }}
+        >
+          <BrandMark size={size} brand={brand} />
+          {url}
+        </div>
+      ) : (
+        <Wordmark style={{ fontSize: Math.round(size * 0.42), letterSpacing: 3 }}>
+          KICKIO.COM
+        </Wordmark>
+      )}
+      {label ? (
+        <div
+          style={{
+            display: "flex",
+            fontSize: portrait ? 20 : 18,
+            color: muted,
+            letterSpacing: 2,
+          }}
+        >
+          {label}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** How much vertical room BrandLockup takes, for templates that size a grid. */
+function lockupHeight(format: FormatKey): number {
+  return format === "ig" ? 120 + 7 + 21 : 92;
+}
+
 /** Grail of the Day - the photo is the hero, type sits over a scrim. */
 function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
-  void brand;
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
@@ -182,7 +273,7 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Wordmark />
+          <BrandLockup format={format} brand={brand} />
           <div
             style={{
               display: "flex",
@@ -339,12 +430,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
           padding: portrait ? 56 : 44,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <BrandMark size={portrait ? 96 : 76} brand={brand} />
-          <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, letterSpacing: 2 }}>
-            MARKET TREND
-          </div>
-        </div>
+        <BrandLockup format={format} brand={brand} label="MARKET TREND" />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
@@ -456,12 +542,7 @@ function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: Forma
           padding: portrait ? 56 : 44,
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Wordmark />
-          <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, letterSpacing: 2 }}>
-            SOLD THIS WEEK
-          </div>
-        </div>
+        <BrandLockup format={format} brand={brand} label="SOLD THIS WEEK" />
 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
           {featured.map((s, i) => (
@@ -925,7 +1006,7 @@ function GrailSaleCard({
                 borderTop: `1px solid ${palette.hairline}`,
               }}
             >
-              <BrandMark size={portrait ? 64 : 52} brand={brand} style={{ opacity: 0.95 }} />
+              <BrandMark size={portrait ? 92 : 74} brand={brand} style={{ opacity: 0.95 }} />
               <div
                 style={{
                   display: "flex",
@@ -979,7 +1060,7 @@ function ArchiveCard({
   // Sized by BOTH axes. Width alone fits 16:9 four-across at 271px, which eats
   // the whole frame and pushed the club's name off the bottom edge - the grid
   // has to leave room for the header and the type block, not just the margins.
-  const headerH = portrait ? 74 : 58;
+  const headerH = lockupHeight(format);
   const typeH = portrait ? 168 : 124;
   const gridH = height - pad * 2 - headerH - typeH;
   const cell = Math.min(
@@ -1001,12 +1082,12 @@ function ArchiveCard({
           background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <BrandMark size={portrait ? 96 : 76} brand={brand} />
-          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
-            ON KICKIO
-          </div>
-        </div>
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="ON KICKIO"
+          muted={STUDIO_MUTED}
+        />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
@@ -1058,7 +1139,7 @@ function ArchiveCard({
           {/* Said on the card, not just in the caption: these are Kickio's
               holdings, not the club's kit history. */}
           <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, marginTop: 10 }}>
-            {String(d.kit_types ?? "")} kit types listed on kickio.com
+            {String(d.kit_types ?? "")} kit types listed
           </div>
         </div>
       </div>
@@ -1100,7 +1181,7 @@ function CollectionCard({
   const cols = portrait ? 3 : 4;
   const rows = portrait ? 3 : 2;
   const gap = 10;
-  const headerH = portrait ? 74 : 58;
+  const headerH = lockupHeight(format);
   // Taller than the archive card's: this one carries a third line, the hunt
   // list, and a line that does not fit is a line that pushes the fraction off
   // the bottom edge.
@@ -1130,12 +1211,12 @@ function CollectionCard({
           background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <BrandMark size={portrait ? 96 : 76} brand={brand} />
-          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
-            THE LIST
-          </div>
-        </div>
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="THE LIST"
+          muted={STUDIO_MUTED}
+        />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
@@ -1184,7 +1265,7 @@ function CollectionCard({
               marginTop: 8,
             }}
           >
-            {String(d.buyable ?? "")} of {String(d.slots ?? "")} to buy on kickio.com
+            {String(d.buyable ?? "")} of {String(d.slots ?? "")} to buy
           </div>
           {huntLine ? (
             <div style={{ display: "flex", fontSize: portrait ? 20 : 18, color: STUDIO_MUTED, marginTop: 12 }}>
@@ -1228,7 +1309,7 @@ function CollectorCard({
   const cols = portrait ? 3 : 4;
   const rows = portrait ? 3 : 2;
   const gap = 10;
-  const headerH = portrait ? 74 : 58;
+  const headerH = lockupHeight(format);
   const typeH = portrait ? 210 : 152;
   const gridH = height - pad * 2 - headerH - typeH;
   const cell = Math.min(
@@ -1262,12 +1343,12 @@ function CollectorCard({
           background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <BrandMark size={portrait ? 96 : 76} brand={brand} />
-          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
-            COLLECTOR
-          </div>
-        </div>
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="COLLECTOR"
+          muted={STUDIO_MUTED}
+        />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
