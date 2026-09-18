@@ -61,6 +61,33 @@ Useful columns: `sold_at`, `price_cents`, `currency`, `team`, `season`,
 `shirt_type`, `condition`, `item_kind` ('shirt' 28,648). Filter
 `excluded_at IS NULL AND dismissed_at IS NULL AND review_state='approved'`.
 
+### Featured Collection — VIABLE (built)
+Not the collector-led post that was deferred below. The viable version is
+Kickio's own curation: `collection_sets` holds named lists whose slots are
+filled in by hand as a matching product appears.
+
+- 26 sets, but only one has any slots: `kickio-grail-list`, "Kickio Grail
+  List", curated, public, **136 slots**. The rest (`generated` kind, plus two
+  empty curated ones) have none.
+- **77 slots point at a product. Only 63 are postable.** 12 point at a shirt
+  whose `status` is `pending` or `archived`; 2 more have only a WebP photo,
+  which Satori cannot render. 59 slots have no product at all.
+  63 listed + 59 unfilled + 14 unpostable = 136.
+- The overcount is easy to make, because Kickio's `products_read` policy
+  returns **any row that is not soft-deleted, whatever its status**. A naive
+  join hands back all 77 and the post invites readers to buy twelve shirts
+  that are not for sale. Filter on `status = 'active'` explicitly.
+- RLS is already open to us: `collection_sets` and `collection_set_slots` both
+  carry a PUBLIC (roles NULL) SELECT policy gated on
+  `visibility = 'public'`, and anon holds the table GRANT. **No new role or
+  policy is needed** — unlike `sales_history`.
+- The empty slots are the best material on the list: `Argentina 1986 Home`,
+  `Napoli 1988/89 Home - Mars`, `Brazil 1982 Home`, `USSR 1988 Home`. A
+  collector who owns one has a reason to reply.
+- `featured_collections` (a different table: a user's collection promoted for
+  a date range) has **0 rows**. It is the collector-led idea below, and is
+  still not viable.
+
 ### Featured Collector — NOT VIABLE YET
 The marketplace is pre-launch:
 

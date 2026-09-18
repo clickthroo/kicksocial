@@ -17,6 +17,9 @@ function recipesForToday(date: Date): string[] {
   if (day === 3) keys.push("club_archive");   // Wednesday
   if (day === 4) keys.push("market_index");   // Thursday
   if (day === 5) keys.push("sold_this_week"); // Friday
+  // Saturday. Usually skips - Featured Collection only posts when the list has
+  // actually moved - so it is cheap to ask every week.
+  if (day === 6) keys.push("featured_collection");
   return keys;
 }
 

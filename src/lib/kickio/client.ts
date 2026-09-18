@@ -26,6 +26,9 @@ export type KickioTable =
   | "price_index_aggregates"
   | "price_index_history"
   | "sales_history"
+  // Read-only: Kickio's curated collection lists and their numbered slots.
+  | "collection_sets"
+  | "collection_set_slots"
   // Read-only, and only to label sellers in the settings screen.
   | "profiles"
   // Read-only: the buyer protection fee, so posted prices match the site.

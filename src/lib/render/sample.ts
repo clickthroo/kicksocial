@@ -156,4 +156,52 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  collection_grid: {
+    ...base,
+    id: "sample-collection",
+    recipe_key: "featured_collection",
+    subject_ref: "collection:kickio-grail-list@63/136",
+    headline: "63 of 136 on Kickio Grail List",
+    generation: { visual_template: "collection_grid" },
+    source_data: {
+      subject: "Kickio Grail List",
+      collection: "Kickio Grail List",
+      collection_slug: "kickio-grail-list",
+      slots: 136,
+      // The real figures: 63 listed, 59 slots never filled, and 14 matched to a
+      // shirt that is pending, archived or unrenderable. 63 + 59 + 14 = 136.
+      listed: 63,
+      missing: 59,
+      not_listed: 14,
+      hunting: [
+        "Argentina 1986 Home",
+        "West Germany 1988-90 Home",
+        "Barcelona 1991/92 Away",
+        "Napoli 1988/89 Home - Mars",
+        "Inter Milan 1997/98 Away",
+        "Brazil 1982 Home",
+      ],
+      // The first nine listed slots in the curator's order.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/HOLH89865515/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ARSA91970270/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10460244148571/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/e00ff051-5382-4f41-8eae-69b729c9e1a4/b8c592d1-ec06-495d-a4ac-0e54b6500283-layflat.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/USAA94335323/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10616568676699/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/processed/listing/71b8efe4-10db-47e8-b0bc-55574b9dfaee/1784628196004-nobg.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ACMH8890134/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/FRAH98360815/0.jpg",
+      ],
+    },
+  },
 };

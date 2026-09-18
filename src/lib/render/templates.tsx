@@ -1066,6 +1066,131 @@ function ArchiveCard({
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * COLLECTION GRID - a curated Kickio list and how much of it is on the shelf.
+ *
+ * Same photo grid as the archive card, different type block, because the
+ * subject is different: the archive says "this is what we hold", this says
+ * "this is what we hold OF A NAMED LIST". The fraction is the whole point, so
+ * it is set large and never reduced to its numerator - a card reading "136
+ * grails on Kickio" over nine photos would be the overclaim the recipe spends
+ * its selection logic avoiding.
+ * ------------------------------------------------------------------------- */
+
+function CollectionCard({
+  draft,
+  format,
+  brand,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+}) {
+  const d = draft.source_data as Record<string, unknown>;
+  const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const portrait = format === "ig";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 52 : 42;
+
+  const cols = portrait ? 3 : 4;
+  const rows = portrait ? 3 : 2;
+  const gap = 10;
+  const headerH = portrait ? 74 : 58;
+  // Taller than the archive card's: this one carries a third line, the hunt
+  // list, and a line that does not fit is a line that pushes the fraction off
+  // the bottom edge.
+  const typeH = portrait ? 210 : 152;
+  const gridH = height - pad * 2 - headerH - typeH;
+  const cell = Math.min(
+    Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
+    Math.floor((gridH - gap * (rows - 1)) / rows),
+  );
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
+
+  const hunting = Array.isArray(d.hunting) ? (d.hunting as string[]) : [];
+  // Three names. Satori does not reflow gracefully, and a fourth pushes the
+  // line past the frame on 16:9.
+  const huntLine = hunting.slice(0, 3).join("  ·  ");
+
+  return (
+    <Frame format={format} background={STUDIO}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width,
+          height,
+          padding: pad,
+          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <BrandMark size={portrait ? 96 : 76} brand={brand} />
+          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
+            THE LIST
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
+            <div key={row} style={{ display: "flex", justifyContent: "center", marginBottom: gap }}>
+              {usable.slice(row * cols, row * cols + cols).map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={cell}
+                  height={cell}
+                  style={{
+                    width: cell,
+                    height: cell,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    marginRight: i < cols - 1 ? gap : 0,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 52 : 40,
+              fontWeight: 800,
+              letterSpacing: -1,
+              color: STUDIO_INK,
+            }}
+          >
+            {String(d.collection ?? "")}
+          </div>
+          {/* The fraction, never the numerator alone. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 30 : 24,
+              fontWeight: 700,
+              color: brand.accent,
+              marginTop: 8,
+            }}
+          >
+            {String(d.listed ?? "")} of {String(d.slots ?? "")} listed on kickio.com
+          </div>
+          {huntLine ? (
+            <div style={{ display: "flex", fontSize: portrait ? 20 : 18, color: STUDIO_MUTED, marginTop: 12 }}>
+              Still hunting: {huntLine}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -1083,6 +1208,8 @@ export function templateFor(
       return <RoundupCard draft={draft} format={format} brand={brand} />;
     case "archive_grid":
       return <ArchiveCard draft={draft} format={format} brand={brand} />;
+    case "collection_grid":
+      return <CollectionCard draft={draft} format={format} brand={brand} />;
     case "grail_sale_card":
       return (
         <GrailSaleCard
