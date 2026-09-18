@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { saveRecipe } from "./actions.ts";
 import type { SellerOption } from "@/lib/kickio/sellers.ts";
 import type { ArchiveTeamOption } from "@/lib/recipes/archive-options.ts";
+import type { SetOption } from "@/lib/recipes/set-options.ts";
+import type { CollectorOption } from "@/lib/recipes/collector-access.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 
 export interface RecipeRow {
@@ -31,14 +33,30 @@ function num(selection: Record<string, unknown>, key: string, fallback: number):
   return typeof v === "number" ? v : fallback;
 }
 
+/** One row in a queue picker, whatever kind of thing the queue holds. */
+interface QueueChoice {
+  /** What goes in `upNext` - a club name, a set slug, a collector's user id. */
+  value: string;
+  label: string;
+  available: boolean;
+  lastPostedAt: string | null;
+}
+
 export function RecipeEditor({
   recipe,
   sellers,
   teams,
+  sets,
+  collectors,
+  collectorAccess,
 }: {
   recipe: RecipeRow;
   sellers: SellerOption[];
   teams: ArchiveTeamOption[];
+  sets: SetOption[];
+  collectors: CollectorOption[];
+  /** Null when the engine can read collections; a reason when it cannot. */
+  collectorAccess: string | null;
 }) {
   const [enabled, setEnabled] = useState(recipe.enabled);
   const [brief, setBrief] = useState(recipe.prompt_template);
@@ -79,6 +97,40 @@ export function RecipeEditor({
   // Only the sale card has style variants so far.
   const hasStyles = recipe.key === "grail_sale";
   const picksClub = recipe.key === "club_archive";
+  const picksSet = recipe.key === "featured_set";
+  const picksCollector =
+    recipe.key === "collector_spotlight" || recipe.key === "collector_set_progress";
+  const hasQueue = picksClub || picksSet || picksCollector;
+
+  // One queue UI, three kinds of subject. The queue itself is identical - a
+  // running order that drains - so only the choices differ.
+  const choices: QueueChoice[] = picksSet
+    ? sets.map((o) => ({
+        value: o.slug,
+        label: `${o.name} — ${o.buyable} of ${o.slots} buyable (${o.scope})`,
+        available: o.available,
+        lastPostedAt: o.lastPostedAt,
+      }))
+    : picksCollector
+      ? collectors.map((o) => ({
+          value: o.userId,
+          label: `${o.name} — ${o.shirts} shirts`,
+          available: o.available,
+          lastPostedAt: o.lastPostedAt,
+        }))
+      : teams.map((o) => ({
+          value: o.name,
+          label:
+            `${o.name} — ${o.shirts} shirts` +
+            (o.earliest && o.latest ? `, ${o.earliest}–${o.latest}` : ""),
+          available: o.available,
+          lastPostedAt: o.lastPostedAt,
+        }));
+
+  const subjectWord = picksSet ? "set" : picksCollector ? "collector" : "club";
+  // Queued collectors are stored as user ids, which are unreadable in a list.
+  const labelFor = (value: string) =>
+    choices.find((c) => c.value === value)?.label ?? value;
   // Featured Collection only posts when its list has actually moved, so its
   // cooldown is a floor under that rule rather than the thing that paces it.
   // Labelling it "Cooldown (days)" would read as the pacing control it is not.
@@ -101,7 +153,7 @@ export function RecipeEditor({
             ...(usesPriceFloor ? { minPriceCents: Math.round(minPrice * 100) } : {}),
             ...(selectsCandidates ? { cooldownDays: cooldown } : {}),
             ...(hasStyles ? { style } : {}),
-            ...(picksClub ? { upNext } : {}),
+            ...(hasQueue ? { upNext } : {}),
             ...(isListingRecipe
               ? {
                 maxStockCheckAgeDays: stockAge,
@@ -255,22 +307,34 @@ export function RecipeEditor({
         </div>
       )}
 
-      {picksClub && (
+      {hasQueue && (
         <div className="row">
           <div className="field-label">Up next</div>
           <p className="hint">
-            A running order, not a setting. Each run takes the club at the top and
-            removes it once the draft exists, so a choice made once does not become
-            every week. When the list is empty the deepest available club is chosen
+            A running order, not a setting. Each run takes the {subjectWord} at the top
+            and removes it once the draft exists, so a choice made once does not become
+            every week. When the list is empty the best available {subjectWord} is chosen
             automatically.
           </p>
 
+          {picksCollector && collectorAccess && (
+            <p className="hint banner-inline">{collectorAccess}</p>
+          )}
+
+          {picksCollector && !collectorAccess && (
+            <p className="hint">
+              Only collectors who have left both switches on are listed — anyone who
+              turned off “my collection is public” or “Kickio may feature me” is not
+              here and cannot be queued.
+            </p>
+          )}
+
           {upNext.length > 0 ? (
             <ol className="queue">
-              {upNext.map((name, i) => (
-                <li key={`${name}-${i}`}>
+              {upNext.map((value, i) => (
+                <li key={`${value}-${i}`}>
                   <span className="queue-pos">{i + 1}</span>
-                  <span className="queue-name">{name}</span>
+                  <span className="queue-name">{labelFor(value)}</span>
                   <button
                     type="button"
                     className="link"
@@ -283,26 +347,23 @@ export function RecipeEditor({
             </ol>
           ) : (
             <p className="hint queue-empty">
-              Nothing queued — the next run picks the deepest club that has not been
-              posted in {Math.round(cooldownDays / 30)} months.
+              Nothing queued — the next run picks the best {subjectWord} that has not
+              been posted in {Math.round(cooldownDays / 30)} months.
             </p>
           )}
 
           <div className="queue-add">
             <select value={picking} onChange={(e) => setPicking(e.target.value)}>
-              <option value="">Add a club…</option>
-              {teams.map((option) => (
+              <option value="">Add a {subjectWord}…</option>
+              {choices.map((option) => (
                 <option
-                  key={option.name}
-                  value={option.name}
-                  disabled={!option.available || upNext.includes(option.name)}
+                  key={option.value}
+                  value={option.value}
+                  disabled={!option.available || upNext.includes(option.value)}
                 >
-                  {option.name} — {option.shirts} shirts
-                  {option.earliest && option.latest ? `, ${option.earliest}–${option.latest}` : ""}
-                  {option.available
-                    ? ""
-                    : ` (posted ${monthsAgo(option.lastPostedAt)})`}
-                  {upNext.includes(option.name) ? " (queued)" : ""}
+                  {option.label}
+                  {option.available ? "" : ` (posted ${monthsAgo(option.lastPostedAt)})`}
+                  {upNext.includes(option.value) ? " (queued)" : ""}
                 </option>
               ))}
             </select>
@@ -319,8 +380,9 @@ export function RecipeEditor({
             </button>
           </div>
           <p className="hint">
-            Clubs posted in the last {Math.round(cooldownDays / 30)} months are listed but
-            cannot be chosen — picking one would only produce a run that refuses itself.
+            Anything posted in the last {Math.round(cooldownDays / 30)} months is listed
+            but cannot be chosen — picking one would only produce a run that refuses
+            itself.
           </p>
         </div>
       )}

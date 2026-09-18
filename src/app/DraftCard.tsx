@@ -192,6 +192,21 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         )}
       </div>
 
+      {/* A real person is the subject. Under Kickio's opt-out setting they may
+          not know this is coming, so the reviewer is told who it is before they
+          approve rather than having to open the source data to find out. It is
+          the difference between opt-out plus a person and opt-out plus a cron
+          job. */}
+      {typeof draft.source_data.collector_handle === "string" && (
+        <div className="notice">
+          <strong>About {String(draft.source_data.collector_handle)}</strong> — a real
+          collector, featured under Kickio&rsquo;s opt-out setting (
+          {String(draft.source_data.collector_flags ?? "consent flags unknown")}). Worth a
+          hello before this goes out. Nothing here states what the collection is worth or
+          what anything cost, and it must not.
+        </div>
+      )}
+
       {/* Every number in the copy should be checkable against these before approving. */}
       <details className="facts">
         <summary>

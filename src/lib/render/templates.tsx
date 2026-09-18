@@ -1197,6 +1197,144 @@ function CollectionCard({
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * COLLECTOR CARD - a person's collection, or their progress through a list.
+ *
+ * The name is set as a byline rather than a headline: the subject is the
+ * shirts, and the collector is who assembled them. A card that leads with a
+ * handle reads as an advert for a person; one that leads with the collection
+ * reads as a collection, which is what people actually want to look at.
+ *
+ * NOTHING ABOUT MONEY APPEARS HERE and there is no field that could carry it -
+ * the recipes do not put a value in source_data, and the scoped role is not
+ * granted the columns that hold one.
+ * ------------------------------------------------------------------------- */
+
+function CollectorCard({
+  draft,
+  format,
+  brand,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+}) {
+  const d = draft.source_data as Record<string, unknown>;
+  const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const portrait = format === "ig";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 52 : 42;
+
+  const cols = portrait ? 3 : 4;
+  const rows = portrait ? 3 : 2;
+  const gap = 10;
+  const headerH = portrait ? 74 : 58;
+  const typeH = portrait ? 210 : 152;
+  const gridH = height - pad * 2 - headerH - typeH;
+  const cell = Math.min(
+    Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
+    Math.floor((gridH - gap * (rows - 1)) / rows),
+  );
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
+
+  // Progress posts carry a set; whole-collection posts carry counts. Each
+  // leads with the number that number is about: the set being chased, or the
+  // size of the collection. Leading a spotlight with "31 clubs" buries the
+  // 214 that makes anyone stop scrolling.
+  const isProgress = d.percent !== undefined;
+  const subject = isProgress
+    ? String(d.collection ?? "")
+    : `${String(d.shirts ?? "")} shirts`;
+  const stat = isProgress
+    ? `${String(d.filled ?? "")} of ${String(d.slots ?? "")} · ${String(d.percent ?? "")}%`
+    : `${String(d.clubs ?? "")} clubs · ${String(d.earliest ?? "")}–${String(d.latest ?? "")}`;
+
+  return (
+    <Frame format={format} background={STUDIO}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width,
+          height,
+          padding: pad,
+          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <BrandMark size={portrait ? 96 : 76} brand={brand} />
+          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, letterSpacing: 2 }}>
+            COLLECTOR
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {Array.from({ length: Math.ceil(usable.length / cols) }, (_, row) => (
+            <div key={row} style={{ display: "flex", justifyContent: "center", marginBottom: gap }}>
+              {usable.slice(row * cols, row * cols + cols).map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={cell}
+                  height={cell}
+                  style={{
+                    width: cell,
+                    height: cell,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    background: "#ffffff",
+                    marginRight: i < cols - 1 ? gap : 0,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {/* Byline, not headline. Smaller than the numbers by design. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 24 : 20,
+              color: STUDIO_MUTED,
+              letterSpacing: 1,
+            }}
+          >
+            {String(d.collector ?? "")}
+            {d.collector_title ? ` · ${String(d.collector_title)}` : ""}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 50 : 38,
+              fontWeight: 800,
+              letterSpacing: -1,
+              color: STUDIO_INK,
+              marginTop: 6,
+            }}
+          >
+            {subject}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 30 : 24,
+              fontWeight: 700,
+              color: brand.accent,
+              marginTop: 8,
+            }}
+          >
+            {stat}
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -1216,6 +1354,8 @@ export function templateFor(
       return <ArchiveCard draft={draft} format={format} brand={brand} />;
     case "collection_grid":
       return <CollectionCard draft={draft} format={format} brand={brand} />;
+    case "collector_grid":
+      return <CollectorCard draft={draft} format={format} brand={brand} />;
     case "grail_sale_card":
       return (
         <GrailSaleCard

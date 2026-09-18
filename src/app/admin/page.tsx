@@ -3,6 +3,8 @@ import Link from "next/link";
 import { engine } from "@/lib/engine/client.ts";
 import { listSellers, type SellerOption } from "@/lib/kickio/sellers.ts";
 import { archiveTeamOptions, type ArchiveTeamOption } from "@/lib/recipes/archive-options.ts";
+import { featuredSetOptions, type SetOption } from "@/lib/recipes/set-options.ts";
+import { loadCollectors, type CollectorOption } from "@/lib/recipes/collector-access.ts";
 import { DEFAULT_CLUB_ARCHIVE_CONFIG } from "@/lib/recipes/club-archive.ts";
 import { RecipeEditor, type RecipeRow } from "./RecipeEditor.tsx";
 import { BrandEditor } from "./BrandEditor.tsx";
@@ -16,7 +18,8 @@ export default async function AdminPage() {
   // Kickio left the club list silently empty AND made saved branding look
   // reset - one slow external read taking out three unrelated panels, with
   // nothing on screen to say which had failed.
-  const [recipeResult, sellerResult, teamResult, brandResult] = await Promise.allSettled([
+  const [recipeResult, sellerResult, teamResult, brandResult, setResult, collectorResult] =
+    await Promise.allSettled([
     engine()
       .from("recipes")
       .select("key,name,description,enabled,cadence,selection,prompt_template")
@@ -31,12 +34,27 @@ export default async function AdminPage() {
       DEFAULT_CLUB_ARCHIVE_CONFIG.minShirts,
     ),
     loadBrand(),
+    featuredSetOptions(),
+    loadCollectors(),
   ]);
 
   const recipes: RecipeRow[] = recipeResult.status === "fulfilled" ? recipeResult.value : [];
   const sellers: SellerOption[] = sellerResult.status === "fulfilled" ? sellerResult.value : [];
   const teams: ArchiveTeamOption[] = teamResult.status === "fulfilled" ? teamResult.value : [];
   const brand: Brand = brandResult.status === "fulfilled" ? brandResult.value : DEFAULT_BRAND;
+  const sets: SetOption[] = setResult.status === "fulfilled" ? setResult.value : [];
+  const collectors: CollectorOption[] =
+    collectorResult.status === "fulfilled" ? collectorResult.value.options : [];
+
+  // Named rather than shown as an empty list. "No collectors" and "the engine
+  // cannot see collections" look identical on screen and mean opposite things,
+  // and the second one is fixed by applying docs/kickio-read-only-role.sql.
+  const collectorAccess: string | null =
+    collectorResult.status === "rejected"
+      ? `Collector list unavailable: ${collectorResult.reason?.message ?? "failed to load"}`
+      : collectorResult.value.access.ok
+        ? null
+        : collectorResult.value.access.reason;
 
   // Name what is missing. An empty club list with no explanation reads as "there
   // are no clubs", which is a different and much more alarming thing.
@@ -45,6 +63,8 @@ export default async function AdminPage() {
     ["Seller list", sellerResult],
     ["Club list", teamResult],
     ["Branding", brandResult],
+    ["Set list", setResult],
+    ["Collector list", collectorResult],
   ] as const;
   const loadError = failures
     .filter(([, r]) => r.status === "rejected")
@@ -64,7 +84,15 @@ export default async function AdminPage() {
       <BrandEditor brand={brand} />
 
       {recipes.map((recipe) => (
-        <RecipeEditor key={recipe.key} recipe={recipe} sellers={sellers} teams={teams} />
+        <RecipeEditor
+          key={recipe.key}
+          recipe={recipe}
+          sellers={sellers}
+          teams={teams}
+          sets={sets}
+          collectors={collectors}
+          collectorAccess={collectorAccess}
+        />
       ))}
     </div>
   );

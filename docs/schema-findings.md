@@ -110,6 +110,66 @@ filled in by hand as a matching product appears.
   a date range) has **0 rows**. It is the collector-led idea below, and is
   still not viable.
 
+### Featured Set — VIABLE (built)
+The other 24 public sets have **no slots at all**. They carry a `rule` and
+their contents are computed:
+
+```json
+{"teams":["Juventus"],"season_from":1980,
+ "shirt_types":["Home","Away","Third"],"type_season_from":{"third":2000}}
+```
+
+Size is seasons × shirt types, and expanding the rule reproduces Kickio's own
+published totals exactly — Juventus Home 47, Home & Away 94, Full Collection
+121 (47 + 47 + 27, Third counted only from 2000). That agreement is what
+licenses the recipe to print a denominator: a post that disagrees with the page
+it links to is worse than no post. Kickio writes both `team`/`teams` and
+`shirt_type`/`shirt_types`, so the parser accepts either.
+
+Depth today (active products, then those with a live listing):
+
+| Set | On Kickio | Buyable |
+|---|---|---|
+| The Full Manchester United Collection | 154 | 99 |
+| Man Utd Home & Away | 131 | 84 |
+| Man Utd Home | 80 | 47 |
+| The Full Juventus Collection | 48 | 27 |
+
+### Collector Spotlight — BUILT, waiting on access
+Kickio is **opt-out and both switches default to true**:
+
+```
+profiles.collection_public         DEFAULT true
+collector_profile.featured_consent DEFAULT true
+```
+
+So most collectors are eligible from signup and the switches are an exclusion
+list, not a waiting list. Both are still read on every run, and the role SQL
+enforces them in the database as well.
+
+Structure, which is easy to misread:
+- `collection_sets` are **shared templates**, not per-user copies —
+  `collection_set_slots` has no user column. What is per-user is *progress*.
+- `collector_profile.sets_snapshot` caches that progress per user (id, name,
+  slug, total, filled, percent). The engine is **not** granted it; progress is
+  recomputed from `collections` so the number is derived, not trusted.
+- A user with no `collector_profile` row has never been shown the switch, so
+  both the app and the policy treat that as **not consent**. Today that is 6 of
+  9 profiles.
+
+**Everything collector-side is own-row-only under RLS** — `collections`,
+`collector_profile`, `collection_highlights`, `collection_snapshots`,
+`collection_set_prefs`, `collection_set_milestones`. The engine reads **zero
+rows with no error** from all of them. That is a permission problem, not a
+waiting problem: it does not resolve as users sign up.
+`collector-access.ts` tells blind apart from empty by reading `profiles`
+(which anon *can* read) in the same run, and names the missing grant.
+
+Never read, let alone published: `collections.paid_cents` and
+`collection_snapshots.total_cents`. The role SQL uses **column-level grants**
+so the engine cannot read them at all — a named collector beside a valuation is
+a shopping list for a burglar.
+
 ### Featured Collector — NOT VIABLE YET
 The marketplace is pre-launch:
 
@@ -124,6 +184,9 @@ honoured: never feature a collector who hasn't opted in.
 
 ## Data-quality notes
 
+- Some `products.season` values do not start with a four-digit year, so
+  `substring(season from 1 for 4)::int` throws. Parse with the tolerant
+  `seasonYear()` helper, which returns null rather than guessing.
 - `sales_history.product_id` is only populated on 7,967 of 29,779 rows, but
   `listing_id` is populated on 29,775. Join through `listing_id` for
   like-for-like work.

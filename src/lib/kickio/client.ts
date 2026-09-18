@@ -29,6 +29,13 @@ export type KickioTable =
   // Read-only: Kickio's curated collection lists and their numbered slots.
   | "collection_sets"
   | "collection_set_slots"
+  // Personal data. Reachable only as `kickio_content_reader`, which holds
+  // COLUMN-level grants (docs/kickio-read-only-role.sql): `paid_cents` and the
+  // valuation tables are not granted at all, so the engine cannot read what a
+  // collector paid even if a future query asks for it.
+  | "collections"
+  | "collector_profile"
+  | "collection_highlights"
   // Read-only, and only to label sellers in the settings screen.
   | "profiles"
   // Read-only: the buyer protection fee, so posted prices match the site.

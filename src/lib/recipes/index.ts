@@ -13,6 +13,21 @@ import {
   FEATURED_COLLECTION_BRIEF,
 } from "./featured-collection.ts";
 import {
+  runFeaturedSet,
+  DEFAULT_FEATURED_SET_CONFIG,
+  FEATURED_SET_BRIEF,
+} from "./featured-set.ts";
+import {
+  runCollectorSpotlight,
+  DEFAULT_COLLECTOR_SPOTLIGHT_CONFIG,
+  COLLECTOR_SPOTLIGHT_BRIEF,
+} from "./collector-spotlight.ts";
+import {
+  runCollectorSetProgress,
+  DEFAULT_COLLECTOR_SET_PROGRESS_CONFIG,
+  COLLECTOR_SET_PROGRESS_BRIEF,
+} from "./collector-set-progress.ts";
+import {
   runClubArchive,
   DEFAULT_CLUB_ARCHIVE_CONFIG,
   CLUB_ARCHIVE_BRIEF,
@@ -128,6 +143,42 @@ No TikTok variant. Write X and Instagram only.`,
     run: (selection) =>
       runFeaturedCollection({
         ...DEFAULT_FEATURED_COLLECTION_CONFIG,
+        ...(selection as object),
+      }),
+  },
+  {
+    key: "featured_set",
+    name: "Featured Set",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "collection_grid",
+    brief: FEATURED_SET_BRIEF,
+    run: (selection) =>
+      runFeaturedSet({ ...DEFAULT_FEATURED_SET_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "collector_spotlight",
+    name: "Collector Spotlight",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "collector_grid",
+    brief: COLLECTOR_SPOTLIGHT_BRIEF,
+    run: (selection) =>
+      runCollectorSpotlight({
+        ...DEFAULT_COLLECTOR_SPOTLIGHT_CONFIG,
+        ...(selection as object),
+      }),
+  },
+  {
+    key: "collector_set_progress",
+    name: "Collector Set Progress",
+    cadence: "weekly",
+    platforms: ["x", "instagram"],
+    visualTemplate: "collector_grid",
+    brief: COLLECTOR_SET_PROGRESS_BRIEF,
+    run: (selection) =>
+      runCollectorSetProgress({
+        ...DEFAULT_COLLECTOR_SET_PROGRESS_CONFIG,
         ...(selection as object),
       }),
   },

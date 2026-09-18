@@ -359,3 +359,18 @@ ol.queue .link:hover { color: var(--danger); }
 .queue-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .queue-add select { flex: 1; min-width: 0; }
 .queue-add .btn { flex: 0 0 auto; padding: 9px 18px; font-size: 13px; }
+
+/* A draft whose subject is a person. Deliberately not styled as an error: it is
+   a prompt to look, not a problem to fix. */
+.notice {
+  border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  background: var(--surface); border-radius: 8px; padding: 10px 12px;
+  font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0 16px 14px;
+}
+.notice strong { color: var(--text); }
+
+/* An access problem inside a Settings panel, rather than across the page. */
+.hint.banner-inline {
+  border: 1px solid var(--warn); border-left-width: 3px; border-radius: 8px;
+  padding: 9px 11px; color: var(--muted);
+}

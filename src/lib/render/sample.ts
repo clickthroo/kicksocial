@@ -206,4 +206,48 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  collector_grid: {
+    ...base,
+    id: "sample-collector",
+    recipe_key: "collector_spotlight",
+    subject_ref: "collector:11111111-1111-1111-1111-111111111111:spotlight",
+    headline: "@dave: 214 shirts, 1983–2024",
+    generation: { visual_template: "collector_grid" },
+    source_data: {
+      subject: "@dave's collection",
+      collector: "@dave",
+      collector_title: "Terrace Historian",
+      shirts: 214,
+      earliest: 1983,
+      latest: 2024,
+      span_years: 41,
+      clubs: 31,
+      top_club: { team: "Everton", shirts: 38 },
+      collector_handle: "@dave",
+      collector_flags: "collection_public and featured_consent both true",
+      // No value, no price, no location. There is no field here that could
+      // carry one, and the scoped role is not granted the columns that hold
+      // one either.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/HOLH89865515/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ARSA91970270/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10460244148571/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/admin/e00ff051-5382-4f41-8eae-69b729c9e1a4/b8c592d1-ec06-495d-a4ac-0e54b6500283-layflat.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/USAA94335323/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/10616568676699/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/processed/listing/71b8efe4-10db-47e8-b0bc-55574b9dfaee/1784628196004-nobg.png",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ACMH8890134/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/FRAH98360815/0.jpg",
+      ],
+    },
+  },
 };

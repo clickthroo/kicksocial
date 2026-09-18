@@ -20,6 +20,13 @@ function recipesForToday(date: Date): string[] {
   // Saturday. Usually skips - Featured Collection only posts when the list has
   // actually moved - so it is cheap to ask every week.
   if (day === 6) keys.push("featured_collection");
+  // Sunday. Collector Spotlight leads because it needs nobody to have finished
+  // anything; the progress post is the rarer, better one when it does fire.
+  if (day === 0) keys.push("collector_spotlight", "collector_set_progress");
+  // Monday. Featured Set is the no-personal-data sibling of Featured
+  // Collection, and the only one of the three that can run before the
+  // collector grant lands.
+  if (day === 1) keys.push("featured_set");
   return keys;
 }
 
