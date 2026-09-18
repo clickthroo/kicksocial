@@ -160,19 +160,21 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     ...base,
     id: "sample-collection",
     recipe_key: "featured_collection",
-    subject_ref: "collection:kickio-grail-list@63/136",
-    headline: "63 of 136 on Kickio Grail List",
+    subject_ref: "collection:kickio-grail-list@39/136",
+    headline: "39 of 136 buyable on Kickio Grail List",
     generation: { visual_template: "collection_grid" },
     source_data: {
       subject: "Kickio Grail List",
       collection: "Kickio Grail List",
       collection_slug: "kickio-grail-list",
       slots: 136,
-      // The real figures: 63 listed, 59 slots never filled, and 14 matched to a
-      // shirt that is pending, archived or unrenderable. 63 + 59 + 14 = 136.
-      listed: 63,
+      // The real figures. 39 have an active listing; 26 more have a shirt page
+      // on Kickio with nothing to buy on it; 59 slots were never filled; 12
+      // point at a pending or archived record. 39 + 26 + 59 + 12 = 136.
+      buyable: 39,
+      catalogued_not_for_sale: 26,
       missing: 59,
-      not_listed: 14,
+      record_not_active: 12,
       hunting: [
         "Argentina 1986 Home",
         "West Germany 1988-90 Home",
@@ -181,7 +183,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
         "Inter Milan 1997/98 Away",
         "Brazil 1982 Home",
       ],
-      // The first nine listed slots in the curator's order.
+      // The first nine buyable slots in the curator's order.
       images: [
         "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
           "product-images/scraped/cfs/HOLH89865515/0.jpg",

@@ -1,6 +1,5 @@
 /**
- * Featured Collection - "The Kickio Grail List: 65 of 136, and here's what's
- * still missing."
+ * Featured Collection - "The Kickio Grail List: 39 of 136 you can buy today."
  *
  * Kickio curates `collection_sets`: a named list of shirts with one numbered
  * slot each, filled in by hand as a matching product appears. The Grail List
@@ -8,20 +7,34 @@
  * EMPTY slots are as interesting as the full ones - a collector who owns the
  * 1986 Argentina home has a reason to reply.
  *
- * TWO COUNTS THAT LOOK THE SAME AND ARE NOT
+ * THE SLOTS ARE THE SET'S, NOT A USER'S
  *
- * 77 slots point at a product. Only 65 of those products are active and
- * listed: the other 12 are `pending` or `archived`. Kickio's own RLS makes
- * this easy to get wrong - the `products_read` policy returns any row that is
- * not soft-deleted, whatever its status, so a naive join hands back all 77 and
- * the post claims twelve shirts are buyable when they are not. Every one of
- * those is a link a reader would follow to nothing. `listed` is therefore
- * counted from active, non-deleted, photographed rows only, and a slot that
- * points at a pending product is reported as `stale`, never as listed.
+ * `collection_set_slots` has no user column: one row per slot per set, shared
+ * by everyone. A collector's own progress against the list is computed from
+ * `collections` (what they own) intersected with these slots, and is not stored
+ * here. So this post is about Kickio's shelf, never about one person's
+ * collection. `collection_set_prefs` and `collection_set_milestones` are the
+ * per-user layer, and they hold preferences and achievements, not slots.
+ *
+ * THREE COUNTS THAT LOOK LIKE ONE
+ *
+ * 77 slots point at a product. 65 of those products are catalogue-active. Only
+ * 39 have a listing you could actually buy. The gap matters because
+ * `products` is Kickio's CATALOGUE - a shirt record exists whether or not
+ * anyone is selling one - while `listings` is the shelf. Counting catalogue
+ * rows and calling them "listed" puts 26 dead ends in a post whose whole
+ * purpose is to send people to go and look. `buyable` is therefore counted
+ * from `listings` with the same filter Grail of the Day uses, and the
+ * catalogue-only slots are reported separately as `catalogued`.
+ *
+ * (`products.has_active_listing` happened to agree exactly with a real count
+ * here - 0 disagreements either way across all 77. It is still not what the
+ * post quotes: `teams.listings_count` also looked fine until it was checked,
+ * and was out by a factor of two.)
  *
  * WHY IT ONLY POSTS WHEN THE NUMBER MOVES
  *
- * "65 of 136" is the same post every week until someone fills a slot. Rather
+ * "39 of 136" is the same post every week until someone lists a grail. Rather
  * than a cadence, this recipe has a change rule: it runs weekly and skips
  * unless the list has actually progressed since the last one it posted. The
  * count is carried in the subject ref, so the dedupe machinery that stops a
@@ -71,14 +84,14 @@ export interface FeaturedCollectionConfig {
   /** A list worth posting has to be a list, not a shortlist. */
   minSlots: number;
   /** Fewest slots that must actually be buyable for the post to make sense. */
-  minListed: number;
+  minBuyable: number;
   /** Fewest renderable photos for the grid. */
   minPhotos: number;
   /** How many photos the card shows. */
   gridSize: number;
   /** How many missing slots to name in the copy. */
   huntSize: number;
-  /** Smallest move in listed-or-total that counts as news. */
+  /** Smallest move in buyable-or-total that counts as news. */
   minGain: number;
   /** A floor under the change rule: never twice inside this many days. */
   cooldownDays: number;
@@ -86,7 +99,7 @@ export interface FeaturedCollectionConfig {
 
 export const DEFAULT_FEATURED_COLLECTION_CONFIG: FeaturedCollectionConfig = {
   minSlots: 20,
-  minListed: 12,
+  minBuyable: 12,
   minPhotos: 6,
   gridSize: 9,
   huntSize: 6,
@@ -95,23 +108,32 @@ export const DEFAULT_FEATURED_COLLECTION_CONFIG: FeaturedCollectionConfig = {
 };
 
 /**
- * Is this slot's shirt something a reader can actually open and buy?
+ * Does Kickio hold a shirt record for this slot at all?
  *
  * Deliberately an allowlist on status. `!== 'archived'` would have let
- * `pending` through, which is the twelve-shirt overcount this recipe exists to
- * avoid.
+ * `pending` through, and twelve of the Grail List's slots are pending or
+ * archived.
  */
-export function isListed(product: ProductRow | null): boolean {
+export function isCatalogued(product: ProductRow | null): boolean {
   if (!product) return false;
   if (product.deleted_at !== null) return false;
-  if (product.status !== "active") return false;
-  return imageUrls([product.primary_image_url]).length > 0;
+  return product.status === "active";
+}
+
+/**
+ * Can a reader open this slot and buy the shirt?
+ *
+ * A catalogue row is not a shelf. This is the question the post's call to
+ * action depends on, so it is answered from `listings`, not from a status
+ * column on `products`.
+ */
+export function isBuyable(product: ProductRow | null, activeListings: number): boolean {
+  return isCatalogued(product) && activeListings > 0;
 }
 
 export interface SlotSummary {
   sort: number;
   label: string;
-  /** The shirt, when the slot has one that is live on Kickio. */
   product: { slug: string | null; name: string | null; season: string | null } | null;
   image: string | null;
 }
@@ -122,17 +144,19 @@ export interface CollectionSummary {
   description: string | null;
   /** Every slot on the list. */
   slots: number;
-  /** Slots whose shirt is active, undeleted and photographed. */
-  listed: number;
+  /** Slots you could buy right now. The only number the headline may use. */
+  buyable: number;
+  /**
+   * Slots whose shirt Kickio has a record of but nobody is currently selling.
+   * Real, and not an invitation - reported so the 39/65 gap is visible to a
+   * reviewer rather than quietly folded into the headline.
+   */
+  catalogued: number;
   /** Slots with no shirt matched at all. */
   missing: number;
-  /**
-   * Slots matched to a shirt that is not live - pending, archived, or with no
-   * usable photo. Reported so the gap between 77 and 65 is visible to a
-   * reviewer rather than quietly absorbed.
-   */
-  stale: number;
-  /** The listed shirts, in the curator's order. */
+  /** Slots pointing at a pending, archived or deleted shirt record. */
+  unlisted: number;
+  /** The buyable shirts, in the curator's order. */
   featured: SlotSummary[];
   /** Labels of unfilled slots, curator's order - the hunt list. */
   hunting: string[];
@@ -149,6 +173,7 @@ export function summariseSet(
   set: SetRow,
   slots: SlotRow[],
   products: Map<string, ProductRow>,
+  activeListings: Map<string, number>,
 ): CollectionSummary | null {
   if (!set.slug || !set.name) return null;
 
@@ -158,31 +183,41 @@ export function summariseSet(
   const hunting: string[] = [];
   const photos: string[] = [];
   const seen = new Set<string>();
-  let stale = 0;
+  let catalogued = 0;
+  let unlisted = 0;
+  let missing = 0;
 
   for (const slot of ordered) {
     const label = (slot.label ?? "").trim();
     // `product_id` is on the slot row itself, so an unfilled slot is
     // distinguishable from one whose product the reader simply cannot see.
     if (slot.product_id === null) {
+      missing++;
       if (label) hunting.push(label);
       continue;
     }
 
     const product = products.get(slot.product_id) ?? null;
-    if (!isListed(product)) {
-      stale++;
+    if (!isCatalogued(product)) {
+      unlisted++;
+      continue;
+    }
+    if (!isBuyable(product, activeListings.get(slot.product_id) ?? 0)) {
+      catalogued++;
       continue;
     }
 
-    const url = imageUrls([product!.primary_image_url])[0];
     featured.push({
       sort: slot.sort ?? 0,
       label: label || (product!.name ?? ""),
       product: { slug: product!.slug, name: product!.name, season: product!.season },
-      image: url,
+      image: imageUrls([product!.primary_image_url])[0] ?? null,
     });
-    if (!seen.has(url)) {
+
+    // A WebP-only shirt is still for sale; it just cannot go in the grid. The
+    // photo filter must not reach back and change the count.
+    const url = imageUrls([product!.primary_image_url])[0];
+    if (url && !seen.has(url)) {
       seen.add(url);
       photos.push(url);
     }
@@ -193,9 +228,10 @@ export function summariseSet(
     name: set.name,
     description: set.description,
     slots: ordered.length,
-    listed: featured.length,
-    missing: ordered.filter((s) => s.product_id === null).length,
-    stale,
+    buyable: featured.length,
+    catalogued,
+    missing,
+    unlisted,
     featured,
     hunting,
     photos,
@@ -214,10 +250,12 @@ export function qualifies(
   if (summary.slots < config.minSlots) {
     return { ok: false, reason: `${summary.slots} slots (need ${config.minSlots})` };
   }
-  if (summary.listed < config.minListed) {
+  if (summary.buyable < config.minBuyable) {
     return {
       ok: false,
-      reason: `only ${summary.listed} of ${summary.slots} slots are listed (need ${config.minListed})`,
+      reason:
+        `only ${summary.buyable} of ${summary.slots} slots are buyable ` +
+        `(need ${config.minBuyable})`,
     };
   }
   if (summary.photos.length < config.minPhotos) {
@@ -233,23 +271,25 @@ export function qualifies(
  * The subject ref carries the two counts, so a list that has not moved dedupes
  * against its own last post and one that has does not.
  */
-export function subjectRefFor(slug: string, listed: number, slots: number): string {
-  return `collection:${slug.trim().toLowerCase()}@${listed}/${slots}`;
+export function subjectRefFor(slug: string, buyable: number, slots: number): string {
+  return `collection:${slug.trim().toLowerCase()}@${buyable}/${slots}`;
 }
 
 export interface PriorPost {
-  listed: number;
+  buyable: number;
   slots: number;
   at: string;
   labels: string[];
 }
 
-export function parseSubjectRef(ref: string): { slug: string; listed: number; slots: number } | null {
+export function parseSubjectRef(
+  ref: string,
+): { slug: string; buyable: number; slots: number } | null {
   const match = /^collection:(.+)@(\d+)\/(\d+)$/.exec(ref);
   if (!match) return null;
   return {
     slug: match[1],
-    listed: Number.parseInt(match[2], 10),
+    buyable: Number.parseInt(match[2], 10),
     slots: Number.parseInt(match[3], 10),
   };
 }
@@ -258,15 +298,15 @@ export interface ProgressVerdict {
   ok: boolean;
   reason?: string;
   /** What moved, for the copy to lead on. Null on a first post. */
-  change?: { listed: number; slots: number } | null;
+  change?: { buyable: number; slots: number } | null;
 }
 
 /**
  * The change rule.
  *
- * Only a gain posts. A drop - a grail sells, the slot goes back to unlisted -
- * is a real event but reads as the list going backwards, and "64 of 136" after
- * "65 of 136" is a worse post than none. The cooldown is a floor beneath the
+ * Only a gain posts. A drop - a grail sells, its slot stops being buyable - is
+ * a real event but reads as the list going backwards, and "38 of 136" after
+ * "39 of 136" is a worse post than none. The cooldown is a floor beneath the
  * rule, not an alternative to it: both have to pass.
  */
 export function progressVerdict(
@@ -280,24 +320,27 @@ export function progressVerdict(
   const sincePost = now.getTime() - new Date(prior.at).getTime();
   if (sincePost < config.cooldownDays * 86_400_000) {
     const days = Math.ceil((config.cooldownDays * 86_400_000 - sincePost) / 86_400_000);
-    return { ok: false, reason: `posted ${prior.listed}/${prior.slots} recently; ${days} days of cooldown left` };
-  }
-
-  const listedGain = summary.listed - prior.listed;
-  const slotGain = summary.slots - prior.slots;
-  if (listedGain < config.minGain && slotGain < config.minGain) {
     return {
       ok: false,
-      reason:
-        `nothing new since ${prior.listed} of ${prior.slots} on ` +
-        `${prior.at.slice(0, 10)} (now ${summary.listed} of ${summary.slots})`,
+      reason: `posted ${prior.buyable}/${prior.slots} recently; ${days} days of cooldown left`,
     };
   }
 
-  return { ok: true, change: { listed: listedGain, slots: slotGain } };
+  const buyableGain = summary.buyable - prior.buyable;
+  const slotGain = summary.slots - prior.slots;
+  if (buyableGain < config.minGain && slotGain < config.minGain) {
+    return {
+      ok: false,
+      reason:
+        `nothing new since ${prior.buyable} of ${prior.slots} on ` +
+        `${prior.at.slice(0, 10)} (now ${summary.buyable} of ${summary.slots})`,
+    };
+  }
+
+  return { ok: true, change: { buyable: buyableGain, slots: slotGain } };
 }
 
-/** Labels listed now that were not listed in the last post. */
+/** Labels buyable now that were not buyable in the last post. */
 export function newlyListed(summary: CollectionSummary, prior: PriorPost | null): string[] {
   if (!prior || prior.labels.length === 0) return [];
   const before = new Set(prior.labels);
@@ -328,9 +371,9 @@ export async function lastPostFor(slug: string): Promise<PriorPost | null> {
   }>) {
     const parsed = parseSubjectRef(row.subject_ref);
     if (!parsed || parsed.slug !== slug.trim().toLowerCase()) continue;
-    const labels = row.source_data?.listed_labels;
+    const labels = row.source_data?.buyable_labels;
     return {
-      listed: parsed.listed,
+      buyable: parsed.buyable,
       slots: parsed.slots,
       at: row.created_at,
       labels: Array.isArray(labels) ? labels.filter((l): l is string => typeof l === "string") : [],
@@ -356,7 +399,11 @@ export async function runFeaturedCollection(
 
   const sets = (setData ?? []) as unknown as SetRow[];
   if (sets.length === 0) {
-    return { ok: false, reason: "No public curated collections on Kickio", diagnostics: { sets: 0 } };
+    return {
+      ok: false,
+      reason: "No public curated collections on Kickio",
+      diagnostics: { sets: 0 },
+    };
   }
 
   const { data: slotData, error: slotError } = await kickio()
@@ -378,12 +425,13 @@ export async function runFeaturedCollection(
     bySet.set(row.set_id, list);
   }
 
-  // Fetched separately rather than as a PostgREST embed. The shirts are
-  // status-filtered here, in code, because the filter is the whole point -
-  // pushing it into the query would make an empty result indistinguishable
-  // from a slot that was never filled, and those two are counted differently.
+  // Fetched separately rather than as a PostgREST embed. The status filter
+  // belongs in code, where an empty result stays distinguishable from a slot
+  // that was never filled - those two are counted differently.
   const productIds = [...new Set(slots.map((s) => s.product_id).filter((id): id is string => !!id))];
   const products = new Map<string, ProductRow>();
+  const activeListings = new Map<string, number>();
+
   if (productIds.length > 0) {
     const { data: productData, error: productError } = await kickio()
       .from("products")
@@ -393,13 +441,33 @@ export async function runFeaturedCollection(
 
     if (productError) return { ok: false, reason: `Kickio query failed: ${productError.message}` };
     for (const row of (productData ?? []) as unknown as ProductRow[]) products.set(row.id, row);
+
+    // The shelf, not the catalogue. Same filter Grail of the Day uses to decide
+    // a listing is real: in stock, not withdrawn, and the stock checker has not
+    // seen it vanish from its source.
+    const { data: listingData, error: listingError } = await kickio()
+      .from("listings")
+      .select("product_id")
+      .in("product_id", productIds)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .gt("stock_quantity", 0)
+      .is("removed_at", null)
+      .eq("consecutive_gone_count", 0)
+      .limit(5000);
+
+    if (listingError) return { ok: false, reason: `Kickio query failed: ${listingError.message}` };
+    for (const row of (listingData ?? []) as Array<{ product_id: string | null }>) {
+      if (!row.product_id) continue;
+      activeListings.set(row.product_id, (activeListings.get(row.product_id) ?? 0) + 1);
+    }
   }
 
   const rejected: Array<{ key: string; reason: string }> = [];
   const eligible: CollectionSummary[] = [];
 
   for (const set of sets) {
-    const summary = summariseSet(set, bySet.get(set.id) ?? [], products);
+    const summary = summariseSet(set, bySet.get(set.id) ?? [], products, activeListings);
     if (!summary) {
       rejected.push({ key: set.slug ?? set.id, reason: "set has no slug or name" });
       continue;
@@ -412,13 +480,13 @@ export async function runFeaturedCollection(
   if (eligible.length === 0) {
     return {
       ok: false,
-      reason: "No curated collection on Kickio has enough listed shirts to post",
+      reason: "No curated collection on Kickio has enough buyable shirts to post",
       diagnostics: { sets: sets.length, rejected },
     };
   }
 
-  // Most listed first. The change rule does the rotating, so this does not.
-  const winner = eligible.sort((a, b) => b.listed - a.listed)[0];
+  // Most buyable first. The change rule does the rotating, so this does not.
+  const winner = eligible.sort((a, b) => b.buyable - a.buyable)[0];
 
   const prior = await lastPostFor(winner.slug);
   const progress = progressVerdict(winner, prior, config);
@@ -428,11 +496,12 @@ export async function runFeaturedCollection(
       reason: `${winner.name}: ${progress.reason}`,
       diagnostics: {
         set: winner.slug,
-        listed: winner.listed,
+        buyable: winner.buyable,
         slots: winner.slots,
+        catalogued: winner.catalogued,
         missing: winner.missing,
-        stale: winner.stale,
-        prior: prior ? { listed: prior.listed, slots: prior.slots, at: prior.at } : null,
+        unlisted: winner.unlisted,
+        prior: prior ? { buyable: prior.buyable, slots: prior.slots, at: prior.at } : null,
       },
     };
   }
@@ -442,12 +511,16 @@ export async function runFeaturedCollection(
 
   const claims: Claim[] = [
     {
-      statement: `${winner.listed} of the ${winner.slots} shirts on ${winner.name} are listed on Kickio`,
-      value: winner.listed,
-      source: "collection_set_slots joined to products (active, not deleted, with a photo)",
+      statement:
+        `${winner.buyable} of the ${winner.slots} shirts on ${winner.name} ` +
+        "can be bought on Kickio right now",
+      value: winner.buyable,
+      source: "collection_set_slots -> products (active) -> listings (active, in stock, not removed)",
       basis:
-        `Counted here, not read from a stored total. ${winner.stale} further slots point at a ` +
-        "shirt that is pending, archived or unphotographed; those are not counted as listed.",
+        "Counted from LISTINGS, not from a status column on products. " +
+        `${winner.catalogued} further slots have a shirt record on Kickio that nobody is ` +
+        `currently selling, and ${winner.unlisted} point at a pending or archived record. ` +
+        "Neither is buyable, and neither is counted here.",
     },
     {
       statement: `${winner.missing} slots have no shirt matched yet`,
@@ -455,12 +528,18 @@ export async function runFeaturedCollection(
       source: "collection_set_slots where product_id is null",
       basis: "Slots Kickio's curators have named but not yet filled",
     },
+    {
+      statement: `${winner.catalogued} more are on Kickio's catalogue but not for sale`,
+      value: winner.catalogued,
+      source: "products active, with no active listing",
+      basis: "A shirt page exists; there is nothing to buy on it",
+    },
   ];
 
-  if (progress.change && progress.change.listed > 0 && prior) {
+  if (progress.change && progress.change.buyable > 0 && prior) {
     claims.push({
-      statement: `Up from ${prior.listed} when this was last posted on ${prior.at.slice(0, 10)}`,
-      value: progress.change.listed,
+      statement: `Up from ${prior.buyable} when this was last posted on ${prior.at.slice(0, 10)}`,
+      value: progress.change.buyable,
       source: "post_drafts.subject_ref of the previous Featured Collection draft",
       basis: "The engine's own record of the last number it published",
     });
@@ -476,17 +555,18 @@ export async function runFeaturedCollection(
   return {
     ok: true,
     candidate: {
-      subjectRef: subjectRefFor(winner.slug, winner.listed, winner.slots),
-      headline: `${winner.listed} of ${winner.slots} on ${winner.name}`,
+      subjectRef: subjectRefFor(winner.slug, winner.buyable, winner.slots),
+      headline: `${winner.buyable} of ${winner.slots} buyable on ${winner.name}`,
       sourceData: {
         subject: winner.name,
         collection: winner.name,
         collection_slug: winner.slug,
         collection_description: winner.description,
         slots: winner.slots,
-        listed: winner.listed,
+        buyable: winner.buyable,
+        catalogued_not_for_sale: winner.catalogued,
         missing: winner.missing,
-        not_listed: winner.stale,
+        record_not_active: winner.unlisted,
         featured: winner.featured.slice(0, config.gridSize).map((f) => ({
           label: f.label,
           name: f.product?.name ?? null,
@@ -494,12 +574,12 @@ export async function runFeaturedCollection(
         })),
         hunting,
         newly_listed: added,
-        previous: prior ? { listed: prior.listed, slots: prior.slots, at: prior.at } : null,
+        previous: prior ? { buyable: prior.buyable, slots: prior.slots, at: prior.at } : null,
         // Carried so the next run can name what arrived since.
-        listed_labels: winner.featured.map((f) => f.label),
+        buyable_labels: winner.featured.map((f) => f.label),
         scope_note:
-          "The list is Kickio's own curation. Counts describe what Kickio has listed, " +
-          "not what exists, and most of the list is not currently buyable.",
+          "The list is Kickio's own curation, shared by everyone - not one collector's " +
+          "progress. `buyable` counts active listings; most of the list cannot be bought.",
       },
       claims,
       images: winner.photos.slice(0, config.gridSize),
@@ -512,17 +592,20 @@ export const FEATURED_COLLECTION_BRIEF = `**Featured Collection** - a curated Ki
 The hook is the gap. A list of named shirts where most slots are still empty is
 an invitation: the collector reading it knows exactly which one they own. Lead
 with the count, then name two or three specific shirts from the facts - the ones
-that are listed, and the ones still being hunted. Ask for the missing ones.
+you can buy, and the ones still being hunted. Ask for the missing ones.
 
 If \`newly_listed\` is non-empty, that is the news: say which shirt just landed and
 lead with it.
 
-Three hard rules:
-- \`listed\` is how many are BUYABLE ON KICKIO RIGHT NOW. It is not the size of
-  the list. Never write or imply that all \`slots\` shirts are available - most
-  are not. "x of y" framing, every time.
-- The list is KICKIO'S OWN CURATION, an editorial pick. Never call it the
-  definitive, official or greatest anything, and never rank the shirts against
-  each other. You have a curator's order, not a scoring.
+Four hard rules:
+- \`buyable\` is how many you can BUY ON KICKIO RIGHT NOW. It is not the size of
+  the list, and it is not how many shirts Kickio has a page for. Never write or
+  imply that all \`slots\` shirts are available - most are not. "x of y" framing,
+  every time.
+- \`catalogued_not_for_sale\` shirts have a page and nothing to buy. You may
+  mention them as "on the list but nobody's selling one", never as available.
+- The list is KICKIO'S OWN CURATION, shared by everyone. It is not one
+  collector's progress, and it is not a ranking - never call it the definitive,
+  official or greatest anything.
 - Do not invent shirts. Every shirt you name must appear in \`featured\` or
   \`hunting\`.`;

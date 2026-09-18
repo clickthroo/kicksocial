@@ -1071,10 +1071,15 @@ function ArchiveCard({
  *
  * Same photo grid as the archive card, different type block, because the
  * subject is different: the archive says "this is what we hold", this says
- * "this is what we hold OF A NAMED LIST". The fraction is the whole point, so
- * it is set large and never reduced to its numerator - a card reading "136
- * grails on Kickio" over nine photos would be the overclaim the recipe spends
- * its selection logic avoiding.
+ * "this is how much OF A NAMED LIST you can buy". The fraction is the whole
+ * point, so it is set large and never reduced to its numerator - a card
+ * reading "136 grails on Kickio" over nine photos would be the overclaim the
+ * recipe spends its selection logic avoiding.
+ *
+ * "Buyable", not "listed". The numerator counts active LISTINGS, not shirt
+ * records: 65 of the Grail List's slots have a page on Kickio and only 39 have
+ * anything to buy. The card sends people shopping, so it quotes the number
+ * they can act on.
  * ------------------------------------------------------------------------- */
 
 function CollectionCard({
@@ -1168,7 +1173,8 @@ function CollectionCard({
           >
             {String(d.collection ?? "")}
           </div>
-          {/* The fraction, never the numerator alone. */}
+          {/* The fraction, never the numerator alone - and the numerator is
+              active listings, not shirt records. */}
           <div
             style={{
               display: "flex",
@@ -1178,7 +1184,7 @@ function CollectionCard({
               marginTop: 8,
             }}
           >
-            {String(d.listed ?? "")} of {String(d.slots ?? "")} listed on kickio.com
+            {String(d.buyable ?? "")} of {String(d.slots ?? "")} to buy on kickio.com
           </div>
           {huntLine ? (
             <div style={{ display: "flex", fontSize: portrait ? 20 : 18, color: STUDIO_MUTED, marginTop: 12 }}>

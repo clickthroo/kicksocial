@@ -69,14 +69,36 @@ filled in by hand as a matching product appears.
 - 26 sets, but only one has any slots: `kickio-grail-list`, "Kickio Grail
   List", curated, public, **136 slots**. The rest (`generated` kind, plus two
   empty curated ones) have none.
-- **77 slots point at a product. Only 63 are postable.** 12 point at a shirt
-  whose `status` is `pending` or `archived`; 2 more have only a WebP photo,
-  which Satori cannot render. 59 slots have no product at all.
-  63 listed + 59 unfilled + 14 unpostable = 136.
-- The overcount is easy to make, because Kickio's `products_read` policy
-  returns **any row that is not soft-deleted, whatever its status**. A naive
-  join hands back all 77 and the post invites readers to buy twelve shirts
-  that are not for sale. Filter on `status = 'active'` explicitly.
+- **The slots belong to the SET, not to a user.** `collection_set_slots` has
+  no `user_id`/`owner_id` column — one row per slot, shared by everyone. The
+  per-user layer is `collection_set_prefs` (hidden/extra shirt types, pinned,
+  season override) and `collection_set_milestones` (user_id, set_id,
+  milestone, achieved_at): preferences and achievements, not a copy of the
+  list. A collector's own progress is computed by intersecting `collections`
+  (user_id, product_id) with the set's slots, and is not stored. So a post
+  from this recipe is about Kickio's shelf, never "UserA has 63 of 136" —
+  which is just as well, since `collections` holds 9 rows in total.
+- **Three counts that look like one, and only one is postable:**
+  - 77 slots point at a product
+  - 65 of those products are catalogue-active
+  - **39 have a listing you can actually buy** (37 of those with a photo the
+    renderer can use)
+
+  `products` is the **catalogue** — a shirt record exists whether or not
+  anyone is selling one — and `listings` is the **shelf**. Counting catalogue
+  rows and calling them "listed" puts 26 dead ends in a post whose entire
+  purpose is to send people to go and look. Count from `listings`, with the
+  same filter Grail of the Day uses (`status='active'`, `deleted_at` null,
+  `stock_quantity > 0`, `removed_at` null, `consecutive_gone_count = 0`).
+  Slot breakdown: 39 buyable + 26 catalogue-only + 59 never filled + 12
+  pending/archived = 136.
+- `products.has_active_listing` agreed exactly with a real count from
+  `listings` here — 0 disagreements either way across all 77. Still not what
+  the post quotes: `teams.listings_count` also looked fine until it was
+  checked, and was out by a factor of two.
+- Kickio's `products_read` policy returns **any row that is not soft-deleted,
+  whatever its status**, so a naive join also hands back the 12 pending and
+  archived records. Filter on `status = 'active'` explicitly.
 - RLS is already open to us: `collection_sets` and `collection_set_slots` both
   carry a PUBLIC (roles NULL) SELECT policy gated on
   `visibility = 'public'`, and anon holds the table GRANT. **No new role or
