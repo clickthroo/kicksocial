@@ -28,6 +28,7 @@ import { parseRule, expandRule, slotKey, scopeLine, type SetRule } from "./featu
 import {
   DEFAULT_COLLECTOR_COOLDOWN_DAYS,
   loadCollectors,
+  postable,
   subjectRefFor,
   type CollectorOption,
 } from "./collector-access.ts";
@@ -62,6 +63,11 @@ export interface CollectorSetProgressConfig {
   seasonTo: number;
   cooldownDays: number;
   upNext?: string[];
+  /**
+   * Extra accounts an admin never wants featured. House accounts are excluded
+   * regardless - see HOUSE_ACCOUNTS in collector-access.ts.
+   */
+  excludeUserIds?: string[];
 }
 
 export const DEFAULT_COLLECTOR_SET_PROGRESS_CONFIG: CollectorSetProgressConfig = {
@@ -73,6 +79,7 @@ export const DEFAULT_COLLECTOR_SET_PROGRESS_CONFIG: CollectorSetProgressConfig =
   seasonTo: new Date().getUTCFullYear(),
   cooldownDays: DEFAULT_COLLECTOR_COOLDOWN_DAYS,
   upNext: [],
+  excludeUserIds: [],
 };
 
 export interface Progress {
@@ -187,7 +194,14 @@ export async function runCollectorSetProgress(
   const queue = (config.upNext ?? []).map((s) => s.trim()).filter(Boolean);
   const queued = queue[0] ?? null;
 
-  const { options, access } = await loadCollectors(config.cooldownDays);
+  const { options: listed, access } = await loadCollectors(
+    config.cooldownDays,
+    config.excludeUserIds ?? [],
+  );
+  // Blocked accounts are dropped here rather than relying on `available`: a
+  // queued pick bypasses `available` deliberately, and queueing Kickio's own
+  // account must still be impossible.
+  const options = postable(listed);
   if (!access.ok) {
     return { ok: false, reason: access.reason, diagnostics: { blind: access.blind } };
   }

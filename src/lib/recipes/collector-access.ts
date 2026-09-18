@@ -38,12 +38,47 @@
  */
 import { kickio } from "../kickio/client.ts";
 import { engine } from "../engine/client.ts";
+import { KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER } from "./grail-of-the-day.ts";
 
 /** Both Collector Spotlight recipes share one cooldown, keyed on the person. */
 export const COLLECTOR_RECIPE_KEYS = ["collector_spotlight", "collector_set_progress"] as const;
 
 /** Six months, so one collector cannot headline twice in a season. */
 export const DEFAULT_COLLECTOR_COOLDOWN_DAYS = 180;
+
+/**
+ * Accounts that are not people.
+ *
+ * Kickio's own account and the partner seller both have collections, both have
+ * `collection_public` and `featured_consent` set to true, and both look exactly
+ * like a collector to every check in this module. Today they are the two
+ * biggest "collections" on the platform, so without this the first Collector
+ * Spotlight would have been Kickio posting "look at this collector" about
+ * itself.
+ *
+ * Reused from grail-of-the-day rather than re-typed: the same two UUIDs already
+ * mean "this is us" there, and two lists of house accounts would drift.
+ */
+export const HOUSE_ACCOUNTS = [KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER];
+
+/**
+ * A seeded fixture rather than a person.
+ *
+ * `00000000-0000-0000-...` is not a UUID anybody was assigned. This is a
+ * heuristic and it is deliberately narrow - it catches the zero-prefix
+ * fixtures and nothing else. Real exclusions belong in HOUSE_ACCOUNTS or in
+ * `excludeUserIds`, where they are visible.
+ */
+export function isFixtureId(userId: string): boolean {
+  return /^00000000-0000-0000/.test(userId);
+}
+
+export type BlockReason = "house" | "excluded" | null;
+
+export function blockReasonFor(userId: string, excluded: string[] = []): BlockReason {
+  if (HOUSE_ACCOUNTS.includes(userId) || isFixtureId(userId)) return "house";
+  return excluded.includes(userId) ? "excluded" : null;
+}
 
 export interface ProfileRow {
   id: string;
@@ -144,6 +179,12 @@ export interface CollectorSummary {
 export interface CollectorOption extends CollectorSummary {
   lastPostedAt: string | null;
   available: boolean;
+  /**
+   * Set when this account may never be posted, whatever its consent flags or
+   * cooldown say. Listed rather than hidden, so Settings can show WHY the
+   * biggest collection on the platform is not on offer.
+   */
+  blocked: BlockReason;
 }
 
 const PAGE = 1000;
@@ -258,15 +299,19 @@ export function withCooldown(
   lastPosted: Map<string, string>,
   cooldownDays: number,
   now: Date = new Date(),
+  excludeUserIds: string[] = [],
 ): CollectorOption[] {
   const cutoff = now.getTime() - cooldownDays * 86_400_000;
   return collectors
     .map((c) => {
       const posted = lastPosted.get(c.userId) ?? null;
+      const blocked = blockReasonFor(c.userId, excludeUserIds);
       return {
         ...c,
         lastPostedAt: posted,
-        available: !posted || new Date(posted).getTime() < cutoff,
+        // A house account is never available, however long ago it last ran.
+        available: blocked === null && (!posted || new Date(posted).getTime() < cutoff),
+        blocked,
       };
     })
     .sort((a, b) => {
@@ -277,9 +322,20 @@ export function withCooldown(
     });
 }
 
+/**
+ * The collectors a recipe may actually post, as opposed to the ones Settings
+ * lists. Blocked accounts are filtered here and NOT left to the `available`
+ * flag, because a queued pick bypasses `available` on purpose - queueing
+ * Kickio's own account must still be impossible.
+ */
+export function postable(options: CollectorOption[]): CollectorOption[] {
+  return options.filter((c) => c.blocked === null);
+}
+
 /** Load everything both recipes and the Settings picker need, in one place. */
 export async function loadCollectors(
   cooldownDays = DEFAULT_COLLECTOR_COOLDOWN_DAYS,
+  excludeUserIds: string[] = [],
 ): Promise<{ options: CollectorOption[]; access: AccessVerdict }> {
   const [profileResult, collectorResult, collections] = await Promise.all([
     kickio()
@@ -306,7 +362,13 @@ export async function loadCollectors(
 
   const lastPosted = await lastPostedByCollector();
   return {
-    options: withCooldown(summarise(profiles, collectors, collections), lastPosted, cooldownDays),
+    options: withCooldown(
+      summarise(profiles, collectors, collections),
+      lastPosted,
+      cooldownDays,
+      new Date(),
+      excludeUserIds,
+    ),
     access,
   };
 }

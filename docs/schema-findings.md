@@ -157,6 +157,19 @@ Structure, which is easy to misread:
   both the app and the policy treat that as **not consent**. Today that is 6 of
   9 profiles.
 
+**The three "collectors" today are all house or test accounts.** Verified by
+reading them directly: `kickio` / "Kickio Direct" (5 shirts, 4 clubs), the
+`approved_partner_seller` fixture (3 shirts), and a `+test1` account (1 shirt).
+All three have both consent switches true and look exactly like a collector to
+every check. Without an exclusion the first Collector Spotlight would have been
+Kickio posting "look at this collector" about itself — so `HOUSE_ACCOUNTS`
+reuses the two UUIDs grail-of-the-day already knows as "this is us", and
+blocked accounts are filtered before the queue rather than by the `available`
+flag, since queueing deliberately overrides `available`.
+
+Excluding them, there are currently **zero real collectors**, which is the
+honest pre-launch state and what Settings now says.
+
 **Everything collector-side is own-row-only under RLS** — `collections`,
 `collector_profile`, `collection_highlights`, `collection_snapshots`,
 `collection_set_prefs`, `collection_set_milestones`. The engine reads **zero

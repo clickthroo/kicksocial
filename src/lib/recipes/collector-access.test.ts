@@ -1,6 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
+  HOUSE_ACCOUNTS,
+  isFixtureId,
+  blockReasonFor,
+  postable,
   mayFeature,
   publicName,
   readAccess,
@@ -194,5 +198,67 @@ describe("subject refs", () => {
   test("another recipe's ref does not parse", () => {
     assert.equal(parseCollectorRef("collection:kickio-grail-list@39/136"), null);
     assert.equal(parseCollectorRef("club:arsenal"), null);
+  });
+});
+
+describe("accounts that are not people", () => {
+  test("Kickio's own account and the partner seller are never postable", () => {
+    // Both have collections, both have collection_public and featured_consent
+    // set to true, and both look exactly like a collector to every other check
+    // here. Today they are the two biggest "collections" on the platform, so
+    // without this the first Collector Spotlight would have been Kickio
+    // posting "look at this collector" about itself.
+    for (const id of HOUSE_ACCOUNTS) {
+      assert.equal(blockReasonFor(id), "house", id);
+    }
+  });
+
+  test("zero-prefix fixtures are caught, real UUIDs are not", () => {
+    assert.equal(isFixtureId("00000000-0000-0000-0000-0000000000b0"), true);
+    assert.equal(isFixtureId("11111111-1111-1111-1111-111111111111"), false);
+    // Narrow on purpose: a real UUID can start with a zero.
+    assert.equal(isFixtureId("0a000000-1111-2222-3333-444444444444"), false);
+  });
+
+  test("an admin exclusion is reported apart from a house account", () => {
+    const dave = "11111111-1111-1111-1111-111111111111";
+    assert.equal(blockReasonFor(dave), null);
+    assert.equal(blockReasonFor(dave, [dave]), "excluded");
+  });
+
+  test("a blocked account is never available, however long since it ran", () => {
+    const summary = {
+      userId: HOUSE_ACCOUNTS[0],
+      name: "Kickio Direct",
+      title: null,
+      shirts: 500,
+      lastAcquired: null,
+    };
+    const [option] = withCooldown([summary], new Map(), 180);
+    assert.equal(option.available, false);
+    assert.equal(option.blocked, "house");
+  });
+
+  test("postable() drops them, because a queued pick bypasses `available`", () => {
+    // Queueing is meant to override the cooldown. It must not be a way to
+    // override this.
+    const options = withCooldown(
+      [
+        { userId: HOUSE_ACCOUNTS[0], name: "Kickio Direct", title: null, shirts: 500, lastAcquired: null },
+        { userId: "11111111-1111-1111-1111-111111111111", name: "Dave", title: null, shirts: 40, lastAcquired: null },
+      ],
+      new Map(),
+      180,
+    );
+    assert.deepEqual(postable(options).map((c) => c.name), ["Dave"]);
+  });
+
+  test("they are still listed, so Settings can say why they are missing", () => {
+    const options = withCooldown(
+      [{ userId: HOUSE_ACCOUNTS[0], name: "Kickio Direct", title: null, shirts: 500, lastAcquired: null }],
+      new Map(),
+      180,
+    );
+    assert.equal(options.length, 1);
   });
 });

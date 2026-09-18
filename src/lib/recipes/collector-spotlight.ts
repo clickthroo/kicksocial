@@ -37,6 +37,7 @@ import { seasonYear } from "./club-archive.ts";
 import {
   DEFAULT_COLLECTOR_COOLDOWN_DAYS,
   loadCollectors,
+  postable,
   subjectRefFor,
   type CollectorOption,
 } from "./collector-access.ts";
@@ -63,6 +64,9 @@ export interface CollectorSpotlightConfig {
   cooldownDays: number;
   /** Collectors queued by an admin, by user id. The head is consumed on publish. */
   upNext?: string[];
+  /** Extra accounts an admin never wants featured. House accounts are excluded
+   *  regardless - see HOUSE_ACCOUNTS in collector-access.ts. */
+  excludeUserIds?: string[];
 }
 
 export const DEFAULT_COLLECTOR_SPOTLIGHT_CONFIG: CollectorSpotlightConfig = {
@@ -73,6 +77,7 @@ export const DEFAULT_COLLECTOR_SPOTLIGHT_CONFIG: CollectorSpotlightConfig = {
   gridSize: 9,
   cooldownDays: DEFAULT_COLLECTOR_COOLDOWN_DAYS,
   upNext: [],
+  excludeUserIds: [],
 };
 
 export interface CollectionShape {
@@ -179,7 +184,14 @@ export async function runCollectorSpotlight(
   const queue = (config.upNext ?? []).map((s) => s.trim()).filter(Boolean);
   const queued = queue[0] ?? null;
 
-  const { options, access } = await loadCollectors(config.cooldownDays);
+  const { options: listed, access } = await loadCollectors(
+    config.cooldownDays,
+    config.excludeUserIds ?? [],
+  );
+  // Blocked accounts are dropped here rather than relying on `available`: a
+  // queued pick bypasses `available` deliberately, and queueing Kickio's own
+  // account must still be impossible.
+  const options = postable(listed);
   if (!access.ok) {
     // Says WHICH it is. "No collectors qualify" would be a plausible-looking
     // lie the week the engine loses its grant.

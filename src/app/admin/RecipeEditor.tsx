@@ -114,7 +114,16 @@ export function RecipeEditor({
     : picksCollector
       ? collectors.map((o) => ({
           value: o.userId,
-          label: `${o.name} — ${o.shirts} shirts`,
+          // Listed rather than hidden. Kickio's own account is currently the
+          // biggest collection on the platform, and an admin who cannot see
+          // why it is missing will assume the list is broken.
+          label:
+            `${o.name} — ${o.shirts} shirts` +
+            (o.blocked === "house"
+              ? " (Kickio account — never featured)"
+              : o.blocked === "excluded"
+                ? " (excluded in settings)"
+                : ""),
           available: o.available,
           lastPostedAt: o.lastPostedAt,
         }))
