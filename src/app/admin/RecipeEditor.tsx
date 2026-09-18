@@ -79,6 +79,10 @@ export function RecipeEditor({
   // Only the sale card has style variants so far.
   const hasStyles = recipe.key === "grail_sale";
   const picksClub = recipe.key === "club_archive";
+  // Featured Collection only posts when its list has actually moved, so its
+  // cooldown is a floor under that rule rather than the thing that paces it.
+  // Labelling it "Cooldown (days)" would read as the pacing control it is not.
+  const tracksAList = recipe.key === "featured_collection";
   const cooldownDays = num(recipe.selection, "cooldownDays", 180);
 
   const toggleSeller = (id: string) =>
@@ -168,7 +172,9 @@ export function RecipeEditor({
               ? "Same shirt again after (days)"
               : picksClub
                 ? "Same club again after (days)"
-                : "Cooldown (days)"}
+                : tracksAList
+                  ? "Never post the same list twice within (days)"
+                  : "Cooldown (days)"}
           </span>
           <input
             type="number"

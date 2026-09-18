@@ -8,6 +8,11 @@ import {
   MARKET_INDEX_BRIEF,
 } from "./market-index.ts";
 import {
+  runFeaturedCollection,
+  DEFAULT_FEATURED_COLLECTION_CONFIG,
+  FEATURED_COLLECTION_BRIEF,
+} from "./featured-collection.ts";
+import {
   runClubArchive,
   DEFAULT_CLUB_ARCHIVE_CONFIG,
   CLUB_ARCHIVE_BRIEF,
@@ -112,6 +117,19 @@ No TikTok variant. Write X and Instagram only.`,
     brief: CLUB_ARCHIVE_BRIEF,
     run: (selection) =>
       runClubArchive({ ...DEFAULT_CLUB_ARCHIVE_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "featured_collection",
+    name: "Featured Collection",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "collection_grid",
+    brief: FEATURED_COLLECTION_BRIEF,
+    run: (selection) =>
+      runFeaturedCollection({
+        ...DEFAULT_FEATURED_COLLECTION_CONFIG,
+        ...(selection as object),
+      }),
   },
 ];
 
