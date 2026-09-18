@@ -12,7 +12,7 @@
  * with more than one child needs an explicit `display: flex`.
  */
 import type { PostDraft } from "../engine/types.ts";
-import { asCardStyle, type CardStyle } from "./styles.ts";
+import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./styles.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
 /** Output sizes per platform. */
@@ -130,20 +130,71 @@ function Wordmark({
  * replaces it rather than sitting beneath it - otherwise the card reads
  * "KICKIO / KICKIO.COM".
  */
+/**
+ * Relative luminance of a six-digit hex, 0..1. Null for anything else.
+ *
+ * sRGB coefficients, no gamma correction: this decides "light or dark
+ * background", not a contrast ratio, and the extra precision would not change
+ * a single answer.
+ */
+function luminance(hex: string): number | null {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.split(",").map((n) => Number(n) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * The logo is a single uploaded PNG, and it is white.
+ *
+ * On a dark card that is the whole point; on the light `paper` style it
+ * disappears into the background, which is how the sale card has been rendering
+ * since paper was added. Satori cannot recolour an image, so the mark gets a
+ * dark plate to sit on instead - the logo stays the logo, and it stays visible.
+ */
+function BrandBadge({
+  size,
+  brand,
+  surface,
+}: {
+  size: number;
+  brand: Brand;
+  surface: string;
+}) {
+  const light = (luminance(surface) ?? 0) > 0.5;
+  if (!light) return <BrandMark size={size} brand={brand} />;
+  const pad = Math.round(size * 0.12);
+  return (
+    <div
+      style={{
+        display: "flex",
+        padding: pad,
+        borderRadius: Math.round(size * 0.24),
+        background: STUDIO,
+      }}
+    >
+      <BrandMark size={size - pad * 2} brand={brand} />
+    </div>
+  );
+}
+
 function BrandLockup({
   format,
   brand,
   label,
   muted = INK_MUTED,
+  surface = SURFACE,
 }: {
   format: FormatKey;
   brand: Brand;
   label?: string;
   muted?: string;
+  /** What the lockup is sitting on, so a white mark is never lost on it. */
+  surface?: string;
 }) {
   const portrait = format === "ig";
-  const size = portrait ? 120 : 92;
-  const urlSize = portrait ? 21 : 18;
+  const size = portrait ? 172 : 128;
+  const urlSize = portrait ? 24 : 20;
 
   const url = (
     <div
@@ -153,7 +204,7 @@ function BrandLockup({
         fontWeight: 700,
         letterSpacing: 2.5,
         color: muted,
-        ...(portrait ? { marginTop: 7 } : { marginLeft: 14 }),
+        ...(portrait ? { marginTop: 8 } : { marginLeft: 16 }),
       }}
     >
       KICKIO.COM
@@ -170,7 +221,7 @@ function BrandLockup({
             alignItems: portrait ? "flex-start" : "center",
           }}
         >
-          <BrandMark size={size} brand={brand} />
+          <BrandBadge size={size} brand={brand} surface={surface} />
           {url}
         </div>
       ) : (
@@ -196,45 +247,159 @@ function BrandLockup({
 
 /** How much vertical room BrandLockup takes, for templates that size a grid. */
 function lockupHeight(format: FormatKey): number {
-  return format === "ig" ? 120 + 7 + 21 : 92;
+  return format === "ig" ? 172 + 8 + 24 : 128;
+}
+
+/**
+ * How the Grail card reads one of the six style keys.
+ *
+ * The keys are a shared vocabulary, not a shared layout. The sale card draws a
+ * lit plate; this one is a full-bleed photograph with type over it, so "paper"
+ * cannot mean the same pixels in both - it means the same INTENT. Four of the
+ * six stay bleed and vary the light; `paper` and `frame` pull the photo in off
+ * the edge, because at that point the backdrop is the point.
+ *
+ * Colours come from styleFor(), the same function the sale card uses, so a
+ * style chosen on one template looks like itself on the other.
+ */
+interface GrailLook {
+  /** Photo inset from the frame rather than filling it. */
+  contained: boolean;
+  /** Ink over the photo, and the chip fill that has to sit under it. */
+  ink: string;
+  chip: string;
+  chipEdge: string;
+  /** Scrim stops, top and bottom. */
+  scrimTop: number;
+  scrimBottom: number;
+  /** The colour the scrim is made of - neutral, or taken from the shirt. */
+  scrimRgb: string;
+  titleScale: number;
+  keyline: string | null;
+}
+
+function grailLook(key: CardStyle, palette: Style): GrailLook {
+  const dark: GrailLook = {
+    contained: false,
+    ink: INK,
+    chip: "rgba(255,255,255,0.16)",
+    chipEdge: "rgba(255,255,255,0.22)",
+    scrimTop: 0.72,
+    scrimBottom: 0.88,
+    scrimRgb: "10,12,15",
+    titleScale: 1,
+    keyline: null,
+  };
+
+  switch (key) {
+    case "spotlight":
+      // Heavier falloff both ends: the shirt sits in a pool of light.
+      return { ...dark, scrimTop: 0.82, scrimBottom: 0.94 };
+    case "sweep":
+      // The scrim itself is taken from the shirt, so the whole card is tinted
+      // by what is in the photograph rather than by a fixed black.
+      return { ...dark, scrimRgb: hexToRgb(palette.to) ?? dark.scrimRgb, scrimTop: 0.78, scrimBottom: 0.9 };
+    case "editorial":
+      return { ...dark, scrimTop: 0.62, scrimBottom: 0.92, titleScale: 1.18 };
+    case "frame":
+      return {
+        ...dark,
+        contained: true,
+        scrimTop: 0,
+        scrimBottom: 0,
+        keyline: palette.hairline,
+        titleScale: 0.86,
+      };
+    case "paper":
+      // The one light card. Chips and keyline have to flip with the ink, or
+      // they vanish into the backdrop.
+      return {
+        contained: true,
+        ink: palette.ink,
+        chip: "rgba(20,24,29,0.09)",
+        chipEdge: "rgba(20,24,29,0.16)",
+        scrimTop: 0,
+        scrimBottom: 0,
+        scrimRgb: "10,12,15",
+        titleScale: 0.94,
+        keyline: null,
+      };
+    default:
+      return dark;
+  }
+}
+
+/** "#1c1f24" -> "28,31,36". Null for anything that is not a six-digit hex. */
+function hexToRgb(hex: string): string | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 }
 
 /** Grail of the Day - the photo is the hero, type sits over a scrim. */
-function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
+function GrailCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
   const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
   const portrait = format === "ig";
+  const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
+  const palette = styleFor(style, brand, shirt);
+  const look = grailLook(style, palette);
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+  // A contained photo sits inside the padding and below the lockup, so the
+  // backdrop it is placed on is visible - which is the whole point of the two
+  // styles that use it.
+  const inset = look.contained ? pad : 0;
+  const photoTop = look.contained ? pad + lockupHeight(format) + (portrait ? 28 : 18) : 0;
+  const photoH = look.contained ? height - photoTop - (portrait ? 330 : 210) : height;
+  const photoW = width - inset * 2;
 
   return (
-    <Frame format={format}>
+    <Frame format={format} background={palette.to}>
+      {look.contained && <StudioField width={width} height={height} palette={palette} />}
       {photo ? (
         <img
           src={photo}
           alt=""
-          width={FORMATS[format].width}
-          height={FORMATS[format].height}
+          width={photoW}
+          height={photoH}
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: FORMATS[format].width,
-            height: FORMATS[format].height,
-            objectFit: "cover",
+            top: photoTop,
+            left: inset,
+            width: photoW,
+            height: photoH,
+            objectFit: look.contained ? "contain" : "cover",
+            ...(look.keyline ? { border: `1px solid ${look.keyline}` } : {}),
+            ...(look.contained ? { borderRadius: 10 } : {}),
           }}
         />
       ) : (
         /* Recipes only produce drafts with renderable photography, so this is a
            fault, not a layout state. Say so plainly rather than shipping a card
            that merely looks dark. */
+        /* Sized like the photo it stands in for, so a contained style still
+           shows its backdrop rather than being painted over edge to edge. */
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: FORMATS[format].width,
-            height: FORMATS[format].height,
+            top: photoTop,
+            left: inset,
+            width: photoW,
+            height: photoH,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -242,24 +407,29 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
             color: "#f2565a",
             fontSize: 34,
             fontWeight: 700,
+            ...(look.contained ? { borderRadius: 10 } : {}),
           }}
         >
           No renderable photo — do not post
         </div>
       )}
-      {/* Scrim: keeps type legible over any photograph. */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: FORMATS[format].width,
-          height: FORMATS[format].height,
-          background:
-            "linear-gradient(to bottom, rgba(10,12,15,0.72) 0%, rgba(10,12,15,0.12) 38%, rgba(10,12,15,0.88) 100%)",
-          display: "flex",
-        }}
-      />
+      {/* Scrim: keeps type legible over any photograph. A contained photo does
+          not need one - nothing is set over it. */}
+      {!look.contained && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width,
+            height,
+            background:
+              `linear-gradient(to bottom, rgba(${look.scrimRgb},${look.scrimTop}) 0%, ` +
+              `rgba(${look.scrimRgb},0.12) 38%, rgba(${look.scrimRgb},${look.scrimBottom}) 100%)`,
+            display: "flex",
+          }}
+        />
+      )}
 
       <div
         style={{
@@ -273,7 +443,12 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <BrandLockup format={format} brand={brand} />
+          <BrandLockup
+            format={format}
+            brand={brand}
+            muted={look.ink}
+            surface={look.contained ? palette.to : STUDIO}
+          />
           <div
             style={{
               display: "flex",
@@ -282,8 +457,9 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
               letterSpacing: 2,
               padding: "8px 16px",
               borderRadius: 999,
-              background: "rgba(255,255,255,0.14)",
-              border: "1px solid rgba(255,255,255,0.22)",
+              color: look.ink,
+              background: look.chip,
+              border: `1px solid ${look.chipEdge}`,
             }}
           >
             GRAIL OF THE DAY
@@ -302,7 +478,8 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
                     fontWeight: 700,
                     padding: "7px 14px",
                     borderRadius: 8,
-                    background: "rgba(255,255,255,0.16)",
+                    color: look.ink,
+                    background: look.chip,
                     marginRight: 10,
                   }}
                 >
@@ -315,18 +492,26 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 60 : 46,
+              fontSize: Math.round((portrait ? 60 : 46) * look.titleScale),
               fontWeight: 800,
               lineHeight: 1.1,
               letterSpacing: -1,
               marginBottom: 14,
+              color: look.ink,
             }}
           >
             {String(d.title ?? draft.headline ?? "")}
           </div>
 
           <div style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", fontSize: portrait ? 52 : 42, fontWeight: 800 }}>
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 52 : 42,
+                fontWeight: 800,
+                color: look.ink,
+              }}
+            >
               {String(d.price ?? "")}
             </div>
             {d.condition ? (
@@ -334,10 +519,10 @@ function GrailCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
                 style={{
                   display: "flex",
                   fontSize: 24,
-                  color: INK_MUTED,
+                  color: palette.muted,
                   marginLeft: 20,
                   paddingLeft: 20,
-                  borderLeft: `2px solid ${INK_MUTED}`,
+                  borderLeft: `2px solid ${palette.muted}`,
                 }}
               >
                 {String(d.condition)}
@@ -1006,7 +1191,7 @@ function GrailSaleCard({
                 borderTop: `1px solid ${palette.hairline}`,
               }}
             >
-              <BrandMark size={portrait ? 92 : 74} brand={brand} style={{ opacity: 0.95 }} />
+              <BrandBadge size={portrait ? 112 : 88} brand={brand} surface={palette.to} />
               <div
                 style={{
                   display: "flex",
@@ -1447,6 +1632,13 @@ export function templateFor(
         />
       );
     default:
-      return <GrailCard draft={draft} format={format} brand={brand} />;
+      return (
+        <GrailCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
   }
 }

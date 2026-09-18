@@ -94,8 +94,8 @@ export function RecipeEditor({
   // except Grail Sale, which selects nothing.
   const usesPriceFloor = recipe.key === "grail_of_the_day" || recipe.key === "sold_this_week";
   const selectsCandidates = recipe.key !== "grail_sale";
-  // Only the sale card has style variants so far.
-  const hasStyles = recipe.key === "grail_sale";
+  // The two photo-led recipes. Their templates read the same six style keys.
+  const hasStyles = recipe.key === "grail_sale" || recipe.key === "grail_of_the_day";
   const picksClub = recipe.key === "club_archive";
   const picksSet = recipe.key === "featured_set";
   const picksCollector =

@@ -119,6 +119,10 @@ export async function runRecipe(
         model: "claude-opus-5",
         usage: generated.usage,
         visual_template: recipe.visualTemplate,
+        // The recipe's default look, where its template reads one. Stored on
+        // the draft rather than resolved at render time, so a card keeps the
+        // style it was approved under even if the default changes later.
+        style: asCardStyle(config?.selection?.style),
       },
     })
     .select("id")

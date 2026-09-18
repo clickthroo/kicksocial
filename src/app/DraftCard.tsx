@@ -38,6 +38,8 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [resolved, setResolved] = useOptimistic<null | "approved" | "rejected">(null);
 
   const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState<"ig" | "x" | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const savedStyle = asCardStyle((draft.generation as { style?: unknown })?.style);
   // What is on screen, which may not be what is saved yet.
@@ -45,8 +47,65 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [savedAt, setSavedAt] = useState(0);
   const [styleError, setStyleError] = useState<string | null>(null);
   const [savingStyle, startStyle] = useTransition();
-  const restylable = (draft.generation as { visual_template?: string })?.visual_template ===
-    "grail_sale_card";
+  // Both photo-led templates read the six style keys. The grid and chart cards
+  // do not - a style that means "lit plate" has nothing to say about a 3x3 of
+  // thumbnails, and offering it there would be a control that does nothing.
+  const template = (draft.generation as { visual_template?: string })?.visual_template;
+  const restylable = template === "grail_sale_card" || template === "grail_card";
+
+  /**
+   * Get the rendered card onto the phone's camera roll.
+   *
+   * A plain `download` link is a desktop idiom. On iOS Safari it either opens
+   * the PNG in a tab or drops it into Files, and neither is where anyone looks
+   * for a photo they are about to post to Instagram. The Web Share API is the
+   * route to "Save Image" in the iOS share sheet, and it is also how the image
+   * gets handed straight to Instagram without a round trip through Photos.
+   *
+   * Three tiers, best first, because `canShare` with files is still not
+   * everywhere: share sheet, then a blob download, then the link's own href.
+   * The anchor keeps working with JavaScript off, which is why this hangs off
+   * onClick rather than replacing the anchor with a button.
+   */
+  const saveImage = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    format: "ig" | "x",
+  ) => {
+    const name = `${draft.recipe_key}-${format}.png`;
+    // Feature-detect before taking over the anchor: if neither route is
+    // available, let the browser follow the href as it always did.
+    const canShare =
+      typeof navigator !== "undefined" && typeof navigator.share === "function";
+    if (!canShare && typeof URL.createObjectURL !== "function") return;
+
+    event.preventDefault();
+    setSaveError(null);
+    setSaving(format);
+    try {
+      const response = await fetch(renderUrl(draft.id, format, preview, savedAt));
+      if (!response.ok) throw new Error(`Render failed (${response.status})`);
+      const blob = await response.blob();
+      const file = new File([blob], name, { type: "image/png" });
+
+      if (canShare && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        return;
+      }
+
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = name;
+      link.click();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      // Dismissing the share sheet is a choice, not a failure.
+      if ((err as Error)?.name === "AbortError") return;
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(null);
+    }
+  };
 
   const pickStyle = (style: CardStyle) => {
     setPreview(style);
@@ -257,16 +316,27 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
       )}
 
       <div className="export">
-        <a className="link" href={renderUrl(draft.id, "ig", preview, savedAt)} download={`${draft.recipe_key}-ig.png`}>
-          Download 4:5
+        <a
+          className="link"
+          href={renderUrl(draft.id, "ig", preview, savedAt)}
+          download={`${draft.recipe_key}-ig.png`}
+          onClick={(e) => saveImage(e, "ig")}
+        >
+          {saving === "ig" ? "Saving…" : "Save 4:5"}
         </a>
-        <a className="link" href={renderUrl(draft.id, "x", preview, savedAt)} download={`${draft.recipe_key}-x.png`}>
-          Download 16:9
+        <a
+          className="link"
+          href={renderUrl(draft.id, "x", preview, savedAt)}
+          download={`${draft.recipe_key}-x.png`}
+          onClick={(e) => saveImage(e, "x")}
+        >
+          {saving === "x" ? "Saving…" : "Save 16:9"}
         </a>
         <button className="link" onClick={copyText} type="button">
           {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
         </button>
       </div>
+      {saveError && <div className="banner">Could not save the image: {saveError}</div>}
 
       <div className="actions">
         <button
