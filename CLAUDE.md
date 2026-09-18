@@ -20,3 +20,13 @@ project. This is not a convention — treat it as an invariant.
 
 Reads used during development (SELECT, information_schema inspection,
 `list_tables`, `list_projects`) are fine.
+
+## Replying: always end with "In Simple Terms"
+
+Every reply in chat ends with a short **In Simple Terms** section — one or two
+paragraphs, plain English, no jargon, no table names, no code identifiers.
+
+It is a translation of the reply, not a repeat of it: say what was done and
+what it means in practice, the way you would explain it to someone who does
+not work on this codebase. Keep the technical detail above it as normal —
+this is added, never a replacement for it.
