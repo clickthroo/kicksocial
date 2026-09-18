@@ -120,11 +120,14 @@ export function readAccess(profiles: number, collections: number): AccessVerdict
   return {
     ok: false,
     blind: true,
+    // Conclusion, then the evidence, then the two steps. This string is also
+    // the skip reason on the run log, so it has to stand on its own there as
+    // well as under a heading in Settings.
     reason:
-      `Kickio returned ${profiles} profiles and 0 collection rows. The engine ` +
-      "cannot see collections: it is probably still connecting as `anon`. " +
-      "Apply docs/kickio-read-only-role.sql and set KICKIO_SUPABASE_PUBLISHABLE_KEY " +
-      "to a key for kickio_content_reader.",
+      "The engine cannot see Kickio collections — it read " +
+      `${profiles} profiles but 0 collection rows, so it is still connecting as ` +
+      "`anon`. Apply docs/kickio-read-only-role.sql, then point " +
+      "KICKIO_SUPABASE_PUBLISHABLE_KEY at a kickio_content_reader key.",
   };
 }
 

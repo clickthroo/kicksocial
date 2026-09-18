@@ -128,6 +128,50 @@ export function RecipeEditor({
         }));
 
   const subjectWord = picksSet ? "set" : picksCollector ? "collector" : "club";
+  const cooldownDays = num(recipe.selection, "cooldownDays", 180);
+
+  /**
+   * Why this picker cannot pick, when it cannot.
+   *
+   * Three states that look identical on screen and mean different things: the
+   * engine is not allowed to read the data, it is allowed and there is none
+   * yet, or everything eligible is inside its cooldown. Only the first is
+   * something to go and fix, so each says which it is.
+   */
+  const blocked: { title: string; detail: string } | null = (() => {
+    if (picksCollector && collectorAccess) {
+      return {
+        title: "Collector posts are not connected yet",
+        detail: collectorAccess,
+      };
+    }
+    if (choices.length === 0) {
+      return picksCollector
+        ? {
+            title: "No collectors to feature yet",
+            detail:
+              "Nobody has added enough shirts to their Kickio collection, or everyone " +
+              "who has is opted out. This fills up on its own as people collect — " +
+              "nothing to do here.",
+          }
+        : {
+            title: `No ${subjectWord}s available`,
+            detail:
+              `Kickio has no ${subjectWord} this recipe can use right now. The run will ` +
+              "say the same thing on the run log rather than posting something thin.",
+          };
+    }
+    if (!choices.some((c) => c.available)) {
+      return {
+        title: `Every ${subjectWord} is inside its cooldown`,
+        detail:
+          `All ${choices.length} have been posted in the last ${Math.round(cooldownDays / 30)} ` +
+          "months. They become available again as the cooldown passes; until then the " +
+          "run will skip rather than repeat one.",
+      };
+    }
+    return null;
+  })();
   // Queued collectors are stored as user ids, which are unreadable in a list.
   const labelFor = (value: string) =>
     choices.find((c) => c.value === value)?.label ?? value;
@@ -135,7 +179,6 @@ export function RecipeEditor({
   // cooldown is a floor under that rule rather than the thing that paces it.
   // Labelling it "Cooldown (days)" would read as the pacing control it is not.
   const tracksAList = recipe.key === "featured_collection";
-  const cooldownDays = num(recipe.selection, "cooldownDays", 180);
 
   const toggleSeller = (id: string) =>
     setAllowed((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -310,80 +353,92 @@ export function RecipeEditor({
       {hasQueue && (
         <div className="row">
           <div className="field-label">Up next</div>
-          <p className="hint">
-            A running order, not a setting. Each run takes the {subjectWord} at the top
-            and removes it once the draft exists, so a choice made once does not become
-            every week. When the list is empty the best available {subjectWord} is chosen
-            automatically.
-          </p>
 
-          {picksCollector && collectorAccess && (
-            <p className="hint banner-inline">{collectorAccess}</p>
-          )}
-
-          {picksCollector && !collectorAccess && (
-            <p className="hint">
-              Only collectors who have left both switches on are listed — anyone who
-              turned off “my collection is public” or “Kickio may feature me” is not
-              here and cannot be queued.
-            </p>
-          )}
-
-          {upNext.length > 0 ? (
-            <ol className="queue">
-              {upNext.map((value, i) => (
-                <li key={`${value}-${i}`}>
-                  <span className="queue-pos">{i + 1}</span>
-                  <span className="queue-name">{labelFor(value)}</span>
-                  <button
-                    type="button"
-                    className="link"
-                    onClick={() => setUpNext(upNext.filter((_, j) => j !== i))}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ol>
+          {/* One state at a time. A picker that cannot pick anything should say
+              why and stop, not follow its own warning with an empty dropdown
+              and two lines of copy about how the picking works. */}
+          {blocked ? (
+            <div className="setup">
+              <strong>{blocked.title}</strong>
+              <p>{blocked.detail}</p>
+            </div>
           ) : (
-            <p className="hint queue-empty">
-              Nothing queued — the next run picks the best {subjectWord} that has not
-              been posted in {Math.round(cooldownDays / 30)} months.
-            </p>
-          )}
+            <>
+              <p className="hint">
+                A running order, not a setting. Each run takes the {subjectWord} at the
+                top and removes it once the draft exists, so a choice made once does not
+                become every week. When the list is empty the best available{" "}
+                {subjectWord} is chosen automatically.
+              </p>
 
-          <div className="queue-add">
-            <select value={picking} onChange={(e) => setPicking(e.target.value)}>
-              <option value="">Add a {subjectWord}…</option>
-              {choices.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                  disabled={!option.available || upNext.includes(option.value)}
+              {picksCollector && (
+                <p className="hint">
+                  Only collectors who have left both switches on are listed — anyone who
+                  turned off “my collection is public” or “Kickio may feature me” is not
+                  here and cannot be queued.
+                </p>
+              )}
+
+              {upNext.length > 0 ? (
+                <ol className="queue">
+                  {upNext.map((value, i) => (
+                    <li key={`${value}-${i}`}>
+                      <span className="queue-pos">{i + 1}</span>
+                      <span className="queue-name">{labelFor(value)}</span>
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() => setUpNext(upNext.filter((_, j) => j !== i))}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="hint queue-empty">
+                  Nothing queued — the next run picks the best {subjectWord} that has not
+                  been posted in {Math.round(cooldownDays / 30)} months.
+                </p>
+              )}
+
+              <div className="queue-add">
+                <select value={picking} onChange={(e) => setPicking(e.target.value)}>
+                  <option value="">Add a {subjectWord}…</option>
+                  {choices.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      disabled={!option.available || upNext.includes(option.value)}
+                    >
+                      {option.label}
+                      {option.available ? "" : ` (posted ${monthsAgo(option.lastPostedAt)})`}
+                      {upNext.includes(option.value) ? " (queued)" : ""}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!picking}
+                  onClick={() => {
+                    if (picking && !upNext.includes(picking)) setUpNext([...upNext, picking]);
+                    setPicking("");
+                  }}
                 >
-                  {option.label}
-                  {option.available ? "" : ` (posted ${monthsAgo(option.lastPostedAt)})`}
-                  {upNext.includes(option.value) ? " (queued)" : ""}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn"
-              disabled={!picking}
-              onClick={() => {
-                if (picking && !upNext.includes(picking)) setUpNext([...upNext, picking]);
-                setPicking("");
-              }}
-            >
-              Add
-            </button>
-          </div>
-          <p className="hint">
-            Anything posted in the last {Math.round(cooldownDays / 30)} months is listed
-            but cannot be chosen — picking one would only produce a run that refuses
-            itself.
-          </p>
+                  Add
+                </button>
+              </div>
+
+              {choices.some((c) => !c.available) && (
+                <p className="hint">
+                  Anything posted in the last {Math.round(cooldownDays / 30)} months is
+                  listed but cannot be chosen — picking one would only produce a run that
+                  refuses itself.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
 
