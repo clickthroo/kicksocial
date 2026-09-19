@@ -13,14 +13,11 @@
  */
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./styles.ts";
+import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, type FormatKey } from "./formats.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
-/** Output sizes per platform. */
-export const FORMATS = {
-  ig: { width: 1080, height: 1350 },
-  x: { width: 1200, height: 675 },
-} as const;
-export type FormatKey = keyof typeof FORMATS;
+export { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM };
+export type { FormatKey };
 
 const INK = "#f4f6f8";
 const INK_MUTED = "#98a2b0";
@@ -203,7 +200,7 @@ function BrandLockup({
   /** What the lockup is sitting on, so a white mark is never lost on it. */
   surface?: string;
 }) {
-  const portrait = format === "ig";
+  const portrait = format !== "x";
   const size = portrait ? 172 : 128;
   const urlSize = portrait ? 24 : 20;
 
@@ -258,7 +255,7 @@ function BrandLockup({
 
 /** How much vertical room BrandLockup takes, for templates that size a grid. */
 function lockupHeight(format: FormatKey): number {
-  return format === "ig" ? 172 + 8 + 24 : 128;
+  return format !== "x" ? 172 + 8 + 24 : 128;
 }
 
 /** "#1c1f24" -> "28,31,36". Null for anything that is not a six-digit hex. */
@@ -340,7 +337,7 @@ function TrendCard({
   const pct = Number(d.pct_change ?? 0);
   const rising = pct >= 0;
   const colour = rising ? brand.rising : brand.falling;
-  const portrait = format === "ig";
+  const portrait = format !== "x";
 
   const series = Array.isArray(d.series)
     ? (d.series as Array<{ index_value: number }>).map((p) => Number(p.index_value)).filter(Number.isFinite)
@@ -365,6 +362,7 @@ function TrendCard({
           width: "100%",
           height: "100%",
           padding: portrait ? 56 : 44,
+          paddingBottom: format === "tiktok" ? 56 + TIKTOK_SAFE_BOTTOM : portrait ? 56 : 44,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
@@ -476,7 +474,7 @@ function RoundupCard({
   const featured = Array.isArray(d.featured)
     ? (d.featured as Array<Record<string, unknown>>).slice(0, format === "ig" ? 5 : 3)
     : [];
-  const portrait = format === "ig";
+  const portrait = format !== "x";
 
   return (
     <Frame format={format} background={look.to} ink={look.ink}>
@@ -488,6 +486,7 @@ function RoundupCard({
           width: "100%",
           height: "100%",
           padding: portrait ? 56 : 44,
+          paddingBottom: format === "tiktok" ? 56 + TIKTOK_SAFE_BOTTOM : portrait ? 56 : 44,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
@@ -908,7 +907,7 @@ function GrailSaleCard({
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
   const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
-  const portrait = format === "ig";
+  const portrait = format !== "x";
   const { width, height } = FORMATS[format];
   const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
   const palette = styleFor(style, brand, shirt);
@@ -1169,26 +1168,35 @@ function ArchiveCard({
   const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
-  const portrait = format === "ig";
+  const portrait = format !== "x";
   const { width, height } = FORMATS[format];
   const pad = portrait ? 52 : 42;
 
   // 3x3 in portrait, 4x2 in landscape - the frame decides the grid, and a row
   // that cannot be filled is dropped rather than left half empty.
   const cols = portrait ? 3 : 4;
-  const rows = portrait ? 3 : 2;
+  const maxRows = format === "tiktok" ? 4 : portrait ? 3 : 2;
   const gap = look.gap;
   // Sized by BOTH axes. Width alone fits 16:9 four-across at 271px, which eats
   // the whole frame and pushed the club's name off the bottom edge - the grid
   // has to leave room for the header and the type block, not just the margins.
   const headerH = lockupHeight(format);
-  const typeH = portrait ? 168 : 124;
-  const gridH = height - pad * 2 - headerH - typeH;
+  // 9:16 is a screen and a half taller than 4:5, and the grid cannot grow to
+  // fill it without turning square photos into slabs. The type block takes
+  // the extra room instead, which is how a tall frame is meant to be laid out.
+  const typeH = format === "tiktok" ? 200 : portrait ? 168 : 124;
+  // The safe area is not available height, so the grid must not size into it.
+  const gridH =
+    height - pad * 2 - headerH - typeH - (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0);
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * maxRows));
+  // Sized by the rows that will be DRAWN, not the most the frame could hold.
+  // Reserving four rows for three rows of photos left a band of empty card in
+  // the middle and shrank every cell to pay for it.
+  const rows = Math.max(1, Math.ceil(usable.length / cols));
   const cell = Math.min(
     Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
     Math.floor((gridH - gap * (rows - 1)) / rows),
   );
-  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
 
   return (
     <Frame format={format} background={look.to} ink={look.ink}>
@@ -1200,6 +1208,7 @@ function ArchiveCard({
           width,
           height,
           padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
@@ -1300,24 +1309,33 @@ function CollectionCard({
   const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
-  const portrait = format === "ig";
+  const portrait = format !== "x";
   const { width, height } = FORMATS[format];
   const pad = portrait ? 52 : 42;
 
   const cols = portrait ? 3 : 4;
-  const rows = portrait ? 3 : 2;
+  const maxRows = format === "tiktok" ? 4 : portrait ? 3 : 2;
   const gap = look.gap;
   const headerH = lockupHeight(format);
   // Taller than the archive card's: this one carries a third line, the hunt
   // list, and a line that does not fit is a line that pushes the fraction off
   // the bottom edge.
-  const typeH = portrait ? 210 : 152;
-  const gridH = height - pad * 2 - headerH - typeH;
+  // 9:16 is a screen and a half taller than 4:5, and the grid cannot grow to
+  // fill it without turning square photos into slabs. The type block takes
+  // the extra room instead, which is how a tall frame is meant to be laid out.
+  const typeH = format === "tiktok" ? 250 : portrait ? 210 : 152;
+  // The safe area is not available height, so the grid must not size into it.
+  const gridH =
+    height - pad * 2 - headerH - typeH - (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0);
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * maxRows));
+  // Sized by the rows that will be DRAWN, not the most the frame could hold.
+  // Reserving four rows for three rows of photos left a band of empty card in
+  // the middle and shrank every cell to pay for it.
+  const rows = Math.max(1, Math.ceil(usable.length / cols));
   const cell = Math.min(
     Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
     Math.floor((gridH - gap * (rows - 1)) / rows),
   );
-  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
 
   const hunting = Array.isArray(d.hunting) ? (d.hunting as string[]) : [];
   // Three names. Satori does not reflow gracefully, and a fourth pushes the
@@ -1334,6 +1352,7 @@ function CollectionCard({
           width,
           height,
           padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
@@ -1433,21 +1452,30 @@ function CollectorCard({
   const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
-  const portrait = format === "ig";
+  const portrait = format !== "x";
   const { width, height } = FORMATS[format];
   const pad = portrait ? 52 : 42;
 
   const cols = portrait ? 3 : 4;
-  const rows = portrait ? 3 : 2;
+  const maxRows = format === "tiktok" ? 4 : portrait ? 3 : 2;
   const gap = look.gap;
   const headerH = lockupHeight(format);
-  const typeH = portrait ? 210 : 152;
-  const gridH = height - pad * 2 - headerH - typeH;
+  // 9:16 is a screen and a half taller than 4:5, and the grid cannot grow to
+  // fill it without turning square photos into slabs. The type block takes
+  // the extra room instead, which is how a tall frame is meant to be laid out.
+  const typeH = format === "tiktok" ? 250 : portrait ? 210 : 152;
+  // The safe area is not available height, so the grid must not size into it.
+  const gridH =
+    height - pad * 2 - headerH - typeH - (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0);
+  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * maxRows));
+  // Sized by the rows that will be DRAWN, not the most the frame could hold.
+  // Reserving four rows for three rows of photos left a band of empty card in
+  // the middle and shrank every cell to pay for it.
+  const rows = Math.max(1, Math.ceil(usable.length / cols));
   const cell = Math.min(
     Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
     Math.floor((gridH - gap * (rows - 1)) / rows),
   );
-  const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
 
   // Progress posts carry a set; whole-collection posts carry counts. Each
   // leads with the number that number is about: the set being chased, or the
@@ -1471,6 +1499,7 @@ function CollectorCard({
           width,
           height,
           padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >

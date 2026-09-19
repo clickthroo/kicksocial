@@ -24,7 +24,10 @@ export interface RunOutcome {
 
 /** Drop platform variants the recipe doesn't publish to. */
 function forPlatforms(copy: PlatformCopy, platforms: Recipe["platforms"]): PlatformCopy {
-  const out: PlatformCopy = {};
+  // Alt text describes the card, not a platform, so it survives whichever
+  // variants this recipe publishes. Rebuilding the object without it was how
+  // the first version lost it.
+  const out: PlatformCopy = { alt: copy.alt };
   if (platforms.includes("x")) out.x = copy.x;
   if (platforms.includes("instagram")) out.instagram = copy.instagram;
   if (platforms.includes("tiktok")) out.tiktok = copy.tiktok;

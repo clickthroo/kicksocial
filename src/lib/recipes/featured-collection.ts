@@ -597,6 +597,10 @@ you can buy, and the ones still being hunted. Ask for the missing ones.
 If \`newly_listed\` is non-empty, that is the news: say which shirt just landed and
 lead with it.
 
+\`hunting\` is the best thing on this card. Those are shirts Kickio's curators
+named and nobody has produced - so a collector who owns one knows something the
+account does not. Name two or three and ask, once, whether anyone has them.
+
 Four hard rules:
 - \`buyable\` is how many you can BUY ON KICKIO RIGHT NOW. It is not the size of
   the list, and it is not how many shirts Kickio has a page for. Never write or

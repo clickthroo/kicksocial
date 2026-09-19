@@ -30,8 +30,16 @@ const MODEL = "claude-opus-5";
 const COPY_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["x", "instagram", "tiktok"],
+  required: ["alt", "x", "instagram", "tiktok"],
   properties: {
+    alt: {
+      type: "string",
+      description:
+        "Alt text for the card image: what a person would see, in one sentence " +
+        "of plain description. Name the shirt and what is actually in frame. " +
+        "No hashtags, no CTA, no marketing - this is read aloud to someone who " +
+        "cannot see the picture. Do not begin with \"image of\" or \"photo of\".",
+    },
     x: {
       type: "object",
       additionalProperties: false,

@@ -3,6 +3,7 @@
 import { useOptimistic, useState, useTransition } from "react";
 import { approveDraft, rejectDraft, chooseStyle } from "./actions.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
+import type { FormatKey } from "@/lib/render/templates.tsx";
 import { exportText, tags, xLength } from "@/lib/copy/export.ts";
 import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
@@ -22,7 +23,7 @@ function urlField(sourceData: Record<string, unknown>, key: string): string | nu
  * made. `v` busts the browser cache when the saved style changes underneath the
  * same URL.
  */
-function renderUrl(id: string, format: "ig" | "x", style?: string, v = 0): string {
+function renderUrl(id: string, format: FormatKey, style?: string, v = 0): string {
   const q = new URLSearchParams({ format });
   if (style) q.set("style", style);
   if (v) q.set("v", String(v));
@@ -38,7 +39,8 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [resolved, setResolved] = useOptimistic<null | "approved" | "rejected">(null);
 
   const [copied, setCopied] = useState(false);
-  const [saving, setSaving] = useState<"ig" | "x" | null>(null);
+  const [copiedAlt, setCopiedAlt] = useState(false);
+  const [saving, setSaving] = useState<FormatKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const savedStyle = asCardStyle((draft.generation as { style?: unknown })?.style);
@@ -69,7 +71,7 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
    */
   const saveImage = async (
     event: React.MouseEvent<HTMLAnchorElement>,
-    format: "ig" | "x",
+    format: FormatKey,
   ) => {
     const name = `${draft.recipe_key}-${format}.png`;
     // Feature-detect before taking over the anchor: if neither route is
@@ -332,9 +334,37 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         >
           {saving === "x" ? "Saving…" : "Save 16:9"}
         </a>
+        {/* Offered only where TikTok is actually one of this post's platforms -
+            a 9:16 download on a chart card nobody takes to TikTok is clutter. */}
+        {available.includes("tiktok") && (
+          <a
+            className="link"
+            href={renderUrl(draft.id, "tiktok", preview, savedAt)}
+            download={`${draft.recipe_key}-tiktok.png`}
+            onClick={(e) => saveImage(e, "tiktok")}
+          >
+            {saving === "tiktok" ? "Saving…" : "Save 9:16"}
+          </a>
+        )}
         <button className="link" onClick={copyText} type="button">
           {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
         </button>
+        {/* X and Instagram both take alt text and both surface it in search.
+            It is a separate field in their composers, so it is a separate
+            button here rather than something to dig out of the caption. */}
+        {draft.copy.alt && (
+          <button
+            className="link"
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(draft.copy.alt ?? "");
+              setCopiedAlt(true);
+              setTimeout(() => setCopiedAlt(false), 1500);
+            }}
+          >
+            {copiedAlt ? "Copied" : "Copy alt text"}
+          </button>
+        )}
       </div>
       {saveError && <div className="banner">Could not save the image: {saveError}</div>}
 

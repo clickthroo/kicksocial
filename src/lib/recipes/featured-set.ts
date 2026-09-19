@@ -439,4 +439,8 @@ Three hard rules:
   describe the set, describe it that way - do not imply it covers a club's
   whole history.
 - Do not invent shirts or seasons. Everything you name must be in \`featured\`
-  or \`hunting\`.`;
+  or \`hunting\`.
+
+\`hunting\` lists seasons Kickio holds nothing for. Naming one or two and asking
+whether anyone has that shirt is the one question this post has earned - a
+collector with it in a drawer can answer, and nobody else can.`;

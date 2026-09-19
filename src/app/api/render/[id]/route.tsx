@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { engine } from "@/lib/engine/client.ts";
-import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx";
+import { templateFor, FORMATS, asFormat, type FormatKey } from "@/lib/render/templates.tsx";
 import { asCardStyle } from "@/lib/render/styles.ts";
 import { loadBrand } from "@/lib/brand/settings.ts";
 import { withRenderablePhotos } from "@/lib/render/photos.ts";
@@ -18,7 +18,7 @@ export async function GET(
 ): Promise<Response> {
   const { id } = await params;
   const query = new URL(request.url).searchParams;
-  const format: FormatKey = query.get("format") === "x" ? "x" : "ig";
+  const format: FormatKey = asFormat(query.get("format"));
   // `?style=` previews a look without committing it to the draft, so the picker
   // can show every option before anyone saves one.
   const style = query.has("style") ? asCardStyle(query.get("style")) : undefined;

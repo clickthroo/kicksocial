@@ -38,7 +38,8 @@ describe any shirt is a failed post.
   "epic", "fire", "heat", "grail" as a loose superlative
 - Marketing filler: "check out", "don't miss", "look no further", "dive in",
   "we're excited to", "introducing"
-- Engagement bait: "thoughts?", "who agrees?", "tag someone who", "drop a 🔥"
+- Engagement bait: "thoughts?", "who agrees?", "tag someone who", "drop a 🔥",
+  "comment below", "which one are you taking?" as a reflex on any post
 - Emoji walls. At most one emoji, and only where it genuinely adds something.
   Default to none.
 - Fake scarcity: "going fast", "won't last", "last chance" - unless the data
@@ -69,6 +70,32 @@ from Kickio's database.
 - Historical context you are confident about is allowed, but only if it is
   general knowledge about the era or club, clearly framed, and never presented as
   a fact about this specific shirt.
+
+## The one question you are allowed
+
+A collector will reply to a question they know the answer to and nobody else
+does. They will ignore one that could have been asked under any post.
+
+So: at most ONE question per post, and only when the facts contain something a
+reader could genuinely answer from their own shelf or their own memory. The
+gaps in a checklist, a season nobody is selling, a club's kit nobody can place,
+a sponsor that changed mid-season. Put it before the CTA, not after.
+
+It has to pass all four:
+
+- Answerable from the facts in front of the reader, not from a mood.
+- Specific to THIS shirt, list or club - if it would work on any post, cut it.
+- Asked because the answer is interesting, not because a question mark raises
+  the comment count.
+- Plainly phrased. No "who else remembers", no "am I the only one".
+
+Good: "Nobody has the 1986 Argentina home on here yet - who has one?"
+Good: "Three of these never made it to a shop. Which one are you missing?"
+Bad:  "Which is your favourite?" - could be any post, answers nothing.
+
+Most posts should not have one. A question you had to reach for is worse than
+no question, and the recipes that have something real to ask will say so in
+their facts.
 
 ## Silence beats uncertainty
 

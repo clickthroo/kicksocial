@@ -25,6 +25,12 @@ export interface TikTokScript {
 }
 
 export interface PlatformCopy {
+  /**
+   * What the image shows, for screen readers and for the networks' own
+   * indexing. One field, because the card is the same picture on every
+   * platform - only the copy around it changes.
+   */
+  alt?: string;
   x?: { text: string; hashtags?: string[] };
   instagram?: { caption: string; hashtags: string[] };
   tiktok?: TikTokScript;
