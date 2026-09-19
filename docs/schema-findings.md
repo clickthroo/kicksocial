@@ -338,3 +338,47 @@ the median, and **9 survive the spread guard**. Top pick: 2008-09 Portugal Away
 Ronaldo #7, XL, Very Good — £75.27 against a £164.49 median of two sales
 (£161.99 / £166.99), 54% below, 3% spread, the only live listing of that
 product.
+
+### Value Pick is blocked by the same wall as Sold This Week
+
+After the transport fixes above, the run reported:
+
+> No live listing is far enough below what that exact shirt sells for
+> `{ considered: 1426, rejected: [] }`
+
+`rejected: []` is the tell. A listing only lands in `rejected` once it has
+cleared the discount threshold, so an empty list with 1,426 candidates means no
+listing was ever compared to anything. Confirmed directly against Kickio:
+
+```sql
+set local role anon;
+select count(*) from sales_history;  -->  0
+select count(*) from listings;       -->  1661
+select count(*) from products;       -->  3581
+```
+
+`sales_history` has an INSERT policy for `authenticated` and **no SELECT policy
+at all**. Under RLS the `anon` key reads zero rows and receives HTTP 200 with an
+empty array — no error, nothing logged.
+
+This was already known: `docs/unblocking-sold-this-week.md` documents it, and
+`sold_this_week` is disabled for it. Value Pick was built on the same table
+anyway. The audit behind it — "178 listings match, 66 are 20% below, 14
+survive" — was run through an admin connection that bypasses RLS, so every one
+of those 14 was a row the engine itself could never read. The number was right
+about the marketplace and wrong about the engine, which is the same mistake as
+trusting a stored aggregate, one layer down.
+
+Value Pick now calls `salesAccess()` before any comparison and reports the
+permissions fault instead of a claim about the market. It stays blocked until
+the credential changes; no code will unblock it.
+
+Recipes that read `sales_history`, and how each stands:
+
+| Recipe | State |
+|---|---|
+| `sold_this_week` | Disabled for this reason |
+| `grail_sale` | Designed around it — the admin types the price |
+| `price_trends` | Knows it, and labels its montage as examples rather than comparables |
+| `collection_index` | Same silent false negative as Value Pick, not yet guarded |
+| `value_pick` | Guarded as of this change |

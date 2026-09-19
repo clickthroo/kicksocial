@@ -43,6 +43,7 @@ import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricin
 import { imageUrls, kickioUrl, readSignals, KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER } from "./grail-of-the-day.ts";
 import { median } from "./collection-index.ts";
 import { pageAll, pageIn } from "../kickio/page.ts";
+import { salesAccess } from "./sales-access.ts";
 
 export const VALUE_PICK_KEY = "value_pick";
 
@@ -307,6 +308,18 @@ export async function runValuePick(
         .order("id", { ascending: true })
         .range(from, to),
   );
+
+  // Zero sales across 1,426 live listings is not a quiet market - it is an
+  // unreadable table. Checked before any comparison, so the run can never
+  // report "nothing is far enough below" when it never saw a price at all.
+  const access = salesAccess(candidates.length, saleRows.length);
+  if (access.blind) {
+    return {
+      ok: false,
+      reason: access.reason,
+      diagnostics: { considered: candidates.length, sale_rows: 0 },
+    };
+  }
 
   const salesByVariant = new Map<string, SaleRow[]>();
   for (const row of saleRows) {
