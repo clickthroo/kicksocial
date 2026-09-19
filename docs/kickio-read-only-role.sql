@@ -112,7 +112,10 @@ to kickio_content_reader;
 -- beside a total value is a shopping list for a burglar. If a later recipe
 -- wants collection growth over time, derive it from `collections.acquired_at`.
 
-grant select (id, user_id, product_id, acquired_at, note, condition, size, hidden)
+-- `created_at` is here because `acquired_at` is NULL on every row in the table,
+-- so it is the only evidence of when a shirt entered a collection - which is
+-- what proves a value change is a revaluation rather than a purchase.
+grant select (id, user_id, product_id, acquired_at, created_at, note, condition, size, hidden)
   on public.collections to kickio_content_reader;
 
 grant select (user_id, chosen_title, featured_consent, streak_weeks)

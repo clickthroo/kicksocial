@@ -1578,6 +1578,148 @@ function CollectorCard({
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * INDEX CHART - a collection revalued, drawn like a market chart.
+ *
+ * Rebased to 100 and labelled as an index, because that is what it is. There
+ * is no field on this card that can hold a currency amount, which is
+ * deliberate: the post is about a movement, and a named person's possessions
+ * should never appear beside a valuation.
+ *
+ * The axis is labelled 100 at the left rather than left bare, so a reader can
+ * see the rebasing rather than having to infer it.
+ * ------------------------------------------------------------------------- */
+
+function IndexCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const pct = Number(d.pct_change ?? 0);
+  const rising = pct >= 0;
+  const colour = rising ? brand.rising : brand.falling;
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+
+  const series = Array.isArray(d.series)
+    ? (d.series as Array<{ index: number }>).map((p) => Number(p.index)).filter(Number.isFinite)
+    : [];
+  const chartW = width - pad * 2;
+  const chartH = portrait ? (format === "tiktok" ? 420 : 360) : 250;
+  const spark = sparklineDataUri(series, colour, chartW, chartH, look.to);
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width,
+          height,
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="COLLECTION INDEX"
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 26 : 21,
+              color: look.muted,
+              letterSpacing: 1,
+            }}
+          >
+            {String(d.collector ?? "")}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", marginTop: 10 }}>
+            <img
+              src={arrowDataUri(rising, colour, portrait ? 76 : 60)}
+              alt=""
+              width={portrait ? 76 : 60}
+              height={portrait ? 76 : 60}
+              style={{ marginRight: 16 }}
+            />
+            <div
+              style={{
+                display: "flex",
+                fontSize: Math.round((portrait ? 130 : 100) * look.titleScale),
+                fontWeight: 800,
+                color: colour,
+                letterSpacing: -4,
+              }}
+            >
+              {rising ? "+" : "−"}
+              {Math.abs(pct).toFixed(1)}%
+            </div>
+          </div>
+          <div style={{ display: "flex", fontSize: portrait ? 27 : 22, color: look.muted, marginTop: 4 }}>
+            same {String(d.basket ?? "")} shirts · nothing bought or sold
+          </div>
+        </div>
+
+        {spark ? (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {/* Labelled, so the rebasing is visible rather than inferred. */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                fontSize: portrait ? 20 : 17,
+                color: look.muted,
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ display: "flex" }}>{String(d.from ?? "")} = 100</div>
+              <div style={{ display: "flex" }}>{String(d.to ?? "")}</div>
+            </div>
+            <img src={spark} alt="" width={chartW} height={chartH} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", fontSize: 24, color: look.muted }}>
+            Not enough recorded sales to draw the series
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", fontSize: portrait ? 23 : 19, color: look.muted }}>
+            Indexed on recorded sales of the same shirts
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 20 : 17,
+              color: look.muted,
+              opacity: 0.72,
+              marginTop: 6,
+            }}
+          >
+            An index, not a valuation · kickio.com
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -1619,6 +1761,15 @@ export function templateFor(
     case "collection_grid":
       return (
         <CollectionCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "index_chart":
+      return (
+        <IndexCard
           draft={draft}
           format={format}
           brand={brand}

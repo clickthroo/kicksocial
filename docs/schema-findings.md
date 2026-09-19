@@ -183,6 +183,52 @@ Never read, let alone published: `collections.paid_cents` and
 so the engine cannot read them at all — a named collector beside a valuation is
 a shopping list for a burglar.
 
+### Collection Index — BUILT, and an audit of the valuation
+
+Kickio values a collection from recorded sales of the same item. Verified to
+the penny on one case: the shirt snapshotted at £142.99 has exactly two
+approved sales, both £142.99, both from `cfs`.
+
+**But that basis does not cover most of what people own.**
+
+| | |
+|---|---|
+| Active products | 2,599 |
+| …with any approved sale | 1,648 (63%) |
+| …with 2+ | 872 (34%) |
+| …with 3+ | 575 (22%) |
+| Currently-owned shirts with any sale | **10 of 23 (43%)** |
+
+One account holds 14 shirts and is snapshotted at **£777.95**. Only 5 have a
+recorded sale; those five sum to **£534.95**. The remaining **£243 comes from
+nine shirts with no sale history at all**. Checked via both
+`sales_history.product_id` and via `listing_id` → `listings.product_id`;
+neither closes the gap. So the stored total mixes recorded sales with
+something else for shirts that have none.
+
+**The failure this creates.** Account `a4444f77` appears to gain **64%** —
+£87.00 → £142.99 on 30 August. That shirt's only recorded sales are £142.99,
+in June and July, both *before* the £87 snapshot. Nothing about the shirt
+changed: the valuation switched from a fallback to the sale price, and the
+difference between two methods surfaced as growth. **This is live in the
+Monday collection emails**, not just here.
+
+So `collection_index` does not read `collection_snapshots` at all. It
+recomputes from `collections` + `sales_history`, same method at both ends, and
+only includes a shirt that had a recorded sale **on or before the window
+start** — a shirt whose first sale lands mid-window is the same bug wearing a
+different hat.
+
+Valuation rule: median of sales in the last 180 days before the date; where
+there are none, the last sale before it is carried forward. Medianing across a
+300-day gap put half of a shirt's "today" price on a price from three seasons
+ago.
+
+`collections.acquired_at` is **NULL on every row**; `created_at` is populated
+on all of them, so it is the only evidence of when a shirt entered a
+collection — which is what proves a rise is revaluation and not a purchase. It
+is in the role SQL grant for that reason.
+
 ### Featured Collector — NOT VIABLE YET
 The marketplace is pre-launch:
 

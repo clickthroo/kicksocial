@@ -28,6 +28,11 @@ import {
   COLLECTOR_SET_PROGRESS_BRIEF,
 } from "./collector-set-progress.ts";
 import {
+  runCollectionIndex,
+  DEFAULT_COLLECTION_INDEX_CONFIG,
+  COLLECTION_INDEX_BRIEF,
+} from "./collection-index.ts";
+import {
   runClubArchive,
   DEFAULT_CLUB_ARCHIVE_CONFIG,
   CLUB_ARCHIVE_BRIEF,
@@ -36,7 +41,7 @@ import {
 export interface Recipe {
   key: string;
   name: string;
-  cadence: "daily" | "weekly";
+  cadence: "daily" | "weekly" | "monthly";
   platforms: Platform[];
   visualTemplate: string;
   /** The per-recipe half of the copy prompt. Stable, so it caches. */
@@ -179,6 +184,19 @@ No TikTok variant. Write X and Instagram only.`,
     run: (selection) =>
       runCollectorSetProgress({
         ...DEFAULT_COLLECTOR_SET_PROGRESS_CONFIG,
+        ...(selection as object),
+      }),
+  },
+  {
+    key: "collection_index",
+    name: "Collection Index",
+    cadence: "monthly",
+    platforms: ["x", "instagram"],
+    visualTemplate: "index_chart",
+    brief: COLLECTION_INDEX_BRIEF,
+    run: (selection) =>
+      runCollectionIndex({
+        ...DEFAULT_COLLECTION_INDEX_CONFIG,
         ...(selection as object),
       }),
   },

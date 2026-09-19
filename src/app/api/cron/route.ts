@@ -27,6 +27,10 @@ function recipesForToday(date: Date): string[] {
   // Collection, and the only one of the three that can run before the
   // collector grant lands.
   if (day === 1) keys.push("featured_set");
+  // First Monday of the month. Monthly to start, per the brief - a month is
+  // long enough that one recorded sale does not swing the curve, and it echoes
+  // the Monday collection email users already get.
+  if (day === 1 && date.getUTCDate() <= 7) keys.push("collection_index");
   return keys;
 }
 

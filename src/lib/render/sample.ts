@@ -278,4 +278,34 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  index_chart: {
+    ...base,
+    id: "sample-index",
+    recipe_key: "collection_index",
+    subject_ref: "collector:11111111-1111-1111-1111-111111111111:spotlight:index@18.4",
+    headline: "@dave's collection: up 18.4% in six months",
+    generation: { visual_template: "index_chart" },
+    source_data: {
+      subject: "@dave's collection",
+      collector: "@dave",
+      pct_change: 18.4,
+      basket: 11,
+      excluded_no_sale: 3,
+      excluded_too_new: 2,
+      from: "2026-03-21",
+      to: "2026-09-19",
+      window_days: 182,
+      // Rebased to 100 at the first point. There is no currency anywhere in
+      // this card, and no field that could carry one.
+      series: [
+        { day: "2026-03-21", index: 100 },
+        { day: "2026-04-21", index: 101.6 },
+        { day: "2026-05-22", index: 104.9 },
+        { day: "2026-06-22", index: 103.8 },
+        { day: "2026-07-23", index: 111.2 },
+        { day: "2026-08-23", index: 115.7 },
+        { day: "2026-09-19", index: 118.4 },
+      ],
+    },
+  },
 };
