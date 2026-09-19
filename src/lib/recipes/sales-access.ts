@@ -41,10 +41,16 @@ export type SalesAccessVerdict =
   | { ok: false; blind: true; reason: string };
 
 /**
- * `candidates` is how many live listings were matched and looked up;
- * `saleRows` is how many `sales_history` rows came back for them.
+ * `candidates` is how many rows were matched and looked sales up for;
+ * `saleRows` is how many `sales_history` rows came back for them. `subject`
+ * names what was counted, because the reason string is read on a run log by
+ * someone who does not know which recipe wrote it.
  */
-export function salesAccess(candidates: number, saleRows: number): SalesAccessVerdict {
+export function salesAccess(
+  candidates: number,
+  saleRows: number,
+  subject = "live listings",
+): SalesAccessVerdict {
   if (saleRows > 0) return { ok: true, blind: false };
 
   // Nothing was asked for, so nothing coming back says nothing about access.
@@ -57,7 +63,7 @@ export function salesAccess(candidates: number, saleRows: number): SalesAccessVe
     // log and has to stand on its own there.
     reason:
       "The engine cannot see Kickio's recorded sales — it read " +
-      `${candidates} live listings but 0 sales_history rows. The ` +
+      `${candidates} ${subject} but 0 sales_history rows. The ` +
       "`kickio_content_reader` role was applied on 2026-09-19 and can read " +
       "28,858 approved sales, so this is the credential, not the grant: " +
       "KICKIO_SUPABASE_PUBLISHABLE_KEY is still an `anon` key. Mint a JWT " +

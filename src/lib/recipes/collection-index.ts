@@ -39,6 +39,8 @@
  * appear next to a valuation.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
+import { salesAccess } from "./sales-access.ts";
 import type { Claim, RecipeResult } from "../engine/types.ts";
 import {
   loadCollectors,
@@ -296,33 +298,61 @@ export async function runCollectionIndex(
   }
 
   const shortlist = candidates.slice(0, 5);
-  const { data: holdingData, error: holdingError } = await kickio()
-    .from("collections")
-    .select("user_id,product_id,created_at")
-    .in(
-      "user_id",
-      shortlist.map((c) => c.userId),
-    )
-    .eq("hidden", false)
-    .limit(20_000);
 
-  if (holdingError) return { ok: false, reason: `Kickio query failed: ${holdingError.message}` };
-  const holdings = ((holdingData ?? []) as unknown as HoldingRow[]).filter((h) => h.product_id);
+  // Paged, not `.limit(20_000)`. PostgREST caps a response at 1,000 rows and
+  // raises no error when it does, so the unpaged version quietly returned a
+  // prefix - and an index built from part of a collection is a chart of a
+  // collection that does not exist. See lib/kickio/page.ts.
+  const holdingRows = await pageIn<HoldingRow, string>(
+    "Loading collection holdings",
+    shortlist.map((c) => c.userId),
+    (batch, from, to) =>
+      kickio()
+        .from("collections")
+        .select("user_id,product_id,created_at")
+        .in("user_id", batch)
+        .eq("hidden", false)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  const holdings = holdingRows.filter((h) => h.product_id);
 
   const productIds = [...new Set(holdings.map((h) => h.product_id))];
   const salesByProduct = new Map<string, SaleRow[]>();
   if (productIds.length > 0) {
-    const { data: saleData, error: saleError } = await kickio()
-      .from("sales_history")
-      .select("product_id,price_cents,sold_at")
-      .in("product_id", productIds)
-      .limit(20_000);
-
+    // Chunked and paged for the same reasons as the holdings read above: a
+    // long `.in()` list becomes a query string the gateway rejects outright,
+    // and a single response stops at 1,000 rows without saying so.
+    //
     // The scoped role's policy already restricts this to approved,
     // non-excluded, non-dismissed rows, so there is no second filter here -
     // and nothing for a later edit to forget.
-    if (saleError) return { ok: false, reason: `Kickio query failed: ${saleError.message}` };
-    for (const row of (saleData ?? []) as unknown as SaleRow[]) {
+    const saleRows = await pageIn<SaleRow, string>(
+      "Loading matching sales",
+      productIds,
+      (batch, from, to) =>
+        kickio()
+          .from("sales_history")
+          .select("product_id,price_cents,sold_at")
+          .in("product_id", batch)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
+
+    // Zero sales across a non-empty shortlist is an unreadable table, not a
+    // set of collections that happen to have never traded. Without this the
+    // run reports "no shirt has a sale from before the window" for every
+    // collector - a statement about their shirts that was never checked.
+    const access = salesAccess(productIds.length, saleRows.length, "shirts in the shortlisted collections");
+    if (access.blind) {
+      return {
+        ok: false,
+        reason: access.reason,
+        diagnostics: { shortlist: shortlist.length, products: productIds.length, sale_rows: 0 },
+      };
+    }
+
+    for (const row of saleRows) {
       if (!row.product_id || !Number.isFinite(row.price_cents)) continue;
       const list = salesByProduct.get(row.product_id) ?? [];
       list.push(row);

@@ -21,6 +21,17 @@ describe("telling an unreadable table from a quiet market", () => {
     assert.match(verdict.reason, /unblocking-sold-this-week\.md/);
   });
 
+  /**
+   * Collection Index counts shirts, not listings. A reason read off a run log
+   * has to say which, or it describes the wrong recipe's problem.
+   */
+  test("the subject is named by the caller", () => {
+    const verdict = salesAccess(37, 0, "shirts in the shortlisted collections");
+    assert.ok(verdict.blind);
+    assert.match(verdict.reason, /37 shirts in the shortlisted collections but 0 sales_history rows/);
+    assert.doesNotMatch(verdict.reason, /live listings/);
+  });
+
   test("any sale at all means the table is readable", () => {
     assert.deepEqual(salesAccess(1426, 1), { ok: true, blind: false });
   });
