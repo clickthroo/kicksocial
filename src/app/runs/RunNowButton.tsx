@@ -16,13 +16,17 @@ export function RunNowButton({ recipeKey }: { recipeKey: string }) {
     startTransition(async () => {
       try {
         const outcome = await runNow(recipeKey);
-        setResult(
+        // Show the reason, not just the verdict. "Nothing to post" hid a
+        // query that was failing with a 400 - the run had never looked at a
+        // single listing, and the card said the same thing it says on a quiet
+        // day. The reason was already being recorded; it just stopped here.
+        const verdict =
           outcome.status === "created"
             ? "Draft created"
             : outcome.status === "skipped"
               ? "Nothing to post"
-              : "Failed",
-        );
+              : "Failed";
+        setResult(outcome.reason ? `${verdict} — ${outcome.reason}` : verdict);
       } catch (err) {
         setResult((err as Error).message);
       }

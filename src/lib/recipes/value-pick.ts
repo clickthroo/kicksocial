@@ -42,6 +42,7 @@ import { recentlyFeatured } from "./cooldown.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
 import { imageUrls, kickioUrl, readSignals, KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER } from "./grail-of-the-day.ts";
 import { median } from "./collection-index.ts";
+import { pageAll, pageIn } from "../kickio/page.ts";
 
 export const VALUE_PICK_KEY = "value_pick";
 
@@ -238,22 +239,26 @@ export function subjectRefFor(productId: string, size: string, condition: string
 export async function runValuePick(
   config: ValuePickConfig = DEFAULT_VALUE_PICK_CONFIG,
 ): Promise<RecipeResult> {
-  const { data: listingData, error: listingError } = await kickio()
-    .from("listings")
-    .select(
-      "id,product_id,seller_id,price_cents,currency,size,condition,images," +
-        "issue,signed,special_edition,boxed_edition,sleeves",
-    )
-    .eq("status", "active")
-    .is("deleted_at", null)
-    .is("removed_at", null)
-    .gt("stock_quantity", 0)
-    .eq("consecutive_gone_count", 0)
-    .gt("price_cents", 0)
-    .limit(5000);
-
-  if (listingError) return { ok: false, reason: `Kickio query failed: ${listingError.message}` };
-  const live = (listingData ?? []) as unknown as ListingRow[];
+  // Paged, not `.limit(5000)`. PostgREST caps a response at 1,000 rows and
+  // says nothing about it, so the unpaged version saw 1,000 of 1,649 live
+  // listings - and the scarcity counts below are only true if every live
+  // listing is in front of us. See lib/kickio/page.ts.
+  const live = await pageAll<ListingRow>("Loading live listings", (from, to) =>
+    kickio()
+      .from("listings")
+      .select(
+        "id,product_id,seller_id,price_cents,currency,size,condition,images," +
+          "issue,signed,special_edition,boxed_edition,sleeves",
+      )
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .is("removed_at", null)
+      .gt("stock_quantity", 0)
+      .eq("consecutive_gone_count", 0)
+      .gt("price_cents", 0)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
   // Scarcity is counted across EVERY live listing, before the seller filter -
   // another seller's copy still means this one is not the only one.
@@ -283,18 +288,28 @@ export async function runValuePick(
   }
 
   const productIds = [...new Set(candidates.map((l) => l.product_id as string))];
-  const { data: saleData, error: saleError } = await kickio()
-    .from("sales_history")
-    .select("product_id,listing_id,price_cents,size,condition,sold_at")
-    .in("product_id", productIds)
-    .limit(20_000);
 
+  // Chunked, not one `.in()`. 1,171 product ids is 29KB of query string and
+  // the gateway answers 400 - which is what "nothing to post" turned out to
+  // mean the first time this ran. Each chunk is paged for the same reason the
+  // listings read is.
+  //
   // The scoped role's policy already limits this to approved, non-excluded,
   // non-dismissed rows, so there is no second filter here to forget.
-  if (saleError) return { ok: false, reason: `Kickio query failed: ${saleError.message}` };
+  const saleRows = await pageIn<SaleRow, string>(
+    "Loading matching sales",
+    productIds,
+    (batch, from, to) =>
+      kickio()
+        .from("sales_history")
+        .select("product_id,listing_id,price_cents,size,condition,sold_at")
+        .in("product_id", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
   const salesByVariant = new Map<string, SaleRow[]>();
-  for (const row of (saleData ?? []) as unknown as SaleRow[]) {
+  for (const row of saleRows) {
     const size = normaliseSize(row.size);
     const condition = normaliseCondition(row.condition);
     if (!row.product_id || !size || !condition) continue;

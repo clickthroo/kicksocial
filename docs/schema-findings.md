@@ -287,3 +287,54 @@ honoured: never feature a collector who hasn't opted in.
   with scraped asking prices. Treat single-source medians with care.
 - `listings.status` breakdown: active 1,630 / pending 15,650 / removed
   34,089 / sold 9. Only `active` is publishable.
+
+### Reading Kickio through PostgREST — two transport limits
+
+Found by asking why Value Pick's first run said "Nothing to post". It had not
+found nothing; it had failed, and the failure was dressed up as an empty
+result. Both limits below are transport facts, not data facts, and both matter
+to any recipe that scans the marketplace rather than one collection.
+
+**The row cap is not the limit you asked for.** PostgREST caps a response at
+`db-max-rows`, which is 1,000 on Kickio. `.limit(5000)` does not raise it. The
+edge log for the run shows the listings read returning `content-range: 0-999/*`
+with HTTP 200 and no error, against 1,649 live listings — 39% of the
+marketplace invisible, silently.
+
+That is not just a short count. Scarcity is counted from the live listings, so
+against a truncated set:
+
+| | |
+|---|---|
+| Live listings | 1,649 |
+| Seen under the cap | 1,000 |
+| Products undercounted | 585 |
+| **Products that would be called "the only one" while another live listing existed** | **100** |
+| Products entirely invisible | 458 |
+
+A wrong number would have been safer. This was a false statement with a
+citation attached.
+
+**`.in()` becomes a URL, and URLs run out.** The filter list is sent in the
+query string. 1,171 product ids came to 29,276 characters and the gateway
+answered 400 Bad Request. A 19,510-character request is known to pass, so the
+chunk size is set to 200 ids (~8KB) — a deliberate margin, since the ceiling
+belongs to a gateway we do not control.
+
+Both are handled in `src/lib/kickio/page.ts` (`pageAll`, `pageIn`). It throws
+rather than returning a reason, because `runRecipe` records a thrown error as
+`failed` and a returned `{ ok: false }` as `skipped` — which is shown to a
+human as "Nothing to post". A broken read and a quiet day must not arrive at
+the same place.
+
+Other `.in()` call sites are bounded by their subject and are not at risk
+today: 136 slots per collection set, 14 items in the largest collection, 240
+products for the largest team. Value Pick is the only recipe that scans the
+whole marketplace.
+
+Once fixed, 1,426 candidate listings carry a usable size and condition, 176
+have a matching recorded sale, 55 have two or more, 10 sit 20% or more below
+the median, and **9 survive the spread guard**. Top pick: 2008-09 Portugal Away
+Ronaldo #7, XL, Very Good — £75.27 against a £164.49 median of two sales
+(£161.99 / £166.99), 54% below, 3% spread, the only live listing of that
+product.
