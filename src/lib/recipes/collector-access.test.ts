@@ -102,7 +102,8 @@ describe("blind is not empty", () => {
     assert.match(verdict.ok === false ? verdict.reason : "", /cannot see Kickio collections/);
     // Names the fix, not just the symptom - this string is what a reviewer
     // reads on the run log six weeks from now.
-    assert.match(verdict.ok === false ? verdict.reason : "", /kickio-read-only-role\.sql/);
+    assert.match(verdict.ok === false ? verdict.reason : "", /KICKIO_SUPABASE_PUBLISHABLE_KEY/);
+    assert.match(verdict.ok === false ? verdict.reason : "", /kickio_content_reader/);
   });
 
   test("no profiles at all is a different problem, reported differently", () => {

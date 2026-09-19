@@ -2,8 +2,15 @@
 -- Read-only role for the Kickio Content Engine
 -- ============================================================================
 --
--- REVIEW BEFORE RUNNING. This has not been executed against Kickio. It is a
--- proposal for a human to read, adjust and run.
+-- APPLIED to Kickio (rlveellvebfzgyobceru) on 2026-09-19, with the owner's
+-- explicit consent, after a pre-flight check that every table, column and
+-- policy assumption below still held. Verification results are recorded with
+-- the verification block. The ROLLBACK block still applies unchanged.
+--
+-- Applying this did NOT on its own unblock anything: the engine still
+-- authenticates as `anon` until KICKIO_SUPABASE_PUBLISHABLE_KEY holds a JWT
+-- carrying the `kickio_content_reader` role claim. See
+-- docs/unblocking-sold-this-week.md, "Connecting as the role".
 --
 -- WHAT THIS DOES
 --   Creates a database role the content engine uses to read market sales data
@@ -253,6 +260,33 @@ commit;
 
 -- ============================================================================
 -- VERIFICATION - run after the above, expect the commented results
+--
+-- RESULTS FROM THE 2026-09-19 RUN, as `kickio_content_reader`:
+--
+--   approved sales readable .................. 28,858   (0 as `anon`)
+--   excluded/dismissed sales visible ................ 0
+--   listings / products ................. 1,661 / 3,581  (unchanged)
+--   profiles ......................................... 9
+--   buyer protection fee ................. 400bps + 40c  (matches the
+--                                                         hardcoded fallback,
+--                                                         so no post price was
+--                                                         ever drifting)
+--   collections visible ............................. 23
+--   hidden shirts visible ............................ 0
+--   opted-out collectors visible ..................... 0
+--   consenting collectors ............................ 4
+--
+--   insert into sales_history ......... permission denied   PASS
+--   update listings ................... permission denied   PASS
+--   delete from sales_history ......... permission denied   PASS
+--   select paid_cents from collections  permission denied   PASS
+--   select total_cents from collection_snapshots . denied   PASS
+--   select sets_snapshot from collector_profile ... denied   PASS
+--   select from chargebacks (never granted) ....... denied   PASS
+--
+--   And, as `anon`, confirming nothing was published:
+--   sales_history ..................................... 0
+--   listings ...................................... 1,661
 -- ============================================================================
 --
 --   set role kickio_content_reader;

@@ -57,10 +57,11 @@ export function salesAccess(candidates: number, saleRows: number): SalesAccessVe
     // log and has to stand on its own there.
     reason:
       "The engine cannot see Kickio's recorded sales — it read " +
-      `${candidates} live listings but 0 sales_history rows. That table has an ` +
-      "INSERT policy and no SELECT policy, so the `anon` key reads zero rows " +
-      "and no error is raised. Apply docs/kickio-read-only-role.sql, then point " +
-      "KICKIO_SUPABASE_PUBLISHABLE_KEY at a kickio_content_reader key " +
-      "(docs/unblocking-sold-this-week.md).",
+      `${candidates} live listings but 0 sales_history rows. The ` +
+      "`kickio_content_reader` role was applied on 2026-09-19 and can read " +
+      "28,858 approved sales, so this is the credential, not the grant: " +
+      "KICKIO_SUPABASE_PUBLISHABLE_KEY is still an `anon` key. Mint a JWT " +
+      "carrying the `kickio_content_reader` role claim and set it on the " +
+      "content engine (docs/unblocking-sold-this-week.md).",
   };
 }

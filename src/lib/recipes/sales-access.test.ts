@@ -16,8 +16,9 @@ describe("telling an unreadable table from a quiet market", () => {
   test("the reason names the remedy, not just the symptom", () => {
     const verdict = salesAccess(1426, 0);
     assert.ok(verdict.blind);
-    assert.match(verdict.reason, /kickio-read-only-role\.sql/);
     assert.match(verdict.reason, /kickio_content_reader/);
+    assert.match(verdict.reason, /KICKIO_SUPABASE_PUBLISHABLE_KEY/);
+    assert.match(verdict.reason, /unblocking-sold-this-week\.md/);
   });
 
   test("any sale at all means the table is readable", () => {

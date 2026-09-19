@@ -161,8 +161,10 @@ export function readAccess(profiles: number, collections: number): AccessVerdict
     reason:
       "The engine cannot see Kickio collections — it read " +
       `${profiles} profiles but 0 collection rows, so it is still connecting as ` +
-      "`anon`. Apply docs/kickio-read-only-role.sql, then point " +
-      "KICKIO_SUPABASE_PUBLISHABLE_KEY at a kickio_content_reader key.",
+      "`anon`. The kickio_content_reader role was applied on 2026-09-19 and " +
+      "can see 23 collection rows, so the grant is in place and the " +
+      "credential is not: point KICKIO_SUPABASE_PUBLISHABLE_KEY at a " +
+      "kickio_content_reader key (docs/unblocking-sold-this-week.md).",
   };
 }
 

@@ -2,15 +2,29 @@
 
 The `sold_this_week` recipe is built and tested but cannot run: Kickio's
 `sales_history` has an INSERT policy and no SELECT policy, so the public key
-reads zero rows.
+reads zero rows. The same wall blocks `value_pick` and `collection_index`.
 
 No code change is needed to fix this. The engine needs a credential for a role
 that can read the table.
 
+## Status
+
+- [x] **The role exists.** `docs/kickio-read-only-role.sql` was applied to
+      Kickio on 2026-09-19 with the owner's explicit consent. As
+      `kickio_content_reader` the database returns 28,858 approved sales, 23
+      collection rows and 4 consenting collectors; every write and every
+      ungranted column is refused. Results are recorded in the SQL file, and
+      `anon` still reads zero sales, so nothing was published.
+- [ ] **The engine still connects as `anon`.** Until
+      `KICKIO_SUPABASE_PUBLISHABLE_KEY` holds a JWT carrying the
+      `kickio_content_reader` role claim, every recipe above stays blocked and
+      will say so. See "Connecting as the role" below — it needs Kickio's JWT
+      secret from the Supabase dashboard, so it is a hands-on step.
+
 ## The approach
 
 `docs/kickio-read-only-role.sql` creates a dedicated `kickio_content_reader`
-role. **Review it before running — it has not been executed.**
+role.
 
 The important property: the policy is scoped `TO kickio_content_reader`, not
 `TO anon`. That distinction is the whole point.
