@@ -23,7 +23,10 @@ interface RunRow {
 }
 
 /** Recipes started by a person rather than by cron, so absent from RECIPES. */
-const ON_DEMAND_RECIPES = [{ key: "grail_sale", name: "Grail Sale" }];
+const ON_DEMAND_RECIPES = [
+  { key: "grail_sale", name: "Grail Sale" },
+  { key: "kickio_drop", name: "Kickio Drops" },
+];
 
 function titleise(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());

@@ -9,6 +9,7 @@ const DESTINATIONS = [
   { href: "/", label: "Queue" },
   { href: "/publish", label: "Publish" },
   { href: "/sold", label: "Grail Sale" },
+  { href: "/drops", label: "Drops" },
   { href: "/runs", label: "Runs" },
   { href: "/admin", label: "Settings" },
 ] as const;

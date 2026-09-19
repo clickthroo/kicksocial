@@ -300,10 +300,20 @@ describe("attribute vocabulary, against real Kickio values", () => {
 describe("renderable photography", () => {
   const SB = "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images";
 
-  test("drops WebP, which the card renderer cannot decode", () => {
-    // A WebP source renders as an empty frame with no error - a draft reached
-    // review with no shirt in it. 533 listings are WebP-only.
-    assert.deepEqual(imageUrls([`${SB}/scraped/ebay/389186049708/0.webp`]), []);
+  test("keeps WebP, which the render route now transcodes", () => {
+    // It used to be dropped here: Satori draws WebP as an empty frame with no
+    // error, and a draft reached review with no shirt in it. Refusing it was
+    // safe and cost 474 of 1,649 live listings - nearly a third of the shelf.
+    // src/lib/render/photos.ts converts it with sharp instead, so the question
+    // is no longer what Satori reads but what we can get it into.
+    const webp = `${SB}/scraped/ebay/389186049708/0.webp`;
+    assert.deepEqual(imageUrls([webp]), [webp]);
+  });
+
+  test("still drops a format nothing can open", () => {
+    // Allowlist, not "anything with a dot in it": an HTML page or a PDF is not
+    // a photograph, and sharp would fail on it at render time instead of here.
+    assert.deepEqual(imageUrls([`${SB}/a.svg`, `${SB}/b.pdf`, `${SB}/c.html`]), []);
   });
 
   test("keeps jpg, jpeg and png, in the listing's own order", () => {
@@ -311,11 +321,9 @@ describe("renderable photography", () => {
     assert.deepEqual(imageUrls(urls), urls);
   });
 
-  test("prefers a renderable image when the array mixes formats", () => {
-    assert.deepEqual(
-      imageUrls([`${SB}/0.webp`, `${SB}/1.jpg`, `${SB}/2.webp`]),
-      [`${SB}/1.jpg`],
-    );
+  test("keeps a mixed array in the listing's own order", () => {
+    const urls = [`${SB}/0.webp`, `${SB}/1.jpg`, `${SB}/2.webp`];
+    assert.deepEqual(imageUrls(urls), urls);
   });
 
   test("tolerates a query string after the extension", () => {

@@ -3,6 +3,7 @@ import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx
 import { SAMPLE_DRAFTS } from "@/lib/render/sample.ts";
 import { asCardStyle } from "@/lib/render/styles.ts";
 import { loadBrand } from "@/lib/brand/settings.ts";
+import { withRenderablePhotos } from "@/lib/render/photos.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +25,6 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const brand = await loadBrand();
-  return new ImageResponse(templateFor(draft, format, { style, brand }), FORMATS[format]);
+  const withPhotos = { ...draft, source_data: await withRenderablePhotos(draft.source_data ?? {}) };
+  return new ImageResponse(templateFor(withPhotos, format, { style, brand }), FORMATS[format]);
 }

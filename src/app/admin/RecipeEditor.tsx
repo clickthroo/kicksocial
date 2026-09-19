@@ -93,9 +93,14 @@ export function RecipeEditor({
   // these two recipes read minPriceCents; the cooldown is used by everything
   // except Grail Sale, which selects nothing.
   const usesPriceFloor = recipe.key === "grail_of_the_day" || recipe.key === "sold_this_week";
-  const selectsCandidates = recipe.key !== "grail_sale";
+  // Grail Sale and Kickio Drops select nothing - an admin names the item - so
+  // a cooldown would be a control that does nothing.
+  const selectsCandidates = recipe.key !== "grail_sale" && recipe.key !== "kickio_drop";
   // The two photo-led recipes. Their templates read the same six style keys.
-  const hasStyles = recipe.key === "grail_sale" || recipe.key === "grail_of_the_day";
+  const hasStyles =
+    recipe.key === "grail_sale" ||
+    recipe.key === "grail_of_the_day" ||
+    recipe.key === "kickio_drop";
   const picksClub = recipe.key === "club_archive";
   const picksSet = recipe.key === "featured_set";
   const picksCollector =

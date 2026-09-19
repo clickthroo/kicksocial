@@ -68,10 +68,11 @@ describe("summarising a club", () => {
     assert.equal(summary.photos.length, CONFIG.gridSize);
   });
 
-  test("skips photos the card cannot render", () => {
-    // WebP renders as an empty frame with no error.
+  test("skips photos nothing can open", () => {
+    // WebP is fine now - the render route transcodes it. An SVG is not a
+    // photograph and no conversion makes it one.
     const products = deepClub().map((p, i) =>
-      i < 20 ? { ...p, primary_image_url: `https://img.example/${i}.webp` } : p,
+      i < 20 ? { ...p, primary_image_url: `https://img.example/${i}.svg` } : p,
     );
     const summary = summarise("Manchester United", products, CONFIG)!;
     assert.equal(summary.photos.length, 4);

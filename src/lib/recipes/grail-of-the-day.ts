@@ -282,11 +282,17 @@ export function kickioUrl(slug: string | null): string | null {
 /**
  * Formats Satori can actually decode when rendering the card.
  *
- * WebP is NOT among them - it renders as an empty frame with no error, so a
- * draft looks fine in the queue but has no shirt in it. 533 of Kickio's
- * listings are WebP-only, and one reached review before this was caught.
+ * WebP used to be excluded here, because Satori draws it as an empty frame
+ * with no error - a draft that looks fine in the queue with no shirt in it.
+ * That was safe and expensive: it removed 474 of 1,649 live listings from
+ * every photo-led recipe, nearly a third of the shelf, for a reason that had
+ * nothing to do with the shirt.
+ *
+ * The render route now transcodes with sharp (src/lib/render/photos.ts), so
+ * the question here is no longer "can Satori read this?" but "can we get it
+ * into something Satori reads?" - which is a longer list.
  */
-const RENDERABLE_IMAGE = /\.(jpe?g|png)(\?|$)/i;
+const RENDERABLE_IMAGE = /\.(jpe?g|png|webp|avif|tiff?|gif)(\?|$)/i;
 
 function allImageUrls(images: unknown): string[] {
   if (!Array.isArray(images)) return [];

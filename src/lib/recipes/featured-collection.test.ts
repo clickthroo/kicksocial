@@ -149,7 +149,7 @@ describe("summarising a set", () => {
     // reach back and reduce the headline would understate what is on the shelf.
     const summary = summarise([
       slot(1),
-      slot(2, { product: { primary_image_url: "https://img.example/a.webp" } }),
+      slot(2, { product: { primary_image_url: "https://img.example/a.svg" } }),
       slot(3, { product: { primary_image_url: null } }),
     ])!;
     assert.equal(summary.buyable, 3);

@@ -51,7 +51,8 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   // do not - a style that means "lit plate" has nothing to say about a 3x3 of
   // thumbnails, and offering it there would be a control that does nothing.
   const template = (draft.generation as { visual_template?: string })?.visual_template;
-  const restylable = template === "grail_sale_card" || template === "grail_card";
+  const restylable =
+    template === "grail_sale_card" || template === "grail_card" || template === "drop_card";
 
   /**
    * Get the rendered card onto the phone's camera roll.

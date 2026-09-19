@@ -891,7 +891,22 @@ function titleSize(title: string, portrait: boolean): number {
   return base;
 }
 
-function SoldBadge({ scale = 1, accent }: { scale?: number; accent: string }) {
+/**
+ * The status flag at the top of a single-item card.
+ *
+ * Two words, two meanings, one shape: SOLD closes a story, AVAILABLE opens
+ * one. Keeping them in one component is what makes a Drop look like it came
+ * from the same studio as a Sale rather than from a template someone cloned.
+ */
+function SoldBadge({
+  scale = 1,
+  accent,
+  label = "SOLD",
+}: {
+  scale?: number;
+  accent: string;
+  label?: string;
+}) {
   return (
     <div style={{ display: "flex", alignItems: "center" }}>
       <div
@@ -905,7 +920,7 @@ function SoldBadge({ scale = 1, accent }: { scale?: number; accent: string }) {
           color: "#06210f",
         }}
       >
-        SOLD
+        {label}
       </div>
     </div>
   );
@@ -968,17 +983,28 @@ function StudioField({
   );
 }
 
+/**
+ * One shirt, on a lit plate. Serves both single-item recipes.
+ *
+ * `mode` is the only difference: a Sale is a shirt that has gone and a Drop is
+ * one you can buy. Same composition, same six styles, same lockup - which is
+ * the point, because a Drop has to look as considered as a Sale and cloning
+ * the component would have guaranteed the two drifted apart.
+ */
 function GrailSaleCard({
   draft,
   format,
   style,
   brand,
+  mode = "sold",
 }: {
   draft: PostDraft;
   format: FormatKey;
   style: CardStyle;
   brand: Brand;
+  mode?: "sold" | "drop";
 }) {
+  const drop = mode === "drop";
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
@@ -1099,8 +1125,20 @@ function GrailSaleCard({
                 marginBottom: portrait ? 24 : 18,
               }}
             >
-              <SoldBadge scale={portrait ? 1 : 0.85} accent={palette.accent} />
-              {d.sold_at ? (
+              <SoldBadge
+                scale={portrait ? 1 : 0.85}
+                accent={palette.accent}
+                label={drop ? "AVAILABLE NOW" : "SOLD"}
+              />
+              {/* A Sale is dated; a Drop says whether the seller will haggle,
+                  which is the more useful thing to know about one you can buy. */}
+              {drop ? (
+                d.accepts_offers === true ? (
+                  <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: palette.muted }}>
+                    Offers considered
+                  </div>
+                ) : null
+              ) : d.sold_at ? (
                 <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: palette.muted }}>
                   {String(d.sold_at)}
                 </div>
@@ -1167,7 +1205,7 @@ function GrailSaleCard({
                 marginBottom: portrait ? 8 : 5,
               }}
             >
-              SOLD FOR
+              {drop ? "BUY IT NOW" : "SOLD FOR"}
             </div>
             <div
               style={{
@@ -1628,6 +1666,16 @@ export function templateFor(
           draft={draft}
           format={format}
           brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "drop_card":
+      return (
+        <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          mode="drop"
           style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
         />
       );

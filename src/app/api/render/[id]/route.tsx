@@ -3,6 +3,7 @@ import { engine } from "@/lib/engine/client.ts";
 import { templateFor, FORMATS, type FormatKey } from "@/lib/render/templates.tsx";
 import { asCardStyle } from "@/lib/render/styles.ts";
 import { loadBrand } from "@/lib/brand/settings.ts";
+import { withRenderablePhotos } from "@/lib/render/photos.ts";
 import type { PostDraft } from "@/lib/engine/types.ts";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,16 @@ export async function GET(
   if (error) return new Response(`Lookup failed: ${error.message}`, { status: 500 });
   if (!data) return new Response("Draft not found", { status: 404 });
 
-  return new ImageResponse(templateFor(data as PostDraft, format, { style, brand }), {
+  // WebP is converted here rather than refused at selection time. Satori draws
+  // it as an empty frame with no error, and refusing it removed nearly a third
+  // of Kickio's live listings from every photo-led recipe.
+  const draft = data as PostDraft;
+  const withPhotos: PostDraft = {
+    ...draft,
+    source_data: await withRenderablePhotos(draft.source_data ?? {}),
+  };
+
+  return new ImageResponse(templateFor(withPhotos, format, { style, brand }), {
     ...FORMATS[format],
     headers: { "cache-control": "public, max-age=60" },
   });

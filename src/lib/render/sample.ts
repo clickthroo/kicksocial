@@ -250,4 +250,32 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  drop_card: {
+    ...base,
+    id: "sample-drop",
+    recipe_key: "kickio_drop",
+    subject_ref: "drop:21b7f8c2-6e2c-4203-9d0a-65f93232cf6b",
+    headline: "2002-03 Rangers FC Away Shirt — £192.99",
+    generation: { visual_template: "drop_card" },
+    source_data: {
+      title: "2002-03 Rangers FC Away Shirt",
+      price: "£192.99",
+      team: "Rangers",
+      season: "2002-03",
+      shirt_type: "Away",
+      manufacturer: "Diadora",
+      condition: "Very Good",
+      size: "L",
+      // Drives the "Offers considered" line where a Sale would carry a date.
+      accepts_offers: true,
+      rarity_signals: ["2000s", "Long sleeve"],
+      shirt_colour: { hex: "#1b3a6b", deep: "#08131f" },
+      kickio_url: "https://kickio.com/marketplace/2002-03-rangers-fc-away-shirt",
+      photo_source: "product",
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ENGT90860264/0.jpg",
+      ],
+    },
+  },
 };

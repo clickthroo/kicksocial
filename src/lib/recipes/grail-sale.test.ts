@@ -42,9 +42,17 @@ describe("photos", () => {
     assert.deepEqual(renderable, ["https://img.example/0.jpg"]);
   });
 
-  test("drops WebP, which Satori renders as an empty frame with no error", () => {
+  test("keeps WebP, which the render route transcodes", () => {
     const { renderable, rejected } = productImages(
       product({ images: ["https://img.example/a.webp"], primary_image_url: null }),
+    );
+    assert.deepEqual(renderable, ["https://img.example/a.webp"]);
+    assert.equal(rejected, 0);
+  });
+
+  test("still drops a format nothing can open", () => {
+    const { renderable, rejected } = productImages(
+      product({ images: ["https://img.example/a.svg"], primary_image_url: null }),
     );
     assert.deepEqual(renderable, []);
     assert.equal(rejected, 1);
@@ -52,7 +60,7 @@ describe("photos", () => {
 
   test("refuses to build a post with no renderable photo", () => {
     const result = buildCandidate(
-      lookup({ images: ["https://img.example/a.webp"], primary_image_url: null }),
+      lookup({ images: ["https://img.example/a.svg"], primary_image_url: null }),
       { url: "x", priceCents: 34_699 },
     );
     assert.equal(result.ok, false);
