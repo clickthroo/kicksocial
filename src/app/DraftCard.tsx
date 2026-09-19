@@ -47,12 +47,11 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [savedAt, setSavedAt] = useState(0);
   const [styleError, setStyleError] = useState<string | null>(null);
   const [savingStyle, startStyle] = useTransition();
-  // Both photo-led templates read the six style keys. The grid and chart cards
-  // do not - a style that means "lit plate" has nothing to say about a 3x3 of
-  // thumbnails, and offering it there would be a control that does nothing.
-  const template = (draft.generation as { visual_template?: string })?.visual_template;
-  const restylable =
-    template === "grail_sale_card" || template === "grail_card" || template === "drop_card";
+  // Every template reads the six style keys now. The photo-led cards express
+  // them as photo treatment and the grids and chart as field, cell and type -
+  // same vocabulary, different grammar - so there is no longer a card the
+  // picker would be a dead control on.
+  const restylable = true;
 
   /**
    * Get the rendered card onto the phone's camera roll.

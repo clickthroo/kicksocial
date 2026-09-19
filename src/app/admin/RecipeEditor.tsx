@@ -96,11 +96,9 @@ export function RecipeEditor({
   // Grail Sale and Kickio Drops select nothing - an admin names the item - so
   // a cooldown would be a control that does nothing.
   const selectsCandidates = recipe.key !== "grail_sale" && recipe.key !== "kickio_drop";
-  // The two photo-led recipes. Their templates read the same six style keys.
-  const hasStyles =
-    recipe.key === "grail_sale" ||
-    recipe.key === "grail_of_the_day" ||
-    recipe.key === "kickio_drop";
+  // Every recipe's template reads the six style keys, so every recipe gets a
+  // default look.
+  const hasStyles = true;
   const picksClub = recipe.key === "club_archive";
   const picksSet = recipe.key === "featured_set";
   const picksCollector =

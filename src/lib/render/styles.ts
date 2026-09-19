@@ -1,5 +1,5 @@
 /**
- * Card styles for a Grail Sale.
+ * Card styles. Every post has them.
  *
  * Deliberately separate from the template that draws them, and from the draft
  * that picks one, so the list can be shown in the dashboard without pulling the
@@ -20,17 +20,17 @@ export const CARD_STYLES = [
   {
     key: "studio",
     name: "Studio",
-    blurb: "Lit plate on a dark field. The safe one — works with any photo.",
+    blurb: "Lit plate on a dark field. The safe one — works with anything.",
   },
   {
     key: "spotlight",
     name: "Spotlight",
-    blurb: "Near-black, tighter crop, heavier falloff. Reads as an auction lot.",
+    blurb: "Near-black, tighter, heavier falloff. Reads as an auction lot.",
   },
   {
     key: "sweep",
     name: "Sweep",
-    blurb: "Backdrop coloured from the shirt itself, so every post is its own.",
+    blurb: "Brand-tinted field — from the shirt itself where there is one.",
   },
   {
     key: "paper",
@@ -40,12 +40,12 @@ export const CARD_STYLES = [
   {
     key: "editorial",
     name: "Editorial",
-    blurb: "Oversized type crossing the photo. Loud, best for a real grail.",
+    blurb: "Oversized type, photos butted up. Loud. Best for a real grail.",
   },
   {
     key: "frame",
     name: "Frame",
-    blurb: "Big photo, thin keyline, minimal type. Lets the shirt carry it.",
+    blurb: "Thin keylines, quiet type. Lets the shirts carry it.",
   },
 ] as const;
 

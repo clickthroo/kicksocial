@@ -37,10 +37,21 @@ function Frame({
   format,
   children,
   background = SURFACE,
+  ink = INK,
 }: {
   format: FormatKey;
   children: React.ReactNode;
   background?: string;
+  /**
+   * Inherited by every piece of text that does not set its own colour.
+   *
+   * Worth a prop rather than a constant: this was fixed light, so the moment a
+   * light style existed, any line that had not been given an explicit colour
+   * became white on cream. Setting it here fixes the whole card at once
+   * instead of hunting individual divs, and the next light style added gets it
+   * for free.
+   */
+  ink?: string;
 }) {
   const { width, height } = FORMATS[format];
   return (
@@ -51,7 +62,7 @@ function Frame({
         width,
         height,
         background,
-        color: INK,
+        color: ink,
         fontFamily: "sans-serif",
         position: "relative",
       }}
@@ -250,85 +261,6 @@ function lockupHeight(format: FormatKey): number {
   return format === "ig" ? 172 + 8 + 24 : 128;
 }
 
-/**
- * How the Grail card reads one of the six style keys.
- *
- * The keys are a shared vocabulary, not a shared layout. The sale card draws a
- * lit plate; this one is a full-bleed photograph with type over it, so "paper"
- * cannot mean the same pixels in both - it means the same INTENT. Four of the
- * six stay bleed and vary the light; `paper` and `frame` pull the photo in off
- * the edge, because at that point the backdrop is the point.
- *
- * Colours come from styleFor(), the same function the sale card uses, so a
- * style chosen on one template looks like itself on the other.
- */
-interface GrailLook {
-  /** Photo inset from the frame rather than filling it. */
-  contained: boolean;
-  /** Ink over the photo, and the chip fill that has to sit under it. */
-  ink: string;
-  chip: string;
-  chipEdge: string;
-  /** Scrim stops, top and bottom. */
-  scrimTop: number;
-  scrimBottom: number;
-  /** The colour the scrim is made of - neutral, or taken from the shirt. */
-  scrimRgb: string;
-  titleScale: number;
-  keyline: string | null;
-}
-
-function grailLook(key: CardStyle, palette: Style): GrailLook {
-  const dark: GrailLook = {
-    contained: false,
-    ink: INK,
-    chip: "rgba(255,255,255,0.16)",
-    chipEdge: "rgba(255,255,255,0.22)",
-    scrimTop: 0.72,
-    scrimBottom: 0.88,
-    scrimRgb: "10,12,15",
-    titleScale: 1,
-    keyline: null,
-  };
-
-  switch (key) {
-    case "spotlight":
-      // Heavier falloff both ends: the shirt sits in a pool of light.
-      return { ...dark, scrimTop: 0.82, scrimBottom: 0.94 };
-    case "sweep":
-      // The scrim itself is taken from the shirt, so the whole card is tinted
-      // by what is in the photograph rather than by a fixed black.
-      return { ...dark, scrimRgb: hexToRgb(palette.to) ?? dark.scrimRgb, scrimTop: 0.78, scrimBottom: 0.9 };
-    case "editorial":
-      return { ...dark, scrimTop: 0.62, scrimBottom: 0.92, titleScale: 1.18 };
-    case "frame":
-      return {
-        ...dark,
-        contained: true,
-        scrimTop: 0,
-        scrimBottom: 0,
-        keyline: palette.hairline,
-        titleScale: 0.86,
-      };
-    case "paper":
-      // The one light card. Chips and keyline have to flip with the ink, or
-      // they vanish into the backdrop.
-      return {
-        contained: true,
-        ink: palette.ink,
-        chip: "rgba(20,24,29,0.09)",
-        chipEdge: "rgba(20,24,29,0.16)",
-        scrimTop: 0,
-        scrimBottom: 0,
-        scrimRgb: "10,12,15",
-        titleScale: 0.94,
-        keyline: null,
-      };
-    default:
-      return dark;
-  }
-}
-
 /** "#1c1f24" -> "28,31,36". Null for anything that is not a six-digit hex. */
 function hexToRgb(hex: string): string | null {
   const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
@@ -337,203 +269,6 @@ function hexToRgb(hex: string): string | null {
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 }
 
-/** Grail of the Day - the photo is the hero, type sits over a scrim. */
-function GrailCard({
-  draft,
-  format,
-  brand,
-  style = DEFAULT_CARD_STYLE,
-}: {
-  draft: PostDraft;
-  format: FormatKey;
-  brand: Brand;
-  style?: CardStyle;
-}) {
-  const d = draft.source_data as Record<string, unknown>;
-  const images = Array.isArray(d.images) ? (d.images as string[]) : [];
-  const photo = images[0];
-  const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
-  const portrait = format === "ig";
-  const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
-  const palette = styleFor(style, brand, shirt);
-  const look = grailLook(style, palette);
-  const { width, height } = FORMATS[format];
-  const pad = portrait ? 56 : 44;
-  // A contained photo sits inside the padding and below the lockup, so the
-  // backdrop it is placed on is visible - which is the whole point of the two
-  // styles that use it.
-  const inset = look.contained ? pad : 0;
-  const photoTop = look.contained ? pad + lockupHeight(format) + (portrait ? 28 : 18) : 0;
-  const photoH = look.contained ? height - photoTop - (portrait ? 330 : 210) : height;
-  const photoW = width - inset * 2;
-
-  return (
-    <Frame format={format} background={palette.to}>
-      {look.contained && <StudioField width={width} height={height} palette={palette} />}
-      {photo ? (
-        <img
-          src={photo}
-          alt=""
-          width={photoW}
-          height={photoH}
-          style={{
-            position: "absolute",
-            top: photoTop,
-            left: inset,
-            width: photoW,
-            height: photoH,
-            objectFit: look.contained ? "contain" : "cover",
-            ...(look.keyline ? { border: `1px solid ${look.keyline}` } : {}),
-            ...(look.contained ? { borderRadius: 10 } : {}),
-          }}
-        />
-      ) : (
-        /* Recipes only produce drafts with renderable photography, so this is a
-           fault, not a layout state. Say so plainly rather than shipping a card
-           that merely looks dark. */
-        /* Sized like the photo it stands in for, so a contained style still
-           shows its backdrop rather than being painted over edge to edge. */
-        <div
-          style={{
-            position: "absolute",
-            top: photoTop,
-            left: inset,
-            width: photoW,
-            height: photoH,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#2a1416",
-            color: "#f2565a",
-            fontSize: 34,
-            fontWeight: 700,
-            ...(look.contained ? { borderRadius: 10 } : {}),
-          }}
-        >
-          No renderable photo — do not post
-        </div>
-      )}
-      {/* Scrim: keeps type legible over any photograph. A contained photo does
-          not need one - nothing is set over it. */}
-      {!look.contained && (
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width,
-            height,
-            background:
-              `linear-gradient(to bottom, rgba(${look.scrimRgb},${look.scrimTop}) 0%, ` +
-              `rgba(${look.scrimRgb},0.12) 38%, rgba(${look.scrimRgb},${look.scrimBottom}) 100%)`,
-            display: "flex",
-          }}
-        />
-      )}
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          width: "100%",
-          height: "100%",
-          padding: portrait ? 56 : 44,
-          position: "relative",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <BrandLockup
-            format={format}
-            brand={brand}
-            muted={look.ink}
-            surface={look.contained ? palette.to : STUDIO}
-          />
-          <div
-            style={{
-              display: "flex",
-              fontSize: 20,
-              fontWeight: 700,
-              letterSpacing: 2,
-              padding: "8px 16px",
-              borderRadius: 999,
-              color: look.ink,
-              background: look.chip,
-              border: `1px solid ${look.chipEdge}`,
-            }}
-          >
-            GRAIL OF THE DAY
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {signals.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", marginBottom: 18 }}>
-              {signals.slice(0, 3).map((s) => (
-                <div
-                  key={s}
-                  style={{
-                    display: "flex",
-                    fontSize: 22,
-                    fontWeight: 700,
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    color: look.ink,
-                    background: look.chip,
-                    marginRight: 10,
-                  }}
-                >
-                  {s}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              fontSize: Math.round((portrait ? 60 : 46) * look.titleScale),
-              fontWeight: 800,
-              lineHeight: 1.1,
-              letterSpacing: -1,
-              marginBottom: 14,
-              color: look.ink,
-            }}
-          >
-            {String(d.title ?? draft.headline ?? "")}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <div
-              style={{
-                display: "flex",
-                fontSize: portrait ? 52 : 42,
-                fontWeight: 800,
-                color: look.ink,
-              }}
-            >
-              {String(d.price ?? "")}
-            </div>
-            {d.condition ? (
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 24,
-                  color: palette.muted,
-                  marginLeft: 20,
-                  paddingLeft: 20,
-                  borderLeft: `2px solid ${palette.muted}`,
-                }}
-              >
-                {String(d.condition)}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </Frame>
-  );
-}
 
 /**
  * Build a sparkline as an SVG data URI. Satori renders `img` reliably; inline
@@ -550,7 +285,13 @@ function arrowDataUri(rising: boolean, colour: string, size: number): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 
-function sparklineDataUri(series: number[], colour: string, w: number, h: number): string | null {
+function sparklineDataUri(
+  series: number[],
+  colour: string,
+  w: number,
+  h: number,
+  field: string = SURFACE,
+): string | null {
   if (series.length < 2) return null;
   const min = Math.min(...series);
   const max = Math.max(...series);
@@ -574,7 +315,7 @@ function sparklineDataUri(series: number[], colour: string, w: number, h: number
 </linearGradient></defs>
 <path d="${area}" fill="url(#g)"/>
 <path d="${line}" fill="none" stroke="${colour}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="5.5" fill="${colour}" stroke="${SURFACE}" stroke-width="2.5"/>
+<circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="5.5" fill="${colour}" stroke="${field}" stroke-width="2.5"/>
 </svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
@@ -583,7 +324,18 @@ function sparklineDataUri(series: number[], colour: string, w: number, h: number
  * Price Trends - a hero number, not a chart. Read on a phone in two seconds,
  * the figure is the story; the series is supporting texture beneath it.
  */
-function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
+function TrendCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const pct = Number(d.pct_change ?? 0);
   const rising = pct >= 0;
@@ -601,10 +353,10 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
   const thumb = portrait ? 220 : 98;
   const sparkW = portrait ? 960 : 1080;
   const sparkH = hasMontage ? (portrait ? 190 : 104) : portrait ? 300 : 210;
-  const spark = sparklineDataUri(series, colour, sparkW, sparkH);
+  const spark = sparklineDataUri(series, colour, sparkW, sparkH, look.to);
 
   return (
-    <Frame format={format}>
+    <Frame format={format} background={look.to} ink={look.ink}>
       <div
         style={{
           display: "flex",
@@ -613,6 +365,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
           width: "100%",
           height: "100%",
           padding: portrait ? 56 : 44,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
         <BrandLockup format={format} brand={brand} label="MARKET TREND" />
@@ -622,7 +375,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
             style={{
               display: "flex",
               fontSize: portrait ? 44 : 34,
-              color: INK_MUTED,
+              color: look.muted,
               marginBottom: 8,
             }}
           >
@@ -641,7 +394,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
             <div
               style={{
                 display: "flex",
-                fontSize: portrait ? 148 : 112,
+                fontSize: Math.round((portrait ? 148 : 112) * look.titleScale),
                 fontWeight: 800,
                 color: colour,
                 letterSpacing: -4,
@@ -652,7 +405,7 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
             </div>
           </div>
 
-          <div style={{ display: "flex", fontSize: portrait ? 30 : 24, color: INK_MUTED, marginTop: 6 }}>
+          <div style={{ display: "flex", fontSize: portrait ? 30 : 24, color: look.muted, marginTop: 6 }}>
             over {String(d.change_window_days ?? 90)} days · like-for-like
           </div>
         </div>
@@ -685,19 +438,19 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
             {/* These are examples of the category, NOT the shirts behind the
                 figure - which come from sales data the engine cannot read.
                 Unlabelled beside a percentage they would read as the movers. */}
-            <div style={{ display: "flex", fontSize: 19, color: INK_MUTED, marginTop: 10 }}>
+            <div style={{ display: "flex", fontSize: 19, color: look.muted, marginTop: 10 }}>
               {String(d.montage_basis ?? "")}
             </div>
           </div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontSize: 24, color: INK_MUTED }}>
+          <div style={{ display: "flex", fontSize: 24, color: look.muted }}>
             Median {String(d.median_fair_price ?? "")} · {String(d.cohort_count ?? "")} comparable shirts ·{" "}
             {String(d.total_sales ?? "")} sales
           </div>
           {/* Provenance matters: this is market data, not Kickio's own sales. */}
-          <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, opacity: 0.7, marginTop: 8 }}>
+          <div style={{ display: "flex", fontSize: 20, color: look.muted, opacity: 0.7, marginTop: 8 }}>
             Market-wide sales data tracked by Kickio
           </div>
         </div>
@@ -707,8 +460,18 @@ function TrendCard({ draft, format, brand }: { draft: PostDraft; format: FormatK
 }
 
 /** Sold This Week - a ranked list; the pattern is the story. */
-function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: FormatKey; brand: Brand }) {
-  void brand;
+function RoundupCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const featured = Array.isArray(d.featured)
     ? (d.featured as Array<Record<string, unknown>>).slice(0, format === "ig" ? 5 : 3)
@@ -716,7 +479,7 @@ function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: Forma
   const portrait = format === "ig";
 
   return (
-    <Frame format={format}>
+    <Frame format={format} background={look.to} ink={look.ink}>
       <div
         style={{
           display: "flex",
@@ -725,9 +488,16 @@ function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: Forma
           width: "100%",
           height: "100%",
           padding: portrait ? 56 : 44,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
-        <BrandLockup format={format} brand={brand} label="SOLD THIS WEEK" />
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="SOLD THIS WEEK"
+          muted={look.muted}
+          surface={look.to}
+        />
 
         <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
           {featured.map((s, i) => (
@@ -738,14 +508,15 @@ function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: Forma
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: portrait ? "22px 0" : "14px 0",
-                borderBottom: i < featured.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
+                borderBottom:
+                  i < featured.length - 1 ? `1px solid ${look.cellBorder ?? "rgba(255,255,255,0.12)"}` : "none",
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
                 <div style={{ display: "flex", fontSize: portrait ? 34 : 27, fontWeight: 700 }}>
                   {String(s.team ?? "")} {String(s.season ?? "")}
                 </div>
-                <div style={{ display: "flex", fontSize: portrait ? 24 : 19, color: INK_MUTED, marginTop: 4 }}>
+                <div style={{ display: "flex", fontSize: portrait ? 24 : 19, color: look.muted, marginTop: 4 }}>
                   {[s.shirt_type, s.condition].filter(Boolean).join(" · ")}
                 </div>
               </div>
@@ -756,7 +527,7 @@ function RoundupCard({ draft, format, brand }: { draft: PostDraft; format: Forma
           ))}
         </div>
 
-        <div style={{ display: "flex", fontSize: 20, color: INK_MUTED, opacity: 0.7 }}>
+        <div style={{ display: "flex", fontSize: 20, color: look.muted, opacity: 0.7 }}>
           Market-wide sales data tracked by Kickio
         </div>
       </div>
@@ -883,6 +654,127 @@ const BRAND = DEFAULT_BRAND.accent;
 const BRAND_DEEP = DEFAULT_BRAND.accentDeep;
 
 /** Long product names are the norm, so the title sizes itself to fit. */
+/**
+ * How the non-photo cards read the six style keys.
+ *
+ * The grids and the chart were the templates that had no styles at all - one
+ * dark card each, take it or leave it. The photo keys mean nothing to a 3x3 of
+ * thumbnails ("round" is not a thing a grid can be), so this is the same
+ * vocabulary expressed in the parts a grid actually has: the field it sits on,
+ * how the cells are cut, and how loud the type is.
+ *
+ * It reads from the SAME styleFor() palette as the single-item card, so
+ * choosing Paper on a Club Archive and on a Grail gives two cards that look
+ * like they came from the same place - which is the whole reason the keys are
+ * shared rather than per-template.
+ */
+interface GridLook {
+  from: string;
+  to: string;
+  ink: string;
+  muted: string;
+  accent: string;
+  /** Corner radius on a grid cell. */
+  radius: number;
+  /** Gap between cells. Zero makes the grid read as one block. */
+  gap: number;
+  /** Drawn round each cell, for the styles that want a keyline. */
+  cellBorder: string | null;
+  /** What sits behind a photo with transparency. */
+  cellFill: string;
+  /** Multiplies the headline. */
+  titleScale: number;
+  /** Letter-spacing on the small caps label. */
+  tracking: number;
+}
+
+/** Blend two hex colours. `t` is how much of `b` to take. */
+function mix(a: string, b: string, t: number): string {
+  const pa = hexToRgb(a)?.split(",").map(Number);
+  const pb = hexToRgb(b)?.split(",").map(Number);
+  if (!pa || !pb) return a;
+  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function gridLook(key: CardStyle, brand: Brand): GridLook {
+  const palette = styleFor(key, brand);
+  const base: GridLook = {
+    from: palette.from,
+    to: palette.to,
+    ink: palette.ink,
+    muted: palette.muted,
+    accent: palette.accent,
+    radius: 8,
+    gap: 10,
+    cellBorder: null,
+    cellFill: "#ffffff",
+    titleScale: 1,
+    tracking: 2,
+  };
+
+  switch (key) {
+    case "spotlight":
+      // Tighter and darker, cells almost touching: the set reads as one object
+      // under a light rather than nine separate pictures.
+      return { ...base, radius: 4, gap: 5, titleScale: 0.95 };
+    case "sweep":
+      // The field is brand-tinted rather than neutral, so the white product
+      // shots sit in something rather than float on black.
+      //
+      // A THIRD OF THE WAY, NOT ALL OF IT. The first version used accentDeep
+      // neat and produced a card the brand green could not be read on - the
+      // Price Trends hero number is green, and green on green is not a style.
+      // It also drowned the lockup. A tint keeps the identity and leaves the
+      // foreground somewhere to stand.
+      return {
+        ...base,
+        from: mix(palette.from, brand.accentDeep, 0.34),
+        to: palette.to,
+        cellBorder: "rgba(255,255,255,0.22)",
+      };
+    case "paper":
+      // Light card. Cells get a hairline because a white photo on off-white
+      // has no edge of its own, and without one the grid dissolves.
+      return {
+        ...base,
+        radius: 2,
+        gap: 12,
+        cellBorder: "rgba(20,24,29,0.16)",
+        titleScale: 0.94,
+      };
+    case "editorial":
+      // A contact sheet: square, butted up, type doing the work.
+      //
+      // NOT ACTUALLY ZERO GAP. Kickio's product shots are cut out on white, so
+      // nine of them touching read as one white rectangle with no shirts in it
+      // - the grid disappeared entirely. Two pixels and a dark keyline give the
+      // block its ruled-sheet look and keep nine things visibly nine.
+      return {
+        ...base,
+        radius: 0,
+        gap: 2,
+        cellBorder: "rgba(6,7,10,0.9)",
+        titleScale: 1.22,
+        tracking: 4,
+      };
+    case "frame":
+      // Everything thin. Wide gaps, hairline cells, quiet type - the shirts
+      // are the loudest thing on the card by a distance.
+      return {
+        ...base,
+        radius: 0,
+        gap: 16,
+        cellBorder: palette.hairline,
+        cellFill: "#ffffff",
+        titleScale: 0.84,
+        tracking: 3,
+      };
+    default:
+      return base;
+  }
+}
+
 function titleSize(title: string, portrait: boolean): number {
   const base = portrait ? 56 : 38;
   if (title.length > 62) return Math.round(base * 0.68);
@@ -1002,9 +894,16 @@ function GrailSaleCard({
   format: FormatKey;
   style: CardStyle;
   brand: Brand;
-  mode?: "sold" | "drop";
+  mode?: "sold" | "drop" | "grail";
 }) {
-  const drop = mode === "drop";
+  // Grail of the Day used to have its own layout - a full-bleed photo with
+  // type over a scrim - and its own reading of the six style keys, which meant
+  // "paper" was a different card on each template and the daily post was the
+  // least considered of the three. It renders here now. The bleed look is not
+  // lost: `editorial` is exactly that, and it is one option rather than the
+  // only one.
+  const available = mode === "drop" || mode === "grail";
+  const badge = mode === "sold" ? "SOLD" : mode === "grail" ? "GRAIL OF THE DAY" : "AVAILABLE NOW";
   const d = draft.source_data as Record<string, unknown>;
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
@@ -1028,7 +927,7 @@ function GrailSaleCard({
   const photoH = bleed ? stageHeight : stageHeight - pad * 2;
 
   return (
-    <Frame format={format} background={palette.to}>
+    <Frame format={format} background={palette.to} ink={palette.ink}>
       <StudioField width={width} height={height} palette={palette} />
 
       <div
@@ -1125,14 +1024,10 @@ function GrailSaleCard({
                 marginBottom: portrait ? 24 : 18,
               }}
             >
-              <SoldBadge
-                scale={portrait ? 1 : 0.85}
-                accent={palette.accent}
-                label={drop ? "AVAILABLE NOW" : "SOLD"}
-              />
+              <SoldBadge scale={portrait ? 1 : 0.85} accent={palette.accent} label={badge} />
               {/* A Sale is dated; a Drop says whether the seller will haggle,
                   which is the more useful thing to know about one you can buy. */}
-              {drop ? (
+              {available ? (
                 d.accepts_offers === true ? (
                   <div style={{ display: "flex", fontSize: portrait ? 20 : 17, color: palette.muted }}>
                     Offers considered
@@ -1205,7 +1100,7 @@ function GrailSaleCard({
                 marginBottom: portrait ? 8 : 5,
               }}
             >
-              {drop ? "BUY IT NOW" : "SOLD FOR"}
+              {available ? "BUY IT NOW" : "SOLD FOR"}
             </div>
             <div
               style={{
@@ -1264,11 +1159,14 @@ function ArchiveCard({
   draft,
   format,
   brand,
+  style = DEFAULT_CARD_STYLE,
 }: {
   draft: PostDraft;
   format: FormatKey;
   brand: Brand;
+  style?: CardStyle;
 }) {
+  const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
   const portrait = format === "ig";
@@ -1279,7 +1177,7 @@ function ArchiveCard({
   // that cannot be filled is dropped rather than left half empty.
   const cols = portrait ? 3 : 4;
   const rows = portrait ? 3 : 2;
-  const gap = 10;
+  const gap = look.gap;
   // Sized by BOTH axes. Width alone fits 16:9 four-across at 271px, which eats
   // the whole frame and pushed the club's name off the bottom edge - the grid
   // has to leave room for the header and the type block, not just the margins.
@@ -1293,7 +1191,7 @@ function ArchiveCard({
   const usable = photos.slice(0, Math.min(photos.length - (photos.length % cols), cols * rows));
 
   return (
-    <Frame format={format} background={STUDIO}>
+    <Frame format={format} background={look.to} ink={look.ink}>
       <div
         style={{
           display: "flex",
@@ -1302,14 +1200,15 @@ function ArchiveCard({
           width,
           height,
           padding: pad,
-          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
         <BrandLockup
           format={format}
           brand={brand}
           label="ON KICKIO"
-          muted={STUDIO_MUTED}
+          muted={look.muted}
+          surface={look.to}
         />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1326,9 +1225,10 @@ function ArchiveCard({
                     width: cell,
                     height: cell,
                     objectFit: "cover",
-                    borderRadius: 8,
-                    background: "#ffffff",
+                    borderRadius: look.radius,
+                    background: look.cellFill,
                     marginRight: i < cols - 1 ? gap : 0,
+                    ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
                   }}
                 />
               ))}
@@ -1340,10 +1240,10 @@ function ArchiveCard({
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 56 : 42,
+              fontSize: Math.round((portrait ? 56 : 42) * look.titleScale),
               fontWeight: 800,
               letterSpacing: -1,
-              color: STUDIO_INK,
+              color: look.ink,
             }}
           >
             {String(d.team ?? "")}
@@ -1353,7 +1253,7 @@ function ArchiveCard({
               display: "flex",
               fontSize: portrait ? 30 : 24,
               fontWeight: 700,
-              color: brand.accent,
+              color: look.accent,
               marginTop: 8,
             }}
           >
@@ -1361,7 +1261,7 @@ function ArchiveCard({
           </div>
           {/* Said on the card, not just in the caption: these are Kickio's
               holdings, not the club's kit history. */}
-          <div style={{ display: "flex", fontSize: 19, color: STUDIO_MUTED, marginTop: 10 }}>
+          <div style={{ display: "flex", fontSize: 19, color: look.muted, marginTop: 10 }}>
             {String(d.kit_types ?? "")} kit types listed
           </div>
         </div>
@@ -1390,11 +1290,14 @@ function CollectionCard({
   draft,
   format,
   brand,
+  style = DEFAULT_CARD_STYLE,
 }: {
   draft: PostDraft;
   format: FormatKey;
   brand: Brand;
+  style?: CardStyle;
 }) {
+  const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
   const portrait = format === "ig";
@@ -1403,7 +1306,7 @@ function CollectionCard({
 
   const cols = portrait ? 3 : 4;
   const rows = portrait ? 3 : 2;
-  const gap = 10;
+  const gap = look.gap;
   const headerH = lockupHeight(format);
   // Taller than the archive card's: this one carries a third line, the hunt
   // list, and a line that does not fit is a line that pushes the fraction off
@@ -1422,7 +1325,7 @@ function CollectionCard({
   const huntLine = hunting.slice(0, 3).join("  ·  ");
 
   return (
-    <Frame format={format} background={STUDIO}>
+    <Frame format={format} background={look.to} ink={look.ink}>
       <div
         style={{
           display: "flex",
@@ -1431,14 +1334,15 @@ function CollectionCard({
           width,
           height,
           padding: pad,
-          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
         <BrandLockup
           format={format}
           brand={brand}
           label="THE LIST"
-          muted={STUDIO_MUTED}
+          muted={look.muted}
+          surface={look.to}
         />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1455,9 +1359,10 @@ function CollectionCard({
                     width: cell,
                     height: cell,
                     objectFit: "cover",
-                    borderRadius: 8,
-                    background: "#ffffff",
+                    borderRadius: look.radius,
+                    background: look.cellFill,
                     marginRight: i < cols - 1 ? gap : 0,
+                    ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
                   }}
                 />
               ))}
@@ -1469,10 +1374,10 @@ function CollectionCard({
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 52 : 40,
+              fontSize: Math.round((portrait ? 52 : 40) * look.titleScale),
               fontWeight: 800,
               letterSpacing: -1,
-              color: STUDIO_INK,
+              color: look.ink,
             }}
           >
             {String(d.collection ?? "")}
@@ -1484,14 +1389,14 @@ function CollectionCard({
               display: "flex",
               fontSize: portrait ? 30 : 24,
               fontWeight: 700,
-              color: brand.accent,
+              color: look.accent,
               marginTop: 8,
             }}
           >
             {String(d.buyable ?? "")} of {String(d.slots ?? "")} to buy
           </div>
           {huntLine ? (
-            <div style={{ display: "flex", fontSize: portrait ? 20 : 18, color: STUDIO_MUTED, marginTop: 12 }}>
+            <div style={{ display: "flex", fontSize: portrait ? 20 : 18, color: look.muted, marginTop: 12 }}>
               Still hunting: {huntLine}
             </div>
           ) : null}
@@ -1518,11 +1423,14 @@ function CollectorCard({
   draft,
   format,
   brand,
+  style = DEFAULT_CARD_STYLE,
 }: {
   draft: PostDraft;
   format: FormatKey;
   brand: Brand;
+  style?: CardStyle;
 }) {
+  const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
   const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
   const portrait = format === "ig";
@@ -1531,7 +1439,7 @@ function CollectorCard({
 
   const cols = portrait ? 3 : 4;
   const rows = portrait ? 3 : 2;
-  const gap = 10;
+  const gap = look.gap;
   const headerH = lockupHeight(format);
   const typeH = portrait ? 210 : 152;
   const gridH = height - pad * 2 - headerH - typeH;
@@ -1554,7 +1462,7 @@ function CollectorCard({
     : `${String(d.clubs ?? "")} clubs · ${String(d.earliest ?? "")}–${String(d.latest ?? "")}`;
 
   return (
-    <Frame format={format} background={STUDIO}>
+    <Frame format={format} background={look.to} ink={look.ink}>
       <div
         style={{
           display: "flex",
@@ -1563,14 +1471,15 @@ function CollectorCard({
           width,
           height,
           padding: pad,
-          background: `linear-gradient(to bottom, ${STUDIO_LIFT} 0%, ${STUDIO} 60%, #06070a 100%)`,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
         <BrandLockup
           format={format}
           brand={brand}
           label="COLLECTOR"
-          muted={STUDIO_MUTED}
+          muted={look.muted}
+          surface={look.to}
         />
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -1587,9 +1496,10 @@ function CollectorCard({
                     width: cell,
                     height: cell,
                     objectFit: "cover",
-                    borderRadius: 8,
-                    background: "#ffffff",
+                    borderRadius: look.radius,
+                    background: look.cellFill,
                     marginRight: i < cols - 1 ? gap : 0,
+                    ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
                   }}
                 />
               ))}
@@ -1603,7 +1513,7 @@ function CollectorCard({
             style={{
               display: "flex",
               fontSize: portrait ? 24 : 20,
-              color: STUDIO_MUTED,
+              color: look.muted,
               letterSpacing: 1,
             }}
           >
@@ -1613,10 +1523,10 @@ function CollectorCard({
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 50 : 38,
+              fontSize: Math.round((portrait ? 50 : 38) * look.titleScale),
               fontWeight: 800,
               letterSpacing: -1,
-              color: STUDIO_INK,
+              color: look.ink,
               marginTop: 6,
             }}
           >
@@ -1627,7 +1537,7 @@ function CollectorCard({
               display: "flex",
               fontSize: portrait ? 30 : 24,
               fontWeight: 700,
-              color: brand.accent,
+              color: look.accent,
               marginTop: 8,
             }}
           >
@@ -1651,15 +1561,50 @@ export function templateFor(
 
   switch (template) {
     case "trend_chart":
-      return <TrendCard draft={draft} format={format} brand={brand} />;
+      return (
+        <TrendCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "roundup_card":
-      return <RoundupCard draft={draft} format={format} brand={brand} />;
+      return (
+        <RoundupCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "archive_grid":
-      return <ArchiveCard draft={draft} format={format} brand={brand} />;
+      return (
+        <ArchiveCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "collection_grid":
-      return <CollectionCard draft={draft} format={format} brand={brand} />;
+      return (
+        <CollectionCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "collector_grid":
-      return <CollectorCard draft={draft} format={format} brand={brand} />;
+      return (
+        <CollectorCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "grail_sale_card":
       return (
         <GrailSaleCard
@@ -1681,10 +1626,11 @@ export function templateFor(
       );
     default:
       return (
-        <GrailCard
+        <GrailSaleCard
           draft={draft}
           format={format}
           brand={brand}
+          mode="grail"
           style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
         />
       );
