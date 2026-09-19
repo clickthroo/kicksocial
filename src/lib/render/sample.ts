@@ -308,4 +308,38 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  value_card: {
+    ...base,
+    id: "sample-value",
+    recipe_key: "value_pick",
+    subject_ref: "value:p1|S|very good",
+    headline: "1993-94 Manchester United Away Shirt Cantona #7 — £154.31, 38% below",
+    generation: { visual_template: "value_card" },
+    source_data: {
+      title: "1993-94 Manchester United Away Shirt Cantona #7",
+      // What a buyer pays, buyer protection included.
+      price: "£154.31",
+      // The median of matching sales, not this shirt's former price.
+      typical_price: "£250.99",
+      discount_pct: 38,
+      size: "S",
+      condition: "Very Good",
+      sales_count: 3,
+      sales_low: "£237.99",
+      sales_high: "£276.99",
+      last_sold: "2026-09-03",
+      scarcity: "only-on-kickio",
+      scarcity_line: "The only one on Kickio.",
+      team: "Manchester United",
+      season: "1993-94",
+      shirt_type: "Away",
+      rarity_signals: ["1990s"],
+      shirt_colour: { hex: "#1b1b1b", deep: "#070707" },
+      kickio_url: "https://kickio.com/marketplace/1993-94-manchester-united-away-shirt",
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ENGT90860264/0.jpg",
+      ],
+    },
+  },
 };

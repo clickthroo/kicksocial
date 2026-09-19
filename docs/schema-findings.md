@@ -229,6 +229,39 @@ on all of them, so it is the only evidence of when a shirt entered a
 collection — which is what proves a rise is revaluation and not a purchase. It
 is in the role SQL grant for that reason.
 
+### Value Pick — BUILT
+Live listings priced below what that exact shirt (same size, same condition)
+has sold for.
+
+- 1,649 live listings; **178 match a recorded sale on product + size +
+  condition** (11%). 66 are >20% below the last such sale. **14 survive** the
+  strict filter (2+ matching sales, most recent within 180 days).
+- `sales_history` carries both `size` and `condition`, populated on ~98% of the
+  6,948 rows whose product resolves. Vocabulary lines up with `listings`
+  (L/M/XL/S/XXL/XS dominate both).
+- `listings.size` also holds `Default Title`, `M, L`, `Medium`, `Not specified`
+  and `N/A`, so the match uses a size **allowlist** — a near-match is a
+  different shirt, and the whole claim rests on the two being identical.
+
+Three things the audit changed:
+
+1. **The last sale is not the price.** A 1990-91 England XL sits 41% below its
+   last sale of £325.99 — the only other recorded sale was **£190.99**. The
+   comparison is the **median**, and a spread wider than the discount refuses
+   the post: if it trades between £191 and £326, "38% below" is a fact about
+   which sale you stood next to.
+2. **"A one-off" is usually false.** The 1988-90 Netherlands L in Very Good has
+   **two live listings at the same price**; that product has five across
+   variants. Scarcity is graded from live listings across *all* sellers —
+   only-on-Kickio, only-this-variant, or no claim at all.
+3. **Compare what a buyer pays.** The listing price excludes buyer protection;
+   comparing it to a sale price overstates every discount by ~4%, systematically
+   and in our favour.
+
+The data supports *what* the gap is, never *why* the seller priced it there.
+The brief forbids guessing motive, and a shirt can be cheap for a reason no
+column records — which is what the approval step is for.
+
 ### Featured Collector — NOT VIABLE YET
 The marketplace is pre-launch:
 

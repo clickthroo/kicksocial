@@ -893,7 +893,7 @@ function GrailSaleCard({
   format: FormatKey;
   style: CardStyle;
   brand: Brand;
-  mode?: "sold" | "drop" | "grail";
+  mode?: "sold" | "drop" | "grail" | "value";
 }) {
   // Grail of the Day used to have its own layout - a full-bleed photo with
   // type over a scrim - and its own reading of the six style keys, which meant
@@ -901,9 +901,16 @@ function GrailSaleCard({
   // least considered of the three. It renders here now. The bleed look is not
   // lost: `editorial` is exactly that, and it is one option rather than the
   // only one.
-  const available = mode === "drop" || mode === "grail";
-  const badge = mode === "sold" ? "SOLD" : mode === "grail" ? "GRAIL OF THE DAY" : "AVAILABLE NOW";
+  const available = mode !== "sold";
   const d = draft.source_data as Record<string, unknown>;
+  const badge =
+    mode === "sold"
+      ? "SOLD"
+      : mode === "grail"
+        ? "GRAIL OF THE DAY"
+        : mode === "value"
+          ? `${String(d.discount_pct ?? "")}% BELOW`
+          : "AVAILABLE NOW";
   const images = Array.isArray(d.images) ? (d.images as string[]) : [];
   const photo = images[0];
   const signals = Array.isArray(d.rarity_signals) ? (d.rarity_signals as string[]) : [];
@@ -1099,7 +1106,7 @@ function GrailSaleCard({
                 marginBottom: portrait ? 8 : 5,
               }}
             >
-              {available ? "BUY IT NOW" : "SOLD FOR"}
+              {mode === "value" ? "USUALLY " + String(d.typical_price ?? "") : available ? "BUY IT NOW" : "SOLD FOR"}
             </div>
             <div
               style={{
@@ -1791,6 +1798,16 @@ export function templateFor(
           draft={draft}
           format={format}
           brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "value_card":
+      return (
+        <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          mode="value"
           style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
         />
       );

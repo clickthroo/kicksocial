@@ -15,7 +15,8 @@ function recipesForToday(date: Date): string[] {
   const day = date.getUTCDay(); // 0 Sun .. 6 Sat
   if (day === 2) keys.push("price_trends");   // Tuesday
   if (day === 3) keys.push("club_archive");   // Wednesday
-  if (day === 4) keys.push("market_index");   // Thursday
+  if (day === 4) keys.push("market_index");
+  if (day === 4) keys.push("value_pick");   // Thursday
   if (day === 5) keys.push("sold_this_week"); // Friday
   // Saturday. Usually skips - Featured Collection only posts when the list has
   // actually moved - so it is cheap to ask every week.

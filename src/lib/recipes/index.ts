@@ -33,6 +33,11 @@ import {
   COLLECTION_INDEX_BRIEF,
 } from "./collection-index.ts";
 import {
+  runValuePick,
+  DEFAULT_VALUE_PICK_CONFIG,
+  VALUE_PICK_BRIEF,
+} from "./value-pick.ts";
+import {
   runClubArchive,
   DEFAULT_CLUB_ARCHIVE_CONFIG,
   CLUB_ARCHIVE_BRIEF,
@@ -199,6 +204,16 @@ No TikTok variant. Write X and Instagram only.`,
         ...DEFAULT_COLLECTION_INDEX_CONFIG,
         ...(selection as object),
       }),
+  },
+  {
+    key: "value_pick",
+    name: "Value Pick",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "value_card",
+    brief: VALUE_PICK_BRIEF,
+    run: (selection) =>
+      runValuePick({ ...DEFAULT_VALUE_PICK_CONFIG, ...(selection as object) }),
   },
 ];
 
