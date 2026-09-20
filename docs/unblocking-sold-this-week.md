@@ -69,14 +69,51 @@ The role is `NOLOGIN` — the engine never logs in directly, so there is no
 database password to manage. PostgREST switches into the role for the duration
 of a request, based on the `role` claim in the JWT.
 
-1. Mint a JWT signed with Kickio's JWT secret (Supabase dashboard → Settings →
-   API → JWT Settings):
+1. Get the JWT secret: Supabase dashboard → Kickio project → **Project Settings
+   → API Keys → JWT Keys** (older UI: *Settings → API → JWT Settings*). It is a
+   single opaque string — not the anon key, not an `sb_` key.
 
-   ```json
-   { "role": "kickio_content_reader", "iss": "supabase", "exp": <far future> }
+2. Mint the token:
+
+   ```
+   node scripts/mint-reader-token.js
    ```
 
-2. Set it as `KICKIO_SUPABASE_PUBLISHABLE_KEY` on the content engine only.
+   It prompts for the secret rather than taking it as an argument, so the
+   secret never reaches shell history or disk, and the same command works on
+   macOS, Linux and Windows. Do not paste the secret into jwt.io or any other
+   website — it signs every token Kickio trusts, including live user sessions.
+
+   The payload it produces matches the existing anon key's shape, with only the
+   role changed:
+
+   ```json
+   { "iss": "supabase", "ref": "<project ref>", "role": "kickio_content_reader",
+     "iat": <now>, "exp": <now + 1 year> }
+   ```
+
+3. **Verify before deploying.** Against `https://<ref>.supabase.co/rest/v1`,
+   sending the token as both `apikey` and `Authorization: Bearer`:
+
+   | Request | Expected |
+   |---|---|
+   | `GET /sales_history?select=id&limit=1` | one row — **not** `[]` |
+   | `POST /sales_history` with a row body | permission denied |
+   | `GET /collections?select=paid_cents&limit=1` | permission denied |
+
+   The first proves the grant reached the engine's credential; the other two
+   prove the credential still cannot write or read what a collector paid.
+
+   If the first returns `401`/`Invalid API key`, the gateway is rejecting a
+   custom role in the `apikey` header. The fallback is to send the publishable
+   key as `apikey` and the minted token as `Authorization`, which is a small
+   change to `src/lib/kickio/client.ts`.
+
+4. Set it as `KICKIO_SUPABASE_PUBLISHABLE_KEY` on the content engine only —
+   server-side, never `NEXT_PUBLIC_` — and redeploy.
+
+Do not disable legacy JWT keys in the Supabase dashboard afterwards: this token
+is verified by the legacy shared secret, and disabling them kills it.
 
 The client already accepts it — `kickio_content_reader` is on the allowlist in
 `src/lib/kickio/client.ts`. Nothing else changes, and the read-only guarantee
