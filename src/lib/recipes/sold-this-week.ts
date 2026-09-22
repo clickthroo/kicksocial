@@ -18,6 +18,7 @@
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
+import { salesReadable } from "./sales-access.ts";
 import { formatPrice } from "../kickio/pricing.ts";
 import { cleanValue } from "../kickio/values.ts";
 
@@ -87,14 +88,29 @@ export async function runSoldThisWeek(
   const sales = (data ?? []) as unknown as SaleRow[];
 
   if (sales.length === 0) {
-    // Distinguish "no sales" from "cannot see sales" - they need different fixes.
+    // Ask the table, do not assume. Zero rows for ONE WEEK is genuinely
+    // ambiguous - unreadable table, or a quiet week - and this used to answer
+    // "no permission" either way. That was right while the engine was blind and
+    // becomes a lie the moment it is not: the first quiet week after the
+    // credential lands would be reported as a permissions fault, sending
+    // someone to fix something that is not broken.
+    const readable = await salesReadable();
     return {
       ok: false,
-      reason:
-        "No readable sales in the window. Kickio's publishable key currently has " +
-        "no SELECT policy on sales_history, so this recipe cannot run until the " +
-        "engine is granted read access to that table.",
-      diagnostics: { windowDays: config.windowDays, rowsReturned: 0, likelyCause: "rls_no_select_policy" },
+      reason: readable
+        ? `No sale in the last ${config.windowDays} days clears ` +
+          `${formatPrice(config.minPriceCents)} - a quiet week, not a fault`
+        : "The engine cannot see Kickio's recorded sales — sales_history read " +
+          "as empty even unfiltered. The `kickio_content_reader` role was " +
+          "applied on 2026-09-19, so this is the credential, not the grant: " +
+          "KICKIO_SUPABASE_PUBLISHABLE_KEY is still an `anon` key. Mint a JWT " +
+          "carrying the `kickio_content_reader` role claim and set it on the " +
+          "content engine (docs/unblocking-sold-this-week.md).",
+      diagnostics: {
+        windowDays: config.windowDays,
+        rowsReturned: 0,
+        salesTableReadable: readable,
+      },
     };
   }
 

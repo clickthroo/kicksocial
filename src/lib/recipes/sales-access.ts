@@ -1,3 +1,5 @@
+import { kickio } from "../kickio/client.ts";
+
 /**
  * Can the engine see Kickio's recorded sales at all?
  *
@@ -9,11 +11,11 @@
  *     select count(*) from sales_history;  -->  0
  *     select count(*) from listings;       -->  1661
  *
- * That is already documented in docs/unblocking-sold-this-week.md, and
- * `sold_this_week` is disabled because of it. Value Pick was built on the same
- * table anyway: the audit behind it ran through an admin connection, which
- * bypasses RLS, so 14 qualifying listings were counted that the engine itself
- * could never have seen.
+ * That is already documented in docs/unblocking-sold-this-week.md, which
+ * `sold_this_week` is named after. Value Pick was built on the same table
+ * anyway: the audit behind it ran through an admin connection, which bypasses
+ * RLS, so 14 qualifying listings were counted that the engine itself could
+ * never have seen.
  *
  * WHY THIS NEEDS ITS OWN CHECK
  *
@@ -27,6 +29,30 @@
  * So: zero sales across a non-empty candidate set is treated as a permissions
  * fault, not a market fact.
  */
+
+/**
+ * Can the engine read `sales_history` at all, ignoring any recipe's filters?
+ *
+ * For the recipes that cannot infer blindness from a candidate count. Sold This
+ * Week asks for one week of sales, so zero rows is ambiguous between "the table
+ * is unreadable" and "nothing sold". Guessing either way produces a confident
+ * false statement, in opposite directions:
+ *
+ *   assume blind -> a genuinely quiet week is reported as a permissions fault
+ *   assume quiet -> an unreadable table is reported as a quiet market
+ *
+ * One unfiltered row settles it, and it is only asked for on the zero-rows
+ * path, so a normal run never pays for it.
+ */
+export async function salesReadable(): Promise<boolean> {
+  const { data, error } = await kickio().from("sales_history").select("id").limit(1);
+
+  // An error is NOT evidence of blindness. RLS denies by returning nothing at
+  // all, with HTTP 200 - a thrown query is some other fault, and answering
+  // "you lack permission" to it would send someone to the wrong place.
+  if (error) throw new Error(`Probing sales_history failed: ${error.message}`);
+  return ((data ?? []) as unknown[]).length > 0;
+}
 
 /**
  * A union rather than an optional `reason`, so the type itself guarantees that

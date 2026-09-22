@@ -32,6 +32,16 @@ describe("telling an unreadable table from a quiet market", () => {
     assert.doesNotMatch(verdict.reason, /live listings/);
   });
 
+  /**
+   * Sold This Week asks for one week, so zero rows is genuinely ambiguous and
+   * `salesAccess` cannot settle it from counts alone - which is exactly why
+   * that recipe probes the table instead. Guarding the boundary here so the
+   * two are not confused for each other later.
+   */
+  test("one week of nothing is not, by itself, evidence of blindness", () => {
+    assert.deepEqual(salesAccess(0, 0), { ok: false, blind: false });
+  });
+
   test("any sale at all means the table is readable", () => {
     assert.deepEqual(salesAccess(1426, 1), { ok: true, blind: false });
   });
