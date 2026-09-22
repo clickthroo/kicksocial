@@ -31,6 +31,7 @@
  * between opt-out plus a person and opt-out plus a cron job.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
 import type { Claim, RecipeResult } from "../engine/types.ts";
 import { imageUrls } from "./grail-of-the-day.ts";
 import { seasonYear } from "./club-archive.ts";
@@ -311,32 +312,39 @@ async function shirtsFor(
   const out = new Map<string, ProductRow[]>();
   if (collectors.length === 0) return out;
 
-  const { data: owned, error: ownedError } = await kickio()
-    .from("collections")
-    .select("user_id,product_id,hidden")
-    .in(
-      "user_id",
-      collectors.map((c) => c.userId),
-    )
-    .eq("hidden", false)
-    .limit(20_000);
+  // Paged and chunked, not `.limit(20_000)`. PostgREST caps a response at
+  // 1,000 rows and raises no error, so the unpaged version would quietly show
+  // a collector part of their own collection. See lib/kickio/page.ts.
+  const rows = await pageIn<{ user_id: string; product_id: string | null }, string>(
+    "Loading collections",
+    collectors.map((c) => c.userId),
+    (batch, from, to) =>
+      kickio()
+        .from("collections")
+        .select("user_id,product_id,hidden")
+        .in("user_id", batch)
+        .eq("hidden", false)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
-  if (ownedError) throw new Error(`Loading collections failed: ${ownedError.message}`);
-  const rows = (owned ?? []) as Array<{ user_id: string; product_id: string | null }>;
   const productIds = [...new Set(rows.map((r) => r.product_id).filter((id): id is string => !!id))];
   if (productIds.length === 0) return out;
 
-  const { data: productData, error: productError } = await kickio()
-    .from("products")
-    .select("id,name,team,season,shirt_type,primary_image_url")
-    .in("id", productIds)
-    .is("deleted_at", null)
-    .limit(20_000);
-
-  if (productError) throw new Error(`Loading shirts failed: ${productError.message}`);
-  const byId = new Map(
-    ((productData ?? []) as unknown as ProductRow[]).map((p) => [p.id, p]),
+  const products = await pageIn<ProductRow, string>(
+    "Loading shirts",
+    productIds,
+    (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("id,name,team,season,shirt_type,primary_image_url")
+        .in("id", batch)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to),
   );
+
+  const byId = new Map(products.map((p) => [p.id, p]));
 
   for (const row of rows) {
     if (!row.product_id) continue;

@@ -37,6 +37,7 @@
  * quietly lost its grant. `probeAccess` tells the two apart and says which.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageAll, pageIn } from "../kickio/page.ts";
 import { engine } from "../engine/client.ts";
 import { KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER } from "./grail-of-the-day.ts";
 
@@ -189,32 +190,25 @@ export interface CollectorOption extends CollectorSummary {
   blocked: BlockReason;
 }
 
-const PAGE = 1000;
-
 /**
  * Every collection row the engine is allowed to see.
  *
- * Paged explicitly. PostgREST caps a response at a server-configured row count,
- * so a single large `.limit()` silently returns a prefix and every count
- * downstream comes out short - the bug archive-options.ts already hit.
+ * Paged, because PostgREST caps a response at a server-configured row count and
+ * a single large `.limit()` silently returns a prefix - every count downstream
+ * then comes out short. This loop used to be written out here by hand; it now
+ * goes through lib/kickio/page.ts, which is the same logic in one place rather
+ * than three slightly different copies of it.
  *
  * Note the select list: `paid_cents` is absent, and the role is not granted it.
  */
 export async function allCollectionRows(): Promise<CollectionRow[]> {
-  const rows: CollectionRow[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await kickio()
+  return pageAll<CollectionRow>("Loading collections", (from, to) =>
+    kickio()
       .from("collections")
       .select("user_id,product_id,acquired_at,hidden")
       .order("user_id", { ascending: true })
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`Loading collections failed: ${error.message}`);
-    const page = (data ?? []) as unknown as CollectionRow[];
-    rows.push(...page);
-    if (page.length < PAGE) return rows;
-    if (rows.length > 200_000) return rows;
-  }
+      .range(from, to),
+  );
 }
 
 /**
@@ -339,26 +333,29 @@ export async function loadCollectors(
   cooldownDays = DEFAULT_COLLECTOR_COOLDOWN_DAYS,
   excludeUserIds: string[] = [],
 ): Promise<{ options: CollectorOption[]; access: AccessVerdict }> {
-  const [profileResult, collectorResult, collections] = await Promise.all([
-    kickio()
-      .from("profiles")
-      .select("id,username,display_name,collection_public,deleted_at")
-      .is("deleted_at", null)
-      .limit(5000),
-    kickio()
-      .from("collector_profile")
-      .select("user_id,chosen_title,featured_consent,streak_weeks")
-      .limit(5000),
+  // All three paged. `.limit(5000)` did not raise the cap - PostgREST stops at
+  // 1,000 rows and says nothing - so past that point a collector simply would
+  // not exist as far as this engine was concerned, and `readAccess` below
+  // counts these rows to decide whether the engine is blind at all.
+  const [profiles, collectorRows, collections] = await Promise.all([
+    pageAll<ProfileRow>("Loading profiles", (from, to) =>
+      kickio()
+        .from("profiles")
+        .select("id,username,display_name,collection_public,deleted_at")
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    pageAll<CollectorProfileRow>("Loading collector profiles", (from, to) =>
+      kickio()
+        .from("collector_profile")
+        .select("user_id,chosen_title,featured_consent,streak_weeks")
+        .order("user_id", { ascending: true })
+        .range(from, to),
+    ),
     allCollectionRows(),
   ]);
-
-  if (profileResult.error) throw new Error(`Loading profiles failed: ${profileResult.error.message}`);
-  if (collectorResult.error) {
-    throw new Error(`Loading collector profiles failed: ${collectorResult.error.message}`);
-  }
-
-  const profiles = (profileResult.data ?? []) as unknown as ProfileRow[];
-  const collectors = (collectorResult.data ?? []) as unknown as CollectorProfileRow[];
+  const collectors = collectorRows;
   const access = readAccess(profiles.length, collections.length);
   if (!access.ok) return { options: [], access };
 

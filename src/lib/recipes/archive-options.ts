@@ -15,6 +15,7 @@
  *    do not exist.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageAll } from "../kickio/page.ts";
 import { engine } from "../engine/client.ts";
 import { subjectRefFor } from "./club-archive.ts";
 
@@ -30,35 +31,28 @@ export interface ArchiveTeamOption {
   available: boolean;
 }
 
-const PAGE = 1000;
-
 /**
  * Every active product's club and season.
  *
- * Paged explicitly: PostgREST caps a response at a server-configured row count
- * (commonly 1,000), so a single `.limit(5000)` silently returns a prefix and
- * every count downstream comes out short. Paging is correct whatever the cap
- * happens to be.
+ * Paged, because PostgREST caps a response at a server-configured row count
+ * (1,000 on Kickio) and a single `.limit(5000)` silently returns a prefix -
+ * every count downstream then comes out short. This was the first place that
+ * bug was found; the loop now lives in lib/kickio/page.ts so the fix is shared
+ * rather than remembered.
  */
 async function allProducts(): Promise<Array<{ team: string | null; season: string | null }>> {
-  const rows: Array<{ team: string | null; season: string | null }> = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await kickio()
-      .from("products")
-      .select("team,season")
-      .is("deleted_at", null)
-      .eq("status", "active")
-      .not("team", "is", null)
-      .order("id", { ascending: true })
-      .range(from, from + PAGE - 1);
-
-    if (error) throw new Error(`Loading teams failed: ${error.message}`);
-    const page = (data ?? []) as Array<{ team: string | null; season: string | null }>;
-    rows.push(...page);
-    if (page.length < PAGE) return rows;
-    // Guard against a server that ignores range and returns everything forever.
-    if (rows.length > 50_000) return rows;
-  }
+  return pageAll<{ team: string | null; season: string | null }>(
+    "Loading teams",
+    (from, to) =>
+      kickio()
+        .from("products")
+        .select("team,season")
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .not("team", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 }
 
 function year(season: string | null): number | null {

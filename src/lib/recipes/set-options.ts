@@ -6,6 +6,7 @@
  * then refuses just loses a week quietly.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
 import { engine } from "../engine/client.ts";
 import { seasonYear } from "./club-archive.ts";
 import {
@@ -51,14 +52,20 @@ export async function featuredSetOptions(
   if (sets.length === 0) return [];
 
   const teams = [...new Set(sets.flatMap((e) => e.rule!.teams))];
-  const [productResult, drafts] = await Promise.all([
-    kickio()
-      .from("products")
-      .select("id,team,season,shirt_type")
-      .is("deleted_at", null)
-      .eq("status", "active")
-      .in("team", teams)
-      .limit(5000),
+  const [products, drafts] = await Promise.all([
+    pageIn<
+      { id: string; team: string | null; season: string | null; shirt_type: string | null },
+      string
+    >("Loading shirts", teams, (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("id,team,season,shirt_type")
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .in("team", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
     engine()
       .from("post_drafts")
       .select("subject_ref,created_at")
@@ -66,30 +73,30 @@ export async function featuredSetOptions(
       .order("created_at", { ascending: false }),
   ]);
 
-  if (productResult.error) throw new Error(`Loading shirts failed: ${productResult.error.message}`);
   if (drafts.error) throw new Error(`Loading post history failed: ${drafts.error.message}`);
-
-  const products = (productResult.data ?? []) as Array<{
-    id: string;
-    team: string | null;
-    season: string | null;
-    shirt_type: string | null;
-  }>;
 
   const buyableIds = new Set<string>();
   if (products.length > 0) {
-    const { data: listingData, error: listingError } = await kickio()
-      .from("listings")
-      .select("product_id")
-      .in("product_id", products.map((p) => p.id))
-      .eq("status", "active")
-      .is("deleted_at", null)
-      .gt("stock_quantity", 0)
-      .is("removed_at", null)
-      .eq("consecutive_gone_count", 0)
-      .limit(20_000);
-    if (listingError) throw new Error(`Loading listings failed: ${listingError.message}`);
-    for (const row of (listingData ?? []) as Array<{ product_id: string | null }>) {
+    // Paged and chunked - this count is what the Settings picker shows an admin
+    // as "how much of this set is buyable", so a silent prefix would make them
+    // choose on a wrong number. See lib/kickio/page.ts.
+    const listingData = await pageIn<{ product_id: string | null }, string>(
+      "Loading listings",
+      products.map((p) => p.id),
+      (batch, from, to) =>
+        kickio()
+          .from("listings")
+          .select("product_id")
+          .in("product_id", batch)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .gt("stock_quantity", 0)
+          .is("removed_at", null)
+          .eq("consecutive_gone_count", 0)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
+    for (const row of listingData) {
       if (row.product_id) buyableIds.add(row.product_id);
     }
   }

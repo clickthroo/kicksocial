@@ -47,6 +47,7 @@
  * whole list is buyable.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
 import { engine } from "../engine/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { imageUrls } from "./grail-of-the-day.ts";
@@ -406,18 +407,21 @@ export async function runFeaturedCollection(
     };
   }
 
-  const { data: slotData, error: slotError } = await kickio()
-    .from("collection_set_slots")
-    .select("set_id,sort,label,product_id")
-    .in(
-      "set_id",
-      sets.map((s) => s.id),
-    )
-    .limit(1000);
+  // Paged. `.limit(1000)` sat exactly on PostgREST's cap, so it could never
+  // return more and would never say it had stopped - and the slot count is the
+  // denominator of every "N of M" this recipe prints. See lib/kickio/page.ts.
+  const slots = await pageIn<SlotRow, string>(
+    "Loading set slots",
+    sets.map((s) => s.id),
+    (batch, from, to) =>
+      kickio()
+        .from("collection_set_slots")
+        .select("set_id,sort,label,product_id")
+        .in("set_id", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
-  if (slotError) return { ok: false, reason: `Kickio query failed: ${slotError.message}` };
-
-  const slots = (slotData ?? []) as unknown as SlotRow[];
   const bySet = new Map<string, SlotRow[]>();
   for (const row of slots) {
     const list = bySet.get(row.set_id) ?? [];
@@ -433,31 +437,40 @@ export async function runFeaturedCollection(
   const activeListings = new Map<string, number>();
 
   if (productIds.length > 0) {
-    const { data: productData, error: productError } = await kickio()
-      .from("products")
-      .select("id,slug,name,team,season,status,deleted_at,primary_image_url")
-      .in("id", productIds)
-      .limit(productIds.length);
-
-    if (productError) return { ok: false, reason: `Kickio query failed: ${productError.message}` };
-    for (const row of (productData ?? []) as unknown as ProductRow[]) products.set(row.id, row);
+    const productData = await pageIn<ProductRow, string>(
+      "Loading slot products",
+      productIds,
+      (batch, from, to) =>
+        kickio()
+          .from("products")
+          .select("id,slug,name,team,season,status,deleted_at,primary_image_url")
+          .in("id", batch)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
+    for (const row of productData) products.set(row.id, row);
 
     // The shelf, not the catalogue. Same filter Grail of the Day uses to decide
     // a listing is real: in stock, not withdrawn, and the stock checker has not
     // seen it vanish from its source.
-    const { data: listingData, error: listingError } = await kickio()
-      .from("listings")
-      .select("product_id")
-      .in("product_id", productIds)
-      .eq("status", "active")
-      .is("deleted_at", null)
-      .gt("stock_quantity", 0)
-      .is("removed_at", null)
-      .eq("consecutive_gone_count", 0)
-      .limit(5000);
+    const listingData = await pageIn<{ product_id: string | null }, string>(
+      "Loading listings",
+      productIds,
+      (batch, from, to) =>
+        kickio()
+          .from("listings")
+          .select("product_id")
+          .in("product_id", batch)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .gt("stock_quantity", 0)
+          .is("removed_at", null)
+          .eq("consecutive_gone_count", 0)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
 
-    if (listingError) return { ok: false, reason: `Kickio query failed: ${listingError.message}` };
-    for (const row of (listingData ?? []) as Array<{ product_id: string | null }>) {
+    for (const row of listingData) {
       if (!row.product_id) continue;
       activeListings.set(row.product_id, (activeListings.get(row.product_id) ?? 0) + 1);
     }

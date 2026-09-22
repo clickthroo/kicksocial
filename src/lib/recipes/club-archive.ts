@@ -24,6 +24,7 @@
  * candidates cheaply and never good enough to print.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
 import { imageUrls } from "./grail-of-the-day.ts";
@@ -212,18 +213,25 @@ export async function runClubArchive(
     }
   }
 
-  const { data: productData, error: productError } = await kickio()
-    .from("products")
-    .select("team,season,shirt_type,name,slug,primary_image_url")
-    .is("deleted_at", null)
-    .eq("status", "active")
-    .in("team", names)
-    .limit(2000);
-
-  if (productError) return { ok: false, reason: `Kickio query failed: ${productError.message}` };
+  // Paged and chunked, not `.limit(2000)`. PostgREST stops at 1,000 rows
+  // without saying so, and a club archive built from a truncated catalogue
+  // silently drops shirts the club actually has. See lib/kickio/page.ts.
+  const productData = await pageIn<ProductRow, string>(
+    "Loading club products",
+    names,
+    (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("team,season,shirt_type,name,slug,primary_image_url")
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .in("team", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
   const byTeam = new Map<string, ProductRow[]>();
-  for (const row of (productData ?? []) as unknown as ProductRow[]) {
+  for (const row of productData) {
     if (!row.team) continue;
     const list = byTeam.get(row.team) ?? [];
     list.push(row);

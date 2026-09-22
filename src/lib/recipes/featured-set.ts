@@ -29,6 +29,7 @@
  * today while the two Collector Spotlight recipes wait for a grant.
  */
 import { kickio } from "../kickio/client.ts";
+import { pageIn } from "../kickio/page.ts";
 import type { Claim, RecipeResult } from "../engine/types.ts";
 import { recentlyFeatured } from "./cooldown.ts";
 import { imageUrls } from "./grail-of-the-day.ts";
@@ -307,36 +308,45 @@ export async function runFeaturedSet(
   }
 
   const teams = [...new Set(parsed.flatMap((p) => p.rule.teams))];
-  const { data: productData, error: productError } = await kickio()
-    .from("products")
-    .select("id,team,season,shirt_type,name,slug,primary_image_url")
-    .is("deleted_at", null)
-    .eq("status", "active")
-    .in("team", teams)
-    .limit(5000);
-
-  if (productError) return { ok: false, reason: `Kickio query failed: ${productError.message}` };
-  const products = (productData ?? []) as unknown as ProductRow[];
+  const products = await pageIn<ProductRow, string>(
+    "Loading set products",
+    teams,
+    (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("id,team,season,shirt_type,name,slug,primary_image_url")
+        .is("deleted_at", null)
+        .eq("status", "active")
+        .in("team", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
 
   // The shelf, not the catalogue.
+  //
+  // Paged and chunked. A truncated listings read here would not just be a short
+  // count - it IS the post's headline number, so the card would understate how
+  // many of the set a reader can actually buy. See lib/kickio/page.ts.
   const buyableIds = new Set<string>();
   if (products.length > 0) {
-    const { data: listingData, error: listingError } = await kickio()
-      .from("listings")
-      .select("product_id")
-      .in(
-        "product_id",
-        products.map((p) => p.id),
-      )
-      .eq("status", "active")
-      .is("deleted_at", null)
-      .gt("stock_quantity", 0)
-      .is("removed_at", null)
-      .eq("consecutive_gone_count", 0)
-      .limit(20_000);
+    const listingData = await pageIn<{ product_id: string | null }, string>(
+      "Loading listings",
+      products.map((p) => p.id),
+      (batch, from, to) =>
+        kickio()
+          .from("listings")
+          .select("product_id")
+          .in("product_id", batch)
+          .eq("status", "active")
+          .is("deleted_at", null)
+          .gt("stock_quantity", 0)
+          .is("removed_at", null)
+          .eq("consecutive_gone_count", 0)
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
 
-    if (listingError) return { ok: false, reason: `Kickio query failed: ${listingError.message}` };
-    for (const row of (listingData ?? []) as Array<{ product_id: string | null }>) {
+    for (const row of listingData) {
       if (row.product_id) buyableIds.add(row.product_id);
     }
   }
