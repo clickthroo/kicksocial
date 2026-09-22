@@ -43,13 +43,26 @@ const PROJECT_REF = "rlveellvebfzgyobceru";
 const ROLE = "kickio_content_reader";
 
 /**
- * A year. Deliberately not "never": a long-lived JWT cannot be revoked on its
- * own - killing one means rotating Kickio's JWT secret, which invalidates every
- * other token too, including live user sessions. A dated token is a prompt to
- * re-mint rather than a permanent key. To cut access off immediately, drop the
- * role instead (the rollback block in docs/kickio-read-only-role.sql).
+ * 90 days, and the short life is the point.
+ *
+ * Kickio moved to asymmetric JWT signing keys (ECC P-256) on 2026-09-16. With
+ * asymmetric signing Supabase holds the private key, so this token cannot be
+ * signed with the CURRENT key at all - it is signed with the Legacy HS256
+ * shared secret, which the dashboard now lists under "Previously used keys"
+ * with the note "Revoke once all tokens have expired".
+ *
+ * So this token depends on a key Kickio has already decided to retire. A
+ * one-year token would mean asking them to leave that key unrevoked for a
+ * year, which quietly undoes the migration they just completed. 90 days keeps
+ * the engine working while keeping the deadline visible: when it expires,
+ * either re-mint or - better - replace this route with one that works against
+ * the current key.
+ *
+ * To cut access off immediately at any point, drop the role instead (the
+ * rollback block in docs/kickio-read-only-role.sql). That is the real kill
+ * switch; revoking a single JWT is not possible.
  */
-const LIFETIME_SECONDS = 365 * 24 * 60 * 60;
+const LIFETIME_SECONDS = 90 * 24 * 60 * 60;
 
 function base64url(value) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -74,8 +87,13 @@ function mint(secret) {
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 console.log(
-  "\nSupabase dashboard -> Kickio project -> Project Settings -> API Keys ->\n" +
-    "JWT Keys (older UI: Settings -> API -> JWT Settings). Reveal the JWT Secret.\n",
+  "\nSupabase dashboard -> Kickio project -> Project Settings -> JWT Keys ->\n" +
+    "the LEGACY JWT SECRET tab (not the JWT Signing Keys tab).\n" +
+    "\n" +
+    "It must be the legacy HS256 shared secret. The current signing key is\n" +
+    "ECC (P-256), whose private half Supabase never reveals - nothing can be\n" +
+    "signed with it here. The Key ID shown beside a key is a public label, not\n" +
+    "a secret, and signing with it produces a token that is rejected.\n",
 );
 
 rl.question("Paste the JWT secret and press Enter:\n> ", (answer) => {
@@ -93,7 +111,21 @@ rl.question("Paste the JWT secret and press Enter:\n> ", (answer) => {
   if (secret.startsWith("sb_") || secret.split(".").length === 3) {
     console.error(
       "\nThat looks like an API key, not the JWT secret. The secret is a single\n" +
-        "opaque string under JWT Keys - not the anon key, and not an sb_ key.",
+        "opaque string under the Legacy JWT Secret tab - not the anon key, and\n" +
+        "not an sb_ key.",
+    );
+    process.exit(1);
+  }
+
+  // The Key ID sits right beside the secret in the dashboard and is the easier
+  // of the two to copy. Signing with it produces a perfectly well-formed token
+  // that Kickio rejects as an invalid signature - a failure that names the
+  // wrong problem, at the point furthest from the mistake.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(secret)) {
+    console.error(
+      "\nThat is a Key ID, not a secret - it is the public label shown beside a\n" +
+        "key under JWT Signing Keys. The legacy secret is a longer string with no\n" +
+        "dashes, on the Legacy JWT Secret tab.",
     );
     process.exit(1);
   }

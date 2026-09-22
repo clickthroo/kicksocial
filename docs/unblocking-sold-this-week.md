@@ -69,9 +69,27 @@ The role is `NOLOGIN` — the engine never logs in directly, so there is no
 database password to manage. PostgREST switches into the role for the duration
 of a request, based on the `role` claim in the JWT.
 
-1. Get the JWT secret: Supabase dashboard → Kickio project → **Project Settings
-   → API Keys → JWT Keys** (older UI: *Settings → API → JWT Settings*). It is a
-   single opaque string — not the anon key, not an `sb_` key.
+> **This route rides a key Kickio is retiring.** On 2026-09-16 the project
+> moved to asymmetric JWT signing (ECC P-256), and the Legacy HS256 shared
+> secret was demoted to "Previously used keys", annotated *"Revoke once all
+> tokens have expired"*. Supabase never reveals the private half of the current
+> ECC key, so nothing here can be signed with it — this token is signed with
+> the legacy secret, which previous keys are still used to verify.
+>
+> That is why the token is minted for **90 days, not a year**: a year-long
+> token would mean asking for the legacy key to stay unrevoked for a year,
+> which undoes the migration. Treat the expiry as the deadline for replacing
+> this route, not as a chore to repeat.
+>
+> Do not revoke the previous key while the engine depends on it. To cut the
+> engine's access off deliberately, drop the role instead (rollback block in
+> `kickio-read-only-role.sql`) — that is immediate and affects nothing else.
+
+1. Get the secret: Supabase dashboard → Kickio project → **Project Settings →
+   JWT Keys → the *Legacy JWT Secret* tab**. Not the *JWT Signing Keys* tab —
+   the Key ID shown there (a UUID like `3C806ED1-…`) is a public label, and
+   signing with it yields a token rejected for "invalid signature". The script
+   refuses a UUID for that reason.
 
 2. Mint the token:
 
@@ -112,8 +130,17 @@ of a request, based on the `role` claim in the JWT.
 4. Set it as `KICKIO_SUPABASE_PUBLISHABLE_KEY` on the content engine only —
    server-side, never `NEXT_PUBLIC_` — and redeploy.
 
-Do not disable legacy JWT keys in the Supabase dashboard afterwards: this token
-is verified by the legacy shared secret, and disabling them kills it.
+Do not revoke the previous (Legacy HS256) key in the Supabase dashboard while
+this is in use: that key is what verifies this token, and revoking it kills the
+engine's access immediately.
+
+## No terminal? No Node?
+
+`scripts/mint-reader-token.js` needs Node. macOS ships neither Node nor git by
+default, and installing them for a 90-day credential is a poor trade. `openssl`
+*is* built in, and produces a byte-identical token — the one-liner is in the
+session notes; it prints the pasted secret's length so a Key ID (36 characters,
+dashed) is obvious against the real secret.
 
 The client already accepts it — `kickio_content_reader` is on the allowlist in
 `src/lib/kickio/client.ts`. Nothing else changes, and the read-only guarantee
