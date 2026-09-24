@@ -38,6 +38,7 @@
  */
 import { kickio } from "../kickio/client.ts";
 import { pageAll, pageIn } from "../kickio/page.ts";
+import { engineUserId } from "../kickio/engine-session.ts";
 import { engine } from "../engine/client.ts";
 import { KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER } from "./grail-of-the-day.ts";
 
@@ -78,6 +79,15 @@ export type BlockReason = "house" | "excluded" | null;
 
 export function blockReasonFor(userId: string, excluded: string[] = []): BlockReason {
   if (HOUSE_ACCOUNTS.includes(userId) || isFixtureId(userId)) return "house";
+  // The engine's own Supabase account. Kickio's signup trigger gives every new
+  // account a public `profiles` row, and `collection_public` defaults to true,
+  // so this account looks exactly like a collector to the query below.
+  //
+  // Asked rather than listed. A hardcoded uid is one someone has to remember
+  // to add, and the last time house accounts were not excluded, the first
+  // Collector Spotlight would have been Kickio posting about itself. The
+  // engine knows who it is; it should not need telling.
+  if (engineUserId() !== null && userId === engineUserId()) return "house";
   return excluded.includes(userId) ? "excluded" : null;
 }
 

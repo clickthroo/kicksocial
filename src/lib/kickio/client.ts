@@ -17,6 +17,7 @@
  * live marketplace and needs explicit sign-off. It does not belong in this repo.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { engineCredentials, engineToken, resetEngineSession } from "./engine-session.ts";
 
 /** Kickio tables this engine is allowed to read. */
 export type KickioTable =
@@ -111,8 +112,21 @@ export function kickio(): KickioReader {
     );
   }
 
+  // The key above is now only the GATEWAY credential - Kickio's edge refuses a
+  // request whose `apikey` is not one of its own issued keys, which is what
+  // killed the hand-minted token. Authorisation comes from the signed-in
+  // session below, if one is configured.
+  //
+  // Without engine credentials this is exactly the client it has always been:
+  // publishable key, `anon`, and the recipes that need more say so plainly.
+  const signedIn = engineCredentials() !== null;
+
   const raw = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Checked on every issued token, not just the first: a hook that is
+    // disabled later starts handing back `authenticated`, which on Kickio can
+    // write. engine-session.ts refuses it rather than connecting.
+    ...(signedIn ? { accessToken: () => engineToken(ALLOWED_ROLES) } : {}),
     global: { headers: { "x-application-name": "kickio-content-engine (read-only)" } },
   });
 
@@ -131,6 +145,7 @@ export function kickio(): KickioReader {
 /** Test seam: drop the memoised client so env changes take effect. */
 export function resetKickioClient(): void {
   cached = null;
+  resetEngineSession();
 }
 
 export const __testing = { claimedRole, ALLOWED_ROLES };
