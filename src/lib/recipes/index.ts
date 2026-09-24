@@ -115,6 +115,15 @@ No TikTok variant - a chart is a weak video. Write X and Instagram only.`,
 Pick out the two or three most interesting results and say what makes each one
 notable. A pattern across the week is more interesting than a list.
 
+Never count anything. No "5 notable shirts", no "79 tracked sales", no totals,
+no averages, no "up from last week". The shirts are the story; how many rows a
+query returned is a fact about a database. Name them and say what they went for.
+
+These are the notable sales we can SHOW, not a ranking of every sale - some
+tracked sales have no photograph and are not here. So never write "the top sale
+this week", "the highest price of the week", or anything else that claims the
+set is complete. "Among the week's results" is the right register.
+
 Hard rule: this is MARKET-WIDE sales data that Kickio aggregates from across the
 hobby - it is NOT Kickio's own sales. Never write "sold on Kickio", "we sold", or
 anything implying this is Kickio's transaction volume. "The market" and "tracked

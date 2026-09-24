@@ -233,7 +233,20 @@ function BrandLockup({
           {url}
         </div>
       ) : (
-        <Wordmark style={{ fontSize: Math.round(size * 0.42), letterSpacing: 3 }}>
+        // Fallback when the mark could not be fetched. It must still be legible
+        // on whatever it lands on: Wordmark defaults to the dark-theme ink,
+        // which on `paper` is near-white on cream - a card that ships with no
+        // readable brand name at all, and looks fine in every check that does
+        // not involve looking at it.
+        <Wordmark
+          style={{
+            fontSize: Math.round(size * 0.42),
+            letterSpacing: 3,
+            // An unparseable surface falls back to the dark-theme ink, which is
+            // what this did before - unknown should not change behaviour.
+            color: (luminance(surface) ?? 0) > 0.5 ? PAPER_INK : INK,
+          }}
+        >
           KICKIO.COM
         </Wordmark>
       )}
@@ -471,10 +484,28 @@ function RoundupCard({
 }) {
   const look = gridLook(style, brand);
   const d = draft.source_data as Record<string, unknown>;
-  const featured = Array.isArray(d.featured)
-    ? (d.featured as Array<Record<string, unknown>>).slice(0, format === "ig" ? 5 : 3)
-    : [];
   const portrait = format !== "x";
+
+  // One hero plus a strip, rather than a list of names and numbers. A shirt is
+  // the reason anyone stops scrolling; the price is the caption.
+  const slots = 5;
+  const all = Array.isArray(d.featured)
+    ? (d.featured as Array<Record<string, unknown>>).slice(0, slots)
+    : [];
+
+  // Index-aligned with `featured` - the recipe only features sales it has a
+  // photo for, precisely so this alignment holds. If it ever does not, a tile
+  // draws without its picture rather than borrowing the next shirt's.
+  const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
+
+  const hero = all[0];
+  const rest = all.slice(1);
+
+  const heroSize = portrait ? 486 : 198;
+  // Tiles share the row rather than taking a fixed width, so the strip spans
+  // the card in both shapes. At 1200x675 a fixed square left two thirds of the
+  // width empty and pushed the footer into the captions.
+  const tileHeight = portrait ? 224 : 150;
 
   return (
     <Frame format={format} background={look.to} ink={look.ink}>
@@ -498,32 +529,130 @@ function RoundupCard({
           surface={look.to}
         />
 
-        <div style={{ display: "flex", flexDirection: "column", flexGrow: 1, justifyContent: "center" }}>
-          {featured.map((s, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: portrait ? "22px 0" : "14px 0",
-                borderBottom:
-                  i < featured.length - 1 ? `1px solid ${look.cellBorder ?? "rgba(255,255,255,0.12)"}` : "none",
-              }}
-            >
-              <div style={{ display: "flex", flexDirection: "column", maxWidth: "70%" }}>
-                <div style={{ display: "flex", fontSize: portrait ? 34 : 27, fontWeight: 700 }}>
-                  {String(s.team ?? "")} {String(s.season ?? "")}
-                </div>
-                <div style={{ display: "flex", fontSize: portrait ? 24 : 19, color: look.muted, marginTop: 4 }}>
-                  {[s.shirt_type, s.condition].filter(Boolean).join(" · ")}
-                </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            justifyContent: "center",
+            gap: portrait ? 34 : 22,
+          }}
+        >
+          {hero && (
+            <div style={{ display: "flex", alignItems: "center", gap: portrait ? 34 : 26 }}>
+              <div
+                style={{
+                  display: "flex",
+                  width: heroSize,
+                  height: heroSize,
+                  flexShrink: 0,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: look.cellFill,
+                  borderRadius: look.radius,
+                  ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+                }}
+              >
+                {photos[0] && (
+                  <img
+                    src={photos[0]}
+                    width={heroSize}
+                    height={heroSize}
+                    // `contain`: a sale is a record of one specific shirt, and
+                    // cropping its sleeves off to fill a square loses the thing
+                    // the post is about.
+                    style={{ objectFit: "contain", borderRadius: look.radius }}
+                  />
+                )}
               </div>
-              <div style={{ display: "flex", fontSize: portrait ? 42 : 32, fontWeight: 800 }}>
-                {String(s.price ?? "")}
+
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 44 : 33,
+                    fontWeight: 700,
+                    lineHeight: 1.12,
+                  }}
+                >
+                  {[hero.team, hero.season].filter(Boolean).join(" ")}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 25 : 19,
+                    color: look.muted,
+                    marginTop: 8,
+                  }}
+                >
+                  {[hero.shirt_type, hero.condition].filter(Boolean).join(" · ")}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 76 : 54,
+                    fontWeight: 800,
+                    marginTop: portrait ? 20 : 12,
+                    letterSpacing: -1,
+                  }}
+                >
+                  {String(hero.price ?? "")}
+                </div>
               </div>
             </div>
-          ))}
+          )}
+
+          {rest.length > 0 && (
+            <div style={{ display: "flex", gap: look.gap + 6 }}>
+              {rest.map((s, i) => (
+                <div
+                  key={i}
+                  style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexBasis: 0 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      width: "100%",
+                      height: tileHeight,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: look.cellFill,
+                      borderRadius: look.radius,
+                      ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+                    }}
+                  >
+                    {photos[i + 1] && (
+                      <img
+                        src={photos[i + 1]}
+                        height={tileHeight}
+                        style={{ objectFit: "contain", borderRadius: look.radius, maxWidth: "100%" }}
+                      />
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 27 : 20,
+                      fontWeight: 700,
+                      marginTop: 12,
+                    }}
+                  >
+                    {String(s.price ?? "")}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 18 : 14,
+                      color: look.muted,
+                      marginTop: 2,
+                    }}
+                  >
+                    {[s.team, s.season].filter(Boolean).join(" ")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", fontSize: 20, color: look.muted, opacity: 0.7 }}>

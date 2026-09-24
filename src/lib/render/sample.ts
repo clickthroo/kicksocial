@@ -107,12 +107,30 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     headline: "Sold this week",
     generation: { visual_template: "roundup_card" },
     source_data: {
+      // A real week (2026-W39), so the layout is judged against the photography
+      // Kickio actually holds - flat product shots on white, of wildly varying
+      // crop - rather than against placeholders that would all behave.
       featured: [
-        { team: "Manchester United", season: "1990-92", shirt_type: "Away", condition: "Very Good", price: "£420" },
-        { team: "Borussia Dortmund", season: "1995-96", shirt_type: "Home", condition: "Mint", price: "£385" },
-        { team: "Napoli", season: "1988-89", shirt_type: "Home", condition: "Good", price: "£340" },
-        { team: "Ajax", season: "1994-95", shirt_type: "Home", condition: "Very Good", price: "£295" },
-        { team: "Parma", season: "1998-99", shirt_type: "Away", condition: "Very Good", price: "£260" },
+        { team: "England", season: "1987-88", shirt_type: "Third", condition: "Very Good", price: "£414.99" },
+        { team: "Barcelona", season: "1989-90", shirt_type: "Home", condition: "Very Good", price: "£368.99" },
+        { team: "Northern Ireland", season: "1990-91", shirt_type: "Home", condition: "Very Good", price: "£322.99" },
+        { team: "Manchester United", season: "1990-91", shirt_type: "Away", condition: "Mint", price: "£280.99" },
+        { team: "AC Milan", season: "1988-89", shirt_type: "Home", condition: "Good", price: "£276.99" },
+      ],
+      // Index-aligned with `featured`. The recipe guarantees this by featuring
+      // only sales it has a photo for.
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/shopify/9549694599515/0.jpg",
+        "https://www.classicfootballshirts.co.uk/cdn-cgi/image/catalog/product/cache/" +
+          "f8158826193ba5faa8b862a9bd1eb9e9/8/2/" +
+          "82f40ad0db74933d35460128b9e1c0e95dad974f058054e4f1480a1c24c3e084.jpeg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/IREH90772433/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/MUNA90287874/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/ACMH8890134/0.jpg",
       ],
     },
   },

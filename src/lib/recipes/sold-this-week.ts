@@ -21,9 +21,12 @@ import { recentlyFeatured } from "./cooldown.ts";
 import { salesReadable } from "./sales-access.ts";
 import { formatPrice } from "../kickio/pricing.ts";
 import { cleanValue } from "../kickio/values.ts";
+import { pageIn } from "../kickio/page.ts";
+import { imageUrls } from "./grail-of-the-day.ts";
 
 interface SaleRow {
   id: string;
+  product_id: string | null;
   sold_at: string;
   price_cents: number;
   currency: string;
@@ -44,6 +47,11 @@ export interface SoldThisWeekConfig {
   minSales: number;
   /** Only include sales at or above this, to keep the roundup interesting. */
   minPriceCents: number;
+  /**
+   * Fewest photo-backed sales worth a card. Below this the grid looks broken
+   * rather than sparse, and no post beats a bad one.
+   */
+  minFeatured: number;
   cooldownDays: number;
 }
 
@@ -52,6 +60,7 @@ export const DEFAULT_SOLD_CONFIG: SoldThisWeekConfig = {
   featureCount: 5,
   minSales: 10,
   minPriceCents: 10_000,
+  minFeatured: 3,
   cooldownDays: 6,
 };
 
@@ -72,7 +81,7 @@ export async function runSoldThisWeek(
   const { data, error } = await kickio()
     .from("sales_history")
     .select(
-      "id,sold_at,price_cents,currency,team,season,shirt_type,condition," +
+      "id,product_id,sold_at,price_cents,currency,team,season,shirt_type,condition," +
         "player_name,source,item_kind",
     )
     .gte("sold_at", since)
@@ -128,46 +137,93 @@ export async function runSoldThisWeek(
     return { ok: false, reason: `Week ${subjectRef} already covered` };
   }
 
-  const featured = sales.slice(0, config.featureCount);
+  // The card is photo-led, so the featured set is the dearest sales THAT HAVE A
+  // PHOTO, not simply the dearest. Two reasons it is done this way rather than
+  // leaving gaps in the grid:
+  //
+  //   * `withRenderablePhotos` transcodes `source_data.images` as a flat array,
+  //     so the photos have to line up with `featured` by index. A sale without
+  //     one would shift every photo after it onto the wrong shirt - a silent
+  //     error, and the worst kind: a real price under the wrong shirt.
+  //   * A tile with no picture in a row of pictures reads as a mistake.
+  //
+  // Only about a third of tracked sales carry a photo (23 of 79 this week;
+  // never fewer than 23 in any of the last eight weeks), because market-wide
+  // records from outside Kickio have no product behind them. So this post is
+  // "notable sales we can show", and the copy must not imply it is a ranking of
+  // every sale. `skipped_no_photo` records what was left out, so the gap is
+  // visible on the run log rather than invisible.
+  const productIds = [...new Set(sales.map((s) => s.product_id).filter((id): id is string => !!id))];
+
+  const products = await pageIn<{ id: string; primary_image_url: string | null }, string>(
+    "Loading sale photos",
+    productIds,
+    (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("id,primary_image_url")
+        .in("id", batch)
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+
+  const photoFor = new Map<string, string>();
+  for (const product of products) {
+    const url = imageUrls([product.primary_image_url])[0];
+    if (url) photoFor.set(product.id, url);
+  }
+
+  const showable = sales.filter((s) => s.product_id && photoFor.has(s.product_id));
+  const featured = showable.slice(0, config.featureCount);
+
+  if (featured.length < config.minFeatured) {
+    return {
+      ok: false,
+      reason:
+        `Only ${featured.length} of ${sales.length} qualifying sales have a photo ` +
+        `(need ${config.minFeatured}) - a roundup of blank tiles is worse than no post`,
+      diagnostics: { qualifying: sales.length, withPhoto: showable.length },
+    };
+  }
+
+  const photos = featured.map((s) => photoFor.get(s.product_id!)!);
   // Completed sales elsewhere, so no buyer protection fee applies here - but
   // pence still must not be rounded away.
   const gbp = (cents: number) => formatPrice(cents, "GBP");
 
-  const total = sales.reduce((sum, s) => sum + s.price_cents, 0);
-  const sourceBreakdown = sales.reduce<Record<string, number>>((acc, s) => {
-    acc[s.source] = (acc[s.source] ?? 0) + 1;
-    return acc;
-  }, {});
-
-  const claims: Claim[] = [
-    {
-      statement: `${sales.length} tracked sales above ${gbp(config.minPriceCents)} in the last ${config.windowDays} days`,
-      value: sales.length,
-      source: "sales_history (approved, not excluded)",
-      basis: "Market-wide data aggregated by Kickio, not Kickio's own sales",
-    },
-    {
-      statement: `Top sale ${gbp(featured[0].price_cents)}`,
-      value: featured[0].price_cents / 100,
-      source: `sales_history.price_cents (id ${featured[0].id})`,
-    },
-    {
-      statement: `Median featured sale ${gbp(featured[Math.floor(featured.length / 2)].price_cents)}`,
-      value: featured[Math.floor(featured.length / 2)].price_cents / 100,
-      source: "sales_history.price_cents",
-    },
-  ];
+  // One claim per shirt shown, and nothing aggregate.
+  //
+  // The counts that used to be here - how many sales were tracked, their total
+  // value, the breakdown by source - are gone deliberately. They invited the
+  // copy to lead with volume ("79 sales this week"), which is a statistic about
+  // Kickio's data pipeline rather than a reason for a collector to care. It was
+  // also a number about ALL qualifying sales while the card showed a
+  // photo-backed subset, so the two disagreed.
+  //
+  // Note also what is NOT claimed: none of these says "the top sale this week".
+  // The dearest sale of the week may have no photo and so not be here at all.
+  const claims: Claim[] = featured.map((s) => ({
+    statement:
+      `${[cleanValue(s.team), cleanValue(s.season), cleanValue(s.shirt_type)]
+        .filter(Boolean)
+        .join(" ")} sold for ${gbp(s.price_cents)}`,
+    value: s.price_cents / 100,
+    source: `sales_history.price_cents (id ${s.id})`,
+    basis: "Market-wide data aggregated by Kickio, not Kickio's own sales",
+  }));
 
   const candidate: RecipeCandidate = {
     subjectRef,
-    headline: `Sold this week: ${featured.length} notable shirts, top at ${gbp(featured[0].price_cents)}`,
+    headline: `Sold this week — ${[cleanValue(featured[0].team), cleanValue(featured[0].season)]
+      .filter(Boolean)
+      .join(" ")} at ${gbp(featured[0].price_cents)}`,
     sourceData: {
       week: subjectRef,
       window_days: config.windowDays,
-      total_sales_considered: sales.length,
-      aggregate_value: gbp(total),
-      source_breakdown: sourceBreakdown,
       data_scope: "market-wide (third-party sales data aggregated by Kickio)",
+      // How many were left out for want of a photo. Diagnostic only - it is not
+      // in any claim, and the brief forbids putting a count in the copy.
+      skipped_no_photo: sales.length - showable.length,
       // Placeholders ("Unknown", "N/A", "Other") are dropped rather than
       // written into copy as though they were facts.
       featured: featured.map((s) => ({
@@ -183,7 +239,9 @@ export async function runSoldThisWeek(
       })),
     },
     claims,
-    images: [],
+    // Index-aligned with `featured`. The render route transcodes these through
+    // src/lib/render/photos.ts, so a WebP-only shirt still draws.
+    images: photos,
   };
 
   return { ok: true, candidate };
