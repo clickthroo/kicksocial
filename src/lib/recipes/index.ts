@@ -42,6 +42,11 @@ import {
   DEFAULT_CLUB_ARCHIVE_CONFIG,
   CLUB_ARCHIVE_BRIEF,
 } from "./club-archive.ts";
+import {
+  runLegendShelf,
+  DEFAULT_LEGEND_SHELF_CONFIG,
+  LEGEND_SHELF_BRIEF,
+} from "./legend-shelf.ts";
 
 export interface Recipe {
   key: string;
@@ -223,6 +228,16 @@ No TikTok variant. Write X and Instagram only.`,
     brief: VALUE_PICK_BRIEF,
     run: (selection) =>
       runValuePick({ ...DEFAULT_VALUE_PICK_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "legend_shelf",
+    name: "Legend Shelf",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "legend_grid",
+    brief: LEGEND_SHELF_BRIEF,
+    run: (selection) =>
+      runLegendShelf({ ...DEFAULT_LEGEND_SHELF_CONFIG, ...(selection as object) }),
   },
 ];
 
