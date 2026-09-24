@@ -73,6 +73,31 @@ export function weekKey(date: Date): string {
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+/**
+ * The sales this card may show: has a photo, and one tile per shirt.
+ *
+ * ONE TILE PER PRODUCT, NEVER TWO. A popular shirt sells more than once a week
+ * and `sales` is one row per sale, so without this the same Atletico Madrid
+ * 1999-00 appeared in two tiles at the same price - which reads as a rendering
+ * bug rather than as two genuine sales.
+ *
+ * Expects `sales` ordered by price descending, so the first occurrence of a
+ * product is its dearest sale of the week. Exported because the rule is worth
+ * testing without a database behind it.
+ */
+export function showableSales<T extends { product_id: string | null }>(
+  sales: T[],
+  photoFor: Map<string, string>,
+): T[] {
+  const seen = new Set<string>();
+  return sales.filter((s) => {
+    if (!s.product_id || !photoFor.has(s.product_id)) return false;
+    if (seen.has(s.product_id)) return false;
+    seen.add(s.product_id);
+    return true;
+  });
+}
+
 export async function runSoldThisWeek(
   config: SoldThisWeekConfig = DEFAULT_SOLD_CONFIG,
 ): Promise<RecipeResult> {
@@ -173,7 +198,7 @@ export async function runSoldThisWeek(
     if (url) photoFor.set(product.id, url);
   }
 
-  const showable = sales.filter((s) => s.product_id && photoFor.has(s.product_id));
+  const showable = showableSales(sales, photoFor);
   const featured = showable.slice(0, config.featureCount);
 
   if (featured.length < config.minFeatured) {

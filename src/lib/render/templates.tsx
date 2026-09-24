@@ -501,11 +501,18 @@ function RoundupCard({
   const hero = all[0];
   const rest = all.slice(1);
 
-  const heroSize = portrait ? 486 : 198;
+  const heroSize = portrait ? 470 : 172;
   // Tiles share the row rather than taking a fixed width, so the strip spans
   // the card in both shapes. At 1200x675 a fixed square left two thirds of the
   // width empty and pushed the footer into the captions.
-  const tileHeight = portrait ? 224 : 150;
+  const tileHeight = portrait ? 210 : 132;
+
+  // The IMAGE inside a tile still gets explicit width and height. Satori cannot
+  // lay out an image whose size it cannot determine, and a photo that failed to
+  // load has no size - so without these, one unreachable URL throws "Image size
+  // cannot be determined" and takes down the whole card rather than leaving a
+  // single blank tile. A missing photo must cost a tile, not a post.
+  const tileImageWidth = portrait ? 200 : 240;
 
   return (
     <Frame format={format} background={look.to} ink={look.ink}>
@@ -535,7 +542,7 @@ function RoundupCard({
             flexDirection: "column",
             flexGrow: 1,
             justifyContent: "center",
-            gap: portrait ? 34 : 22,
+            gap: portrait ? 30 : 18,
           }}
         >
           {hero && (
@@ -624,8 +631,9 @@ function RoundupCard({
                     {photos[i + 1] && (
                       <img
                         src={photos[i + 1]}
+                        width={tileImageWidth}
                         height={tileHeight}
-                        style={{ objectFit: "contain", borderRadius: look.radius, maxWidth: "100%" }}
+                        style={{ objectFit: "contain", borderRadius: look.radius }}
                       />
                     )}
                   </div>
