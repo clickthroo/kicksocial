@@ -61,6 +61,23 @@ export interface Recipe {
    * and carries its own integrity rules. Thresholds, cadence, platforms and the
    * copy brief are config, loaded from the `recipes` table at run time, so they
    * can be tuned without a redeploy.
+   *
+   * ADDING A RECIPE HERE IS NOT ENOUGH ON ITS OWN. `post_drafts.recipe_key` has
+   * a foreign key against the engine database's own `recipes` table, and there
+   * is no admin UI that inserts a row - Settings only edits an existing one
+   * (src/app/admin/actions.ts's `saveRecipe` is UPDATE-only). A new `key` here
+   * with no matching row runs the selection logic fine and then fails at the
+   * very last step, "Saving draft failed: ... violates foreign key constraint
+   * post_drafts_recipe_key_fkey" - discovered the hard way building
+   * legend_shelf. Insert the row directly against the engine's Supabase project
+   * (ENGINE_SUPABASE_URL) before the first run:
+   *
+   *   insert into recipes (key, name, description, enabled, cadence, platforms,
+   *     selection, prompt_template, visual_template)
+   *   values ('your_key', 'Your Name', 'One line for Settings', true,
+   *     'weekly', array['x','instagram','tiktok'], '{}'::jsonb,
+   *     '<the brief below>', 'your_visual_template')
+   *   on conflict (key) do nothing;
    */
   run: (selection?: Record<string, unknown>) => Promise<RecipeResult>;
 }
