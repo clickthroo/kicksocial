@@ -1570,6 +1570,172 @@ function CollectionCard({
 }
 
 /* ---------------------------------------------------------------------------
+ * LEGEND CARD - several famous-player shirts, buyable now, named on the tile.
+ *
+ * A sibling of CollectionCard rather than a variant of it: that card's
+ * headline is a fixed "X of Y to buy" fraction specific to a collection_sets
+ * rule, which legend_shelf has no equivalent of - there is no denominator,
+ * just a set of names. The grid math (cell sizing, row budget) follows the
+ * same shape because it is already tuned per format; what differs is that the
+ * name is not incidental here, it is why the tile is worth a second look, so
+ * every photo carries its own label instead of sitting in an unlabelled wall
+ * of thumbnails.
+ * ------------------------------------------------------------------------- */
+
+function LegendCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const photos = Array.isArray(d.images) ? (d.images as string[]) : [];
+  const legends = Array.isArray(d.legends)
+    ? (d.legends as Array<{ name?: unknown }>)
+    : [];
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 52 : 42;
+
+  // Fewer, bigger tiles than the plain collection grid: a name label at this
+  // size needs a cell it can actually sit on legibly, not a thumbnail.
+  const cols = portrait ? 2 : 3;
+  const maxRows = 3;
+  const gap = look.gap;
+  const headerH = lockupHeight(format);
+  const typeH = format === "tiktok" ? 210 : portrait ? 180 : 140;
+  const gridH =
+    height - pad * 2 - headerH - typeH - (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0);
+  const usable = photos.slice(0, Math.min(photos.length, cols * maxRows));
+  const rows = Math.max(1, Math.ceil(usable.length / cols));
+  const cell = Math.min(
+    Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
+    Math.floor((gridH - gap * (rows - 1)) / rows),
+  );
+  const nameFontSize = Math.round(cell * 0.085);
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width,
+          height,
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="ON KICKIO NOW"
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {Array.from({ length: rows }, (_, row) => (
+            <div key={row} style={{ display: "flex", justifyContent: "center", marginBottom: gap }}>
+              {usable.slice(row * cols, row * cols + cols).map((src, i) => {
+                const entry = legends[row * cols + i];
+                const name = typeof entry?.name === "string" ? entry.name : "";
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      position: "relative",
+                      width: cell,
+                      height: cell,
+                      marginRight: i < cols - 1 ? gap : 0,
+                    }}
+                  >
+                    <img
+                      src={src}
+                      alt=""
+                      width={cell}
+                      height={cell}
+                      style={{
+                        width: cell,
+                        height: cell,
+                        objectFit: "cover",
+                        borderRadius: look.radius,
+                        background: look.cellFill,
+                        ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+                      }}
+                    />
+                    {name ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          padding: "10px 12px",
+                          background: "linear-gradient(to top, rgba(0,0,0,0.72), rgba(0,0,0,0))",
+                          borderBottomLeftRadius: look.radius,
+                          borderBottomRightRadius: look.radius,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            fontSize: nameFontSize,
+                            fontWeight: 700,
+                            color: "#ffffff",
+                          }}
+                        >
+                          {name}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: Math.round((portrait ? 46 : 36) * look.titleScale),
+              fontWeight: 800,
+              letterSpacing: -1,
+              color: look.ink,
+            }}
+          >
+            {String(d.headline_text ?? "Names you know")}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 24 : 20,
+              fontWeight: 600,
+              color: look.accent,
+              marginTop: 8,
+            }}
+          >
+            Buyable now
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+/* ---------------------------------------------------------------------------
  * COLLECTOR CARD - a person's collection, or their progress through a list.
  *
  * The name is set as a byline rather than a headline: the subject is the
@@ -1905,6 +2071,15 @@ export function templateFor(
     case "collection_grid":
       return (
         <CollectionCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "legend_grid":
+      return (
+        <LegendCard
           draft={draft}
           format={format}
           brand={brand}
