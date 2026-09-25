@@ -1,5 +1,10 @@
 export type Platform = "x" | "instagram" | "tiktok";
-export type DraftStatus = "draft" | "approved" | "rejected" | "published";
+/**
+ * `expired` is not a quiet synonym for `rejected`. Rejecting says "not this
+ * one" and blocks the subject for good; expiring says only that nobody got to
+ * it in time, so the shirt has to become eligible again. See history.ts.
+ */
+export type DraftStatus = "draft" | "approved" | "rejected" | "published" | "expired";
 
 /**
  * A single checkable assertion made by a post, paired with the value it came

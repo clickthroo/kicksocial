@@ -63,10 +63,20 @@ export function perishKind(recipeKey: string): PerishKind {
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 
-/** Thresholds in hours: at `ageing` it is worth a look, at `stale` a check. */
-const LIMITS: Record<Exclude<PerishKind, "none">, { ageing: number; stale: number }> = {
-  listing: { ageing: 24, stale: 72 },
-  window: { ageing: 72, stale: 168 },
+/**
+ * Thresholds in hours: at `ageing` it is worth a look, at `stale` a check, and
+ * at `expires` it leaves the queue on its own.
+ *
+ * Expiry is double the stale mark rather than the same moment, so a draft is
+ * always warned on the card for as long again before it goes. A queue that
+ * silently removes things is worse than one that fills up.
+ */
+const LIMITS: Record<
+  Exclude<PerishKind, "none">,
+  { ageing: number; stale: number; expires: number }
+> = {
+  listing: { ageing: 24, stale: 72, expires: 144 },
+  window: { ageing: 72, stale: 168, expires: 336 },
 };
 
 const NOTES: Record<Exclude<PerishKind, "none">, string> = {
@@ -110,7 +120,35 @@ export function freshness(
 
   const hours = age / HOUR;
   const limit = LIMITS[kind];
-  if (hours >= limit.stale) return { label, state: "stale", note: NOTES[kind] };
+  if (hours >= limit.stale) {
+    // Say when it goes. An unreviewed draft disappearing without warning reads
+    // as the tool losing work, whatever the reason for it.
+    const days = Math.round(limit.expires / 24);
+    return {
+      label,
+      state: "stale",
+      note: `${NOTES[kind]} Left undecided, it clears itself out of the queue at ${days} days old.`,
+    };
+  }
   if (hours >= limit.ageing) return { label, state: "ageing", note: NOTES[kind] };
   return { label, state: "fresh", note: null };
+}
+
+/**
+ * Whether this draft has aged out of the queue entirely.
+ *
+ * Read off the same table as the warning on the card, so the queue can never
+ * clear something it never warned about.
+ */
+export function hasExpired(
+  createdAt: string,
+  recipeKey: string,
+  now: number = Date.now(),
+): boolean {
+  const kind = perishKind(recipeKey);
+  if (kind === "none") return false;
+  const age = now - new Date(createdAt).getTime();
+  // An unreadable date is a reason to leave it alone, not to throw it away.
+  if (Number.isNaN(age)) return false;
+  return age / HOUR >= LIMITS[kind].expires;
 }

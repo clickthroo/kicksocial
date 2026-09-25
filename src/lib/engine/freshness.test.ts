@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { PERISHES, ageLabel, freshness, perishKind } from "./freshness.ts";
+import { PERISHES, ageLabel, freshness, hasExpired, perishKind } from "./freshness.ts";
 
 const NOW = Date.parse("2026-09-25T12:00:00Z");
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
@@ -99,5 +99,38 @@ describe("whether the age is a problem", () => {
     assert.equal(bad.state, "ageing");
     assert.equal(bad.label, "date unknown");
     assert.ok(bad.note);
+  });
+});
+
+describe("aging out of the queue altogether", () => {
+  /**
+   * The warning has to come before the sweep, and stay up for a while. A queue
+   * that clears something it never flagged reads as the tool losing work.
+   */
+  test("a draft is warned about long before it is cleared", () => {
+    assert.equal(freshness(hoursAgo(80), "grail_of_the_day", NOW).state, "stale");
+    assert.equal(hasExpired(hoursAgo(80), "grail_of_the_day", NOW), false);
+    assert.equal(hasExpired(hoursAgo(145), "grail_of_the_day", NOW), true);
+  });
+
+  test("and the warning says when that will be", () => {
+    const note = freshness(hoursAgo(80), "grail_of_the_day", NOW).note ?? "";
+    assert.match(note, /6 days old/);
+    assert.match(freshness(hoursAgo(200), "sold_this_week", NOW).note ?? "", /14 days old/);
+  });
+
+  test("a roundup gets the longer run", () => {
+    assert.equal(hasExpired(hoursAgo(200), "sold_this_week", NOW), false);
+    assert.equal(hasExpired(hoursAgo(340), "sold_this_week", NOW), true);
+  });
+
+  test("a completed sale never ages out", () => {
+    assert.equal(hasExpired(hoursAgo(5000), "grail_sale", NOW), false);
+  });
+
+  /** Throwing away a draft because its date will not parse is the wrong way
+   *  round: an unreadable date is a reason to leave it alone. */
+  test("an unreadable date is left in the queue, not swept", () => {
+    assert.equal(hasExpired("not a date", "grail_of_the_day", NOW), false);
   });
 });

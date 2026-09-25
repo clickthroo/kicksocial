@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { applyHistory, comboKey, type SelectionHistory } from "./history.ts";
+import { applyHistory, blocksSubject, comboKey, type SelectionHistory } from "./history.ts";
 
 const empty = (): SelectionHistory => ({
   subjects: new Set(),
@@ -117,6 +117,33 @@ describe("variety preferences", () => {
       empty(),
     );
     assert.deepEqual(eligible.map((c) => c.subjectRef), ["first", "second", "third"]);
+  });
+});
+
+describe("how a past draft holds its subject", () => {
+  /**
+   * The distinction the `expired` status exists for. A swept-up draft was
+   * never judged, so treating it like a rejection would take a real shirt out
+   * of circulation for good because someone was away for a week.
+   */
+  test("a rejection blocks for good, an expiry for a month", () => {
+    assert.equal(blocksSubject("rejected", 400), true);
+    assert.equal(blocksSubject("expired", 20), true);
+    assert.equal(blocksSubject("expired", 40), false);
+  });
+
+  /**
+   * And not released the moment it is swept either - it is still the top
+   * candidate, so tomorrow's run would queue the same shirt again.
+   */
+  test("an expiry does not hand the shirt straight back", () => {
+    assert.equal(blocksSubject("expired", 1), true);
+  });
+
+  test("everything else runs on the recipe's own window", () => {
+    assert.equal(blocksSubject("published", 300), true);
+    assert.equal(blocksSubject("published", 400), false);
+    assert.equal(blocksSubject("approved", 10), true);
   });
 });
 

@@ -1,6 +1,7 @@
 import { Nav } from "./Nav.tsx";
 import Link from "next/link";
 import { pendingDrafts } from "@/lib/run-recipe.ts";
+import { recentlyExpired } from "@/lib/expiry.ts";
 import { Queue } from "./Queue.tsx";
 import { freshness } from "@/lib/engine/freshness.ts";
 import type { PostDraft } from "@/lib/engine/types.ts";
@@ -10,10 +11,12 @@ export const dynamic = "force-dynamic";
 
 export default async function QueuePage() {
   let drafts: PostDraft[] = [];
+  let cleared = 0;
   let loadError: string | null = null;
 
   try {
     drafts = await pendingDrafts();
+    cleared = await recentlyExpired();
   } catch (err) {
     loadError = (err as Error).message;
   }
@@ -41,6 +44,16 @@ export default async function QueuePage() {
       </header>
 
       {loadError && <div className="banner">{loadError}</div>}
+
+      {/* Said out loud, because a queue that quietly removes things is
+          indistinguishable from one that loses them. */}
+      {!loadError && cleared > 0 && (
+        <p className="status-line">
+          {cleared} draft{cleared === 1 ? "" : "s"} cleared {cleared === 1 ? "itself" : "themselves"}{" "}
+          in the last week — nobody decided on {cleared === 1 ? "it" : "them"} before{" "}
+          {cleared === 1 ? "it" : "they"} went out of date.
+        </p>
+      )}
 
       {!loadError && drafts.length === 0 && (
         <div className="empty">

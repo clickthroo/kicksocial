@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runRecipe } from "@/lib/run-recipe.ts";
+import { expireStaleDrafts, type ExpirySweep } from "@/lib/expiry.ts";
 import { checkTriggerAuth } from "@/lib/http-auth.ts";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,18 @@ export async function GET(request: Request): Promise<NextResponse> {
   const auth = checkTriggerAuth(request);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
+  // Before generating, not after: a draft that ages out today frees its
+  // subject, and today's run should be allowed to pick that subject up.
+  //
+  // Tidying must never cost a post, so a failed sweep is reported and stepped
+  // over rather than thrown - the day's recipes still run.
+  let sweep = { expired: 0, cleared: [] as ExpirySweep["cleared"], error: null as string | null };
+  try {
+    sweep = { ...(await expireStaleDrafts()), error: null };
+  } catch (err) {
+    sweep.error = (err as Error).message;
+  }
+
   const keys = recipesForToday(new Date());
   // Sequential: these hit the same rate limits and the volume is tiny.
   const results = [];
@@ -46,5 +59,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     results.push(await runRecipe(key, "cron"));
   }
 
-  return NextResponse.json({ ran: results.length, results });
+  return NextResponse.json({ swept: sweep, ran: results.length, results });
 }

@@ -35,6 +35,32 @@ export const DEFAULT_HISTORY_WINDOWS: HistoryWindows = {
   teamDays: 14,
 };
 
+/**
+ * How long a draft that aged out unreviewed keeps its subject to itself.
+ */
+export const EXPIRED_SUBJECT_DAYS = 30;
+
+/**
+ * Whether one past draft still holds its subject, by how it ended.
+ *
+ *   rejected  forever. Rejecting is a judgement - "not this shirt" - and
+ *             releasing it hands the same shirt back on the next run, since it
+ *             is still the top candidate. The reviewer would reject it daily.
+ *   expired   a month. Nobody judged this one; it simply aged out. Blocking it
+ *             for a year would throw away good material over a week away, and
+ *             releasing it at once would be churn.
+ *   otherwise the recipe's own subject window.
+ */
+export function blocksSubject(
+  status: string,
+  ageDays: number,
+  windows: HistoryWindows = DEFAULT_HISTORY_WINDOWS,
+): boolean {
+  if (status === "rejected") return true;
+  if (status === "expired") return ageDays <= EXPIRED_SUBJECT_DAYS;
+  return ageDays <= windows.subjectDays;
+}
+
 export function comboKey(
   team: string | null | undefined,
   season: string | null | undefined,
@@ -82,10 +108,7 @@ export async function selectionHistory(
   for (const row of rows) {
     const ageDays = (now.getTime() - new Date(row.created_at).getTime()) / 86_400_000;
 
-    // Rejections never expire; everything else expires on its window.
-    if (row.status === "rejected" || ageDays <= windows.subjectDays) {
-      subjects.add(row.subject_ref);
-    }
+    if (blocksSubject(row.status, ageDays, windows)) subjects.add(row.subject_ref);
 
     const team = typeof row.source_data?.team === "string" ? row.source_data.team : null;
     const season = typeof row.source_data?.season === "string" ? row.source_data.season : null;
