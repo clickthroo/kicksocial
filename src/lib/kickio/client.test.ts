@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { kickio, resetKickioClient, __testing } from "./client.ts";
 
-const { claimedRole } = __testing;
+const { claimedRole, PUBLIC_ONLY } = __testing;
 
 /** Build an unsigned JWT with the given role claim, as Supabase issues them. */
 function jwtWithRole(role: string): string {
@@ -83,5 +83,37 @@ describe("kickio() construction", () => {
       assert.equal(table[method], undefined, `${method} must not be reachable`);
     }
     restore();
+  });
+});
+
+describe("which credential each table is read with", () => {
+  /**
+   * The bug this encodes. `listings` has an RLS policy that reaches into
+   * `orders`, and Postgres checks SELECT on every table a policy touches
+   * before running any of it. The scoped role was granted ten tables and
+   * `orders` is not among them, so as `kickio_content_reader` the table is not
+   * empty - every read is "permission denied for table orders". `anon` has the
+   * default grant, so the policy evaluates, returns nothing, and the public
+   * marketplace rows come back.
+   */
+  test("listings is read as anon, because the scoped role cannot read it at all", () => {
+    assert.ok(PUBLIC_ONLY.has("listings"));
+  });
+
+  /**
+   * The mirror-image mistake, and the more dangerous one: routing a table anon
+   * CANNOT read through the anon client does not fail loudly, it reads zero
+   * rows. Sold This Week spent a fortnight posting nothing for exactly that
+   * reason. None of these may ever be added to the set.
+   */
+  test("nothing only the scoped role can see is routed to anon", () => {
+    for (const table of [
+      "sales_history",
+      "collections",
+      "collector_profile",
+      "collection_highlights",
+    ] as const) {
+      assert.equal(PUBLIC_ONLY.has(table), false, `${table} would read as empty via anon`);
+    }
   });
 });

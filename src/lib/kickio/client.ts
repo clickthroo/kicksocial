@@ -43,6 +43,32 @@ export type KickioTable =
   | "marketplace_settings";
 
 /**
+ * Tables the engine must read as `anon`, NOT as its signed-in role.
+ *
+ * `listings` carries an RLS policy whose fourth OR branch is
+ * `EXISTS (SELECT 1 FROM orders o WHERE o.listing_id = listings.id AND ...)`,
+ * and Postgres checks SELECT privilege on every table a policy touches before
+ * it runs any of it - short-circuiting does not save you. The scoped role was
+ * granted ten tables and `orders` is not one of them, so as
+ * `kickio_content_reader` the table is not merely empty, it is
+ * `permission denied for table orders` on every single read.
+ *
+ * `anon` has the same table-level grant on `orders` that Supabase gives every
+ * project by default, so the policy evaluates, returns nothing, and the public
+ * marketplace rows come back - all 1,634 of them. That is the right credential
+ * for this table anyway: these are the listings anybody can see on kickio.com,
+ * and reading them with the narrower key is the least privilege that works.
+ *
+ * Routed here rather than at the nine call sites, because a recipe added later
+ * would have no way of knowing, and the failure is total rather than partial.
+ *
+ * The alternative fix - granting `kickio_content_reader` SELECT on `orders`
+ * - is a change to Kickio's own permissions and needs sign-off there. It is
+ * also more access than a content tool has any business holding.
+ */
+const PUBLIC_ONLY: ReadonlySet<KickioTable> = new Set<KickioTable>(["listings"]);
+
+/**
  * Postgres roles this engine is allowed to connect to Kickio as. An allowlist,
  * not a blocklist: a role that is not named here is refused, so a future key for
  * `postgres`, `service_role` or anything else privileged cannot be dropped into
@@ -121,18 +147,41 @@ export function kickio(): KickioReader {
   // publishable key, `anon`, and the recipes that need more say so plainly.
   const signedIn = engineCredentials() !== null;
 
+  const common = {
+    auth: { persistSession: false, autoRefreshToken: false } as const,
+    global: { headers: { "x-application-name": "kickio-content-engine (read-only)" } },
+  };
+
   const raw = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    ...common,
     // Checked on every issued token, not just the first: a hook that is
     // disabled later starts handing back `authenticated`, which on Kickio can
     // write. engine-session.ts refuses it rather than connecting.
     ...(signedIn ? { accessToken: () => engineToken(ALLOWED_ROLES) } : {}),
-    global: { headers: { "x-application-name": "kickio-content-engine (read-only)" } },
   });
+
+  // The same key with no session on top, so the request arrives as whatever
+  // the key itself claims. Identical to `raw` when no engine credentials are
+  // configured.
+  const publicRaw = signedIn ? createClient(url, key, common) : raw;
 
   cached = {
     from(table: KickioTable) {
-      const builder = raw.from(table);
+      // This whole route depends on the gateway key being an `anon` key. The
+      // allowlist above also permits a `kickio_content_reader` key, and if one
+      // were set here the "public" client would be the scoped role too - and
+      // the read would fail with a Postgres error about a table nobody
+      // mentioned. Say what is actually wrong instead.
+      if (PUBLIC_ONLY.has(table) && role !== "anon") {
+        throw new Error(
+          `Kickio's ${table} can only be read with an anon key, because its ` +
+            "row-level policy reads `orders` and the scoped role has no grant " +
+            `on that table. KICKIO_SUPABASE_PUBLISHABLE_KEY currently claims ` +
+            `'${role}'. Set it to Kickio's publishable (anon) key; the engine ` +
+            "sign-in still supplies the scoped role for everything else.",
+        );
+      }
+      const builder = (PUBLIC_ONLY.has(table) ? publicRaw : raw).from(table);
       // Hand back only `select`. Bound to the builder so PostgREST still works,
       // but insert/update/delete/upsert are simply not reachable from here.
       return { select: builder.select.bind(builder) } as ReadOnlyTable;
@@ -148,4 +197,4 @@ export function resetKickioClient(): void {
   resetEngineSession();
 }
 
-export const __testing = { claimedRole, ALLOWED_ROLES };
+export const __testing = { claimedRole, ALLOWED_ROLES, PUBLIC_ONLY };
