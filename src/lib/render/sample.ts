@@ -55,13 +55,23 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       price_low: "£138.99",
       price_high: "£276.99",
       price_latest: "£138.99",
+      caveat: "Very Good at the bottom, Brand New at the top — the spread tracks condition",
+      condition_read: {
+        verdict: "explained",
+        summary: "Very Good at the bottom, Brand New at the top — the spread tracks condition",
+        cheapest: { price: "£138.99", size: "M", condition: "Very Good" },
+        dearest: { price: "£276.99", size: "XXL", condition: "Brand New" },
+        like_for_like: { condition: "Very Good", count: 4, low: "£138.99", high: "£184.99" },
+      },
       points: [
-        { sold_at: "2026-06-21T00:00:00Z", price: "£142.99", price_cents: 14299 },
-        { sold_at: "2026-06-26T00:00:00Z", price: "£166.99", price_cents: 16699 },
-        { sold_at: "2026-08-06T00:00:00Z", price: "£184.99", price_cents: 18499 },
-        { sold_at: "2026-08-07T00:00:00Z", price: "£276.99", price_cents: 27699 },
-        { sold_at: "2026-08-12T00:00:00Z", price: "£161.99", price_cents: 16199 },
-        { sold_at: "2026-08-21T00:00:00Z", price: "£138.99", price_cents: 13899 },
+        { sold_at: "2026-06-21T00:00:00Z", price: "£142.99", price_cents: 14299, size: "M", condition: "Good" },
+        { sold_at: "2026-06-26T00:00:00Z", price: "£166.99", price_cents: 16699, size: "XXL", condition: "Very Good" },
+        { sold_at: "2026-08-06T00:00:00Z", price: "£184.99", price_cents: 18499, size: "M", condition: "Very Good" },
+        { sold_at: "2026-08-07T00:00:00Z", price: "£276.99", price_cents: 27699, size: "XXL", condition: "Brand New" },
+        // A real row with no size recorded, so the card is previewed with the
+        // gap it will actually have rather than a tidy set that never occurs.
+        { sold_at: "2026-08-12T00:00:00Z", price: "£161.99", price_cents: 16199, size: null, condition: "Very Good" },
+        { sold_at: "2026-08-21T00:00:00Z", price: "£138.99", price_cents: 13899, size: "M", condition: "Very Good" },
       ],
       images: [
         "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +

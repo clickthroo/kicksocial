@@ -34,6 +34,13 @@ import type { Claim, RecipeResult } from "../engine/types.ts";
 import { formatPrice } from "../kickio/pricing.ts";
 import { cleanValue } from "../kickio/values.ts";
 import { pageAll, pageIn } from "../kickio/page.ts";
+import {
+  conditionRank,
+  normaliseCondition,
+  normaliseSize,
+  shortCondition,
+  type Condition,
+} from "../kickio/condition.ts";
 import { imageUrls, kickioUrl } from "./grail-of-the-day.ts";
 
 export const PRICE_HISTORY_KEY = "price_history";
@@ -147,6 +154,113 @@ export function freshCount(saleIds: readonly string[], seen: ReadonlySet<string>
 
 export function isEligible(total: number, fresh: number, postedBefore: boolean): boolean {
   return postedBefore ? fresh >= MIN_SALES : total >= MIN_SALES;
+}
+
+
+export interface SalePoint {
+  price_cents: number;
+  size: string | null;
+  condition: string | null;
+}
+
+export interface SpreadReading {
+  /**
+   * What the gap between the cheapest and the dearest sale is about.
+   *
+   *   explained       the dearest was the better shirt. Ordinary, and the post
+   *                   should say so rather than dressing it up as a swing.
+   *   inverted        the dearest was the WORSE shirt. Genuinely odd, and the
+   *                   most interesting thing on the card when it happens.
+   *   same-condition  both ends were the same grade, so condition is not what
+   *                   separates them - size, seller or timing is.
+   *   unknown         one or both ends have no condition recorded. Say nothing.
+   */
+  verdict: "explained" | "inverted" | "same-condition" | "unknown";
+  cheapest: SalePoint;
+  dearest: SalePoint;
+  /** The card prints this, so it is derived from the rows and nothing else. */
+  summary: string;
+  /** The biggest set of sales sharing one grade - a like-for-like comparison. */
+  likeForLike: { condition: Condition; count: number; lowCents: number; highCents: number } | null;
+}
+
+const NO_READING = "Recorded sales vary by size and condition";
+
+/**
+ * What the spread is actually about.
+ *
+ * THE POINT OF THIS. A range of £139 to £277 looks like volatility until you
+ * see that the cheap one was a Good and the dear one was Brand New, at which
+ * point it is not a story at all - it is what a condition ladder looks like.
+ * Writing "prices all over the place" over that would be wrong, and a
+ * collector would know it immediately. So the verdict is worked out here, in
+ * code, and the copy is told what it is rather than being left to infer it
+ * from a list of grades.
+ */
+export function readSpread(points: readonly SalePoint[]): SpreadReading | null {
+  if (points.length < 2) return null;
+
+  const byPrice = [...points].sort((a, b) => a.price_cents - b.price_cents);
+  const cheapest = byPrice[0];
+  const dearest = byPrice[byPrice.length - 1];
+
+  const groups = new Map<Condition, number[]>();
+  for (const point of points) {
+    const condition = normaliseCondition(point.condition);
+    if (!condition) continue;
+    const held = groups.get(condition);
+    if (held) held.push(point.price_cents);
+    else groups.set(condition, [point.price_cents]);
+  }
+
+  let likeForLike: SpreadReading["likeForLike"] = null;
+  for (const [condition, prices] of groups) {
+    if (prices.length < 2) continue;
+    if (likeForLike && likeForLike.count >= prices.length) continue;
+    likeForLike = {
+      condition,
+      count: prices.length,
+      lowCents: Math.min(...prices),
+      highCents: Math.max(...prices),
+    };
+  }
+
+  const low = conditionRank(cheapest.condition);
+  const high = conditionRank(dearest.condition);
+  const lowName = shortCondition(cheapest.condition);
+  const highName = shortCondition(dearest.condition);
+
+  if (low === null || high === null || cheapest.price_cents === dearest.price_cents) {
+    return { verdict: "unknown", cheapest, dearest, summary: NO_READING, likeForLike };
+  }
+
+  if (high > low) {
+    return {
+      verdict: "explained",
+      cheapest,
+      dearest,
+      summary: `${lowName} at the bottom, ${highName} at the top — the spread tracks condition`,
+      likeForLike,
+    };
+  }
+
+  if (high < low) {
+    return {
+      verdict: "inverted",
+      cheapest,
+      dearest,
+      summary: `The dearest was the lower grade — ${highName} over ${lowName}`,
+      likeForLike,
+    };
+  }
+
+  return {
+    verdict: "same-condition",
+    cheapest,
+    dearest,
+    summary: `Both ends were ${highName} — condition is not what separates them`,
+    likeForLike,
+  };
 }
 
 const SALE_COLUMNS = "id,product_id,sold_at,price_cents,currency,size,condition,source";
@@ -375,7 +489,26 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
   const named = [season, cleanValue(product.team), cleanValue(product.shirt_type)]
     .filter(Boolean)
     .join(" ");
-  const headline = lead ? `${lead} · ${named || main}` : named || main;
+  const name = lead ? `${lead} · ${named || main}` : named || main;
+  const reading = readSpread(plotted);
+
+  // The queue label, and the first thing the copy model reads. It used to be
+  // the shirt's name and nothing else, which told a reviewer scrolling the
+  // queue nothing about whether the post was worth looking at - and told the
+  // model nothing it could not already see. It now carries the range and what
+  // the range is about.
+  const headline = [
+    `${name} — ${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales`,
+    reading?.verdict === "explained"
+      ? `${shortCondition(reading.cheapest.condition)} to ${shortCondition(reading.dearest.condition)}`
+      : reading?.verdict === "inverted"
+        ? "dearest was the lower grade"
+        : reading?.verdict === "same-condition"
+          ? `all ${shortCondition(reading.dearest.condition)}`
+          : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   // One claim per point, plus the two summary figures the card prints. Nothing
   // is claimed about direction or about what the shirt is "worth": these are
@@ -383,9 +516,13 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
   // conditions, and the spread is the honest story.
   const claims: Claim[] = [
     ...plotted.map((s) => ({
-      statement: `${headline} sold for ${gbp(s.price_cents)} on ${new Date(s.sold_at)
-        .toISOString()
-        .slice(0, 10)}`,
+      statement:
+        `${name} sold for ${gbp(s.price_cents)} on ${new Date(s.sold_at).toISOString().slice(0, 10)}` +
+        // Size and condition belong IN the claim, not beside it: the price is
+        // only checkable against the shirt it was paid for.
+        ([normaliseSize(s.size), shortCondition(s.condition)].filter(Boolean).join(", ")
+          ? ` (${[normaliseSize(s.size), shortCondition(s.condition)].filter(Boolean).join(", ")})`
+          : ""),
       value: s.price_cents / 100,
       source: `sales_history.price_cents (id ${s.id})`,
       basis: "Market-wide data aggregated by Kickio, not Kickio's own sales",
@@ -398,6 +535,34 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
       source: "sales_history, approved rows only",
       basis: "Prices vary by size and condition; this is a range, not a valuation",
     },
+    // The reading the copy is told to lean on, stated as a claim so a reviewer
+    // can check it against the rows above rather than taking the post's word.
+    ...(reading && reading.verdict !== "unknown"
+      ? [
+          {
+            statement: reading.summary,
+            value: `${shortCondition(reading.cheapest.condition)} at ${gbp(
+              reading.cheapest.price_cents,
+            )}, ${shortCondition(reading.dearest.condition)} at ${gbp(reading.dearest.price_cents)}`,
+            source: "sales_history.condition on the cheapest and dearest of the sales shown",
+            basis: "Grades ranked Needs Attention < Fair < Good < Very Good < Excellent < Mint < Brand New",
+          },
+        ]
+      : []),
+    ...(reading?.likeForLike
+      ? [
+          {
+            statement:
+              `${reading.likeForLike.count} of these were ${reading.likeForLike.condition}, ` +
+              `and those alone ran ${gbp(reading.likeForLike.lowCents)} to ${gbp(
+                reading.likeForLike.highCents,
+              )}`,
+            value: reading.likeForLike.count,
+            source: "sales_history.condition, grouped",
+            basis: "Like-for-like: same grade, so size, seller and timing are what is left",
+          },
+        ]
+      : []),
   ];
 
   return {
@@ -425,14 +590,45 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
         price_high: gbp(Math.max(...prices)),
         price_latest: gbp(plotted[plotted.length - 1].price_cents),
         // What the card draws. Index-aligned by nature: one entry, one point.
+        // Normalised here rather than in the template: the card and the copy
+        // must be looking at the same words, and Kickio's size column carries
+        // scraped junk ("Default Title", "Manchester United") that must never
+        // reach either of them.
         points: plotted.map((s) => ({
           sold_at: s.sold_at,
           price: gbp(s.price_cents),
           price_cents: s.price_cents,
-          size: cleanValue(s.size),
-          condition: cleanValue(s.condition),
+          size: normaliseSize(s.size),
+          condition: shortCondition(s.condition),
           source: s.source,
         })),
+        // What the spread is about. `summary` is printed on the card, so the
+        // copy must not contradict it.
+        condition_read: reading
+          ? {
+              verdict: reading.verdict,
+              summary: reading.summary,
+              cheapest: {
+                price: gbp(reading.cheapest.price_cents),
+                size: normaliseSize(reading.cheapest.size),
+                condition: shortCondition(reading.cheapest.condition),
+              },
+              dearest: {
+                price: gbp(reading.dearest.price_cents),
+                size: normaliseSize(reading.dearest.size),
+                condition: shortCondition(reading.dearest.condition),
+              },
+              like_for_like: reading.likeForLike
+                ? {
+                    condition: reading.likeForLike.condition,
+                    count: reading.likeForLike.count,
+                    low: gbp(reading.likeForLike.lowCents),
+                    high: gbp(reading.likeForLike.highCents),
+                  }
+                : null,
+            }
+          : null,
+        caveat: reading?.summary ?? "Recorded sales vary by size and condition",
         // The eligibility mark for next time: every sale this post could see,
         // not only the ones it drew. A sale left off the chart has still been
         // accounted for, so it cannot count as new information later.
@@ -447,18 +643,41 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
 
 export const PRICE_HISTORY_BRIEF = `**Price History** - one shirt, and what it has actually been going for.
 
-The card already carries the chart, every price and every date. Do not read the
-numbers back out. Say what the shape means to a collector: steady, all over the
-place, quietly climbing, one outlier that dragged the range.
+The card already carries the chart, every price, every date, and the size and
+condition of each sale. Do not read those back out. Your job is the bit the
+card cannot say: what the shape means.
+
+START FROM \`condition_read\`. It is worked out from the rows, and it decides
+what kind of post this is:
+
+- \`explained\` - the dearest sale was the better shirt. This is ORDINARY, and
+  saying so is the valuable thing: a £139-to-£277 range looks like a wild
+  market until you see the cheap one was a Good and the dear one Brand New.
+  Write it as a condition ladder, never as volatility or as a shirt "swinging".
+- \`same-condition\` - both ends were the same grade, so condition is NOT what
+  separates them. That is the interesting one. Size, seller, timing and luck
+  are what is left; say that, and do not invent which of them it was.
+- \`inverted\` - the dearest sale was the LOWER grade. Genuinely odd and worth
+  leading with, as an observation and not an accusation - a rare size, a
+  better photograph, or two buyers in the room all do this.
+- \`unknown\` - the grades are not recorded at both ends. Say nothing at all
+  about condition, and do not guess it from the prices.
+
+\`like_for_like\`, where it exists, is the strongest line available: several
+sales of the SAME grade, and the range those alone ran. Use it.
+
+Size matters too and is on every point. A 3XL or an XS sells to a smaller room
+than an M, which is a fair thing to observe where the prices show it - but only
+where they show it.
 
 Hard rules:
-- The spread is because these are DIFFERENT SHIRTS - sizes, conditions, sellers.
-  Never present the range as what "the shirt is worth", and never call the
-  highest price its value.
+- Never present the range as what the shirt "is worth", and never call the
+  highest price its value. These are different shirts in different states.
 - This is MARKET-WIDE data Kickio aggregates from across the hobby. It is not
   Kickio's own sales. Never write "sold on Kickio" or imply Kickio's volume.
 - Never predict. No "expect this to keep rising", no "now is the time to buy".
   Observation only - what happened, not what happens next.
+- Do not contradict \`caveat\`: it is printed on the card.
 - Do not count anything the card does not already say.
 
 No TikTok variant. Write X and Instagram only.`;

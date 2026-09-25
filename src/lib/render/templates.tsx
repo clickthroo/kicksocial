@@ -2063,7 +2063,13 @@ function PriceHistoryCard({
   const portrait = format !== "x";
 
   const points = Array.isArray(d.points)
-    ? (d.points as Array<{ sold_at: string; price: string; price_cents: number }>)
+    ? (d.points as Array<{
+        sold_at: string;
+        price: string;
+        price_cents: number;
+        size?: string | null;
+        condition?: string | null;
+      }>)
     : [];
   const values = points.map((p) => Number(p.price_cents)).filter(Number.isFinite);
   const photo = Array.isArray(d.images) ? (d.images as string[])[0] : null;
@@ -2087,6 +2093,7 @@ function PriceHistoryCard({
   const labelW = portrait ? 150 : 104;
   const labelSize = portrait ? 30 : 21;
   const dateSize = portrait ? 30 : 21;
+  const specSize = portrait ? 23 : 18;
   const dotR = portrait ? 11 : 8;
   const gap = portrait ? 18 : 13;
   // The last point says "Latest" above its price, so its block is a line taller
@@ -2097,6 +2104,17 @@ function PriceHistoryCard({
   // lifted clear of a steep leg rather than sitting on it.
   const spacing = values.length > 1 ? (box.width - box.padX * 2) / (values.length - 1) : box.width;
   const marks = plotted(values, box, labelW / 2 / spacing);
+  // Size and grade, already normalised by the recipe - Kickio's size column
+  // carries scraped junk, so nothing unrecognised gets this far.
+  // Two lines rather than one. "XXL · Very Good" set on a single line is wider
+  // than the gap between two points, so it wrapped mid-grade ("XXL · Very /
+  // Good") and shoved the caveat off the bottom of the card. Stacked, the
+  // widest thing either line has to hold is "Very Good".
+  // Always two slots, even when a row has no size: leaving the slot out let the
+  // grade jump up a line and the row of grades stopped lining up across the
+  // chart, which reads as a mistake rather than as a gap in the data.
+  const spec = points.map((p) => [p.size ?? "", p.condition ?? ""]);
+  const anySpec = spec.some(([size, condition]) => size || condition);
   const dates = axisDates(points.map((p) => p.sold_at));
   const line = priceLineSvg(marks, box, {
     colour: lineColour,
@@ -2111,10 +2129,13 @@ function PriceHistoryCard({
         display: "flex",
         position: "relative",
         width: box.width,
-        // Room under the plot for the dates, and under those for the "Latest"
-        // block when the last sale is the lowest one - which is exactly when
-        // its two lines hang furthest down.
-        height: box.height + (portrait ? 96 : 68),
+        // Room under the plot for the dates and what each sale actually was,
+        // and under those for the "Latest" block when the last sale is the
+        // lowest one - which is exactly when its two lines hang furthest down.
+        // Enough for the date, then two lines of size and grade beneath it -
+        // these are absolutely positioned, so they do not grow the box and a
+        // few pixels short means they land on whatever comes next.
+        height: box.height + (portrait ? 152 : 110),
       }}
     >
       {line && (
@@ -2157,21 +2178,41 @@ function PriceHistoryCard({
         );
       })}
 
+      {/* Under each point: when it sold, then what it actually was. Without
+          the second line the chart shows six prices for "the same shirt",
+          which is exactly the reading it should not invite - an XL Brand New
+          and an M Good are not the same shirt at two prices. */}
       {marks.map((mark, i) => (
         <div
           key={`d${i}`}
           style={{
             display: "flex",
-            justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "center",
             position: "absolute",
             left: mark.x - labelW / 2,
             top: box.height + (portrait ? 46 : 32),
             width: labelW,
-            fontSize: dateSize,
-            color: palette.ink,
           }}
         >
-          {dates[i] ?? ""}
+          <div style={{ display: "flex", fontSize: dateSize, color: palette.ink }}>
+            {dates[i] ?? ""}
+          </div>
+          {anySpec &&
+            spec[i].map((line, n) => (
+              <div
+                key={n}
+                style={{
+                  display: "flex",
+                  height: Math.round(specSize * 1.2),
+                  fontSize: specSize,
+                  color: palette.muted,
+                  marginTop: n === 0 ? (portrait ? 8 : 5) : 2,
+                }}
+              >
+                {line}
+              </div>
+            ))}
         </div>
       ))}
     </div>
@@ -2219,7 +2260,10 @@ function PriceHistoryCard({
     </div>
   );
 
-  const caveat = "Recorded sales vary by size and condition";
+  // Specific where the rows allow it ("Good at the bottom, Brand New at the
+  // top"), and the general warning where they do not. The recipe decides,
+  // because it is a claim about the data and belongs with the other claims.
+  const caveat = String(d.caveat ?? "Recorded sales vary by size and condition");
 
   if (!portrait) {
     return (
@@ -2261,7 +2305,14 @@ function PriceHistoryCard({
           >
             {title}
             {chart}
-            <div style={{ display: "flex", fontSize: 19, color: palette.muted }}>{caveat}</div>
+            {/* Two lines at this width, so it is set smaller than the portrait
+                card's and given its own line height rather than being allowed
+                to sit on the grades above it. */}
+            <div
+              style={{ display: "flex", fontSize: 17, lineHeight: 1.4, color: palette.muted }}
+            >
+              {caveat}
+            </div>
           </div>
         </div>
       </Frame>
@@ -2299,8 +2350,8 @@ function PriceHistoryCard({
             src={photo}
             alt=""
             width={520}
-            height={286}
-            style={{ width: 520, height: 286, objectFit: "contain", alignSelf: "center" }}
+            height={238}
+            style={{ width: 520, height: 238, objectFit: "contain", alignSelf: "center" }}
           />
         ) : (
           <div style={{ display: "flex", height: 40 }} />

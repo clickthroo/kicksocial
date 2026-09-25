@@ -135,3 +135,101 @@ describe("naming the shirt", () => {
     assert.equal(seasonLabel(null), null);
   });
 });
+
+import { readSpread } from "./price-history.ts";
+
+const point = (price: number, size: string | null, condition: string | null) => ({
+  price_cents: price,
+  size,
+  condition,
+});
+
+describe("reading what the spread is about", () => {
+  /**
+   * The case the user asked for by name. £139 to £277 looks like a wild market
+   * until you see the cheap one was a Good and the dear one Brand New - at
+   * which point it is not a story, it is a condition ladder, and copy calling
+   * it volatility would be wrong in a way a collector spots instantly.
+   */
+  test("a cheap Good and a dear Brand New is explained, not volatility", () => {
+    const reading = readSpread([
+      point(13_899, "M", "Good"),
+      point(18_499, "M", "Very Good"),
+      point(27_699, "XXL", "Brand New (With Tags)"),
+    ])!;
+    assert.equal(reading.verdict, "explained");
+    assert.match(reading.summary, /Good at the bottom, Brand New at the top/);
+    assert.match(reading.summary, /tracks condition/);
+  });
+
+  /** The genuinely interesting one: the spread is NOT about condition. */
+  test("same grade at both ends says condition does not explain it", () => {
+    const reading = readSpread([
+      point(10_000, "M", "Very Good"),
+      point(25_000, "XXL", "Very Good"),
+    ])!;
+    assert.equal(reading.verdict, "same-condition");
+    assert.match(reading.summary, /Both ends were Very Good/);
+  });
+
+  test("a dearer worse shirt is called out as the oddity it is", () => {
+    const reading = readSpread([
+      point(10_000, "M", "Mint"),
+      point(25_000, "M", "Good"),
+    ])!;
+    assert.equal(reading.verdict, "inverted");
+    assert.match(reading.summary, /dearest was the lower grade/);
+  });
+
+  /**
+   * Nothing is inferred from price. Without a grade at both ends the post is
+   * told to say nothing about condition at all, and the card falls back to the
+   * general warning.
+   */
+  test("missing grades mean no reading, not a guess", () => {
+    const reading = readSpread([point(10_000, "M", null), point(25_000, "M", "Mint")])!;
+    assert.equal(reading.verdict, "unknown");
+    assert.equal(reading.summary, "Recorded sales vary by size and condition");
+  });
+
+  test("junk in the condition column is not a grade", () => {
+    const reading = readSpread([
+      point(10_000, "M", "undefined"),
+      point(25_000, "M", "Mint"),
+    ])!;
+    assert.equal(reading.verdict, "unknown");
+  });
+
+  test("every sale at one price has no spread to explain", () => {
+    const reading = readSpread([point(20_000, "M", "Good"), point(20_000, "L", "Mint")])!;
+    assert.equal(reading.verdict, "unknown");
+  });
+
+  describe("the like-for-like group", () => {
+    test("is the biggest set sharing one grade, with its own range", () => {
+      const reading = readSpread([
+        point(13_899, "M", "Very Good"),
+        point(16_199, "L", "Very Good"),
+        point(18_499, "M", "Very Good"),
+        point(27_699, "XXL", "Brand New (With Tags)"),
+      ])!;
+      assert.deepEqual(reading.likeForLike, {
+        condition: "Very Good",
+        count: 3,
+        lowCents: 13_899,
+        highCents: 18_499,
+      });
+    });
+
+    /** One sale of a grade is not a comparison. */
+    test("is nothing when no grade repeats", () => {
+      const reading = readSpread([point(10_000, "M", "Good"), point(20_000, "M", "Mint")])!;
+      assert.equal(reading.likeForLike, null);
+    });
+  });
+
+  test("one sale has nothing to read at all", () => {
+    assert.equal(readSpread([point(10_000, "M", "Good")]), null);
+    assert.equal(readSpread([]), null);
+  });
+});
