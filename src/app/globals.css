@@ -414,3 +414,91 @@ ol.queue .link:hover { color: var(--danger); }
 }
 .setup strong { display: block; color: var(--text); margin-bottom: 4px; }
 .setup p { margin: 0; color: var(--muted); }
+
+
+/* --- the queue on a computer ---
+
+   One tree, two layouts, and the media query picks. Below the breakpoint this
+   is exactly what it has always been: cards stacked under each other, the rail
+   and the key hint simply not there. Above it the rail appears, the pane
+   becomes its own scroller and only the picked card is drawn.
+
+   1000px is also hard-coded in Queue.tsx, where it gates the keyboard
+   shortcuts. The two have to agree: a shortcut that fires while nothing on
+   screen is highlighted is a decision taken blind. */
+
+.rail, .keyhint { display: none; }
+
+@media (min-width: 1000px) {
+  /* Only the queue widens. Every other page is reading, and a 1180px line of
+     body text is a worse read than a 720px one. */
+  .wrap:has(.queue-split) { max-width: 1180px; }
+
+  .queue-split {
+    display: grid; grid-template-columns: 330px minmax(0, 1fr);
+    gap: 18px; align-items: start;
+  }
+
+  /* Both columns scroll on their own against a fixed window, so the list does
+     not slide away while you read a post, and a long post does not drag the
+     list with it. 132px is the sticky header plus the page's own top padding. */
+  .rail, .pane {
+    display: block; max-height: calc(100vh - 132px); overflow-y: auto;
+    position: sticky; top: 92px;
+  }
+  .rail {
+    list-style: none; margin: 0; padding: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .pane { border: none; background: none; }
+
+  .rail-item {
+    display: flex; flex-direction: column; gap: 5px; width: 100%; text-align: left;
+    font: inherit; cursor: pointer; padding: 11px 13px;
+    background: none; color: var(--text);
+    border: none; border-top: 1px solid var(--border); border-left: 3px solid transparent;
+  }
+  .rail li:first-child .rail-item { border-top: none; }
+  .rail-item:hover { background: var(--surface-2); }
+  .rail-item[aria-current="true"] {
+    background: var(--surface-2); border-left-color: var(--accent);
+  }
+  .rail-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .rail-headline {
+    font-size: 13px; line-height: 1.35;
+    /* Two lines, then an ellipsis: enough to recognise a post, never enough to
+       make one row taller than the next. */
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* A phone card is 390px wide and the preview sits comfortably inside it. The
+     pane is twice that, so the same 4:5 image became a full screen of picture
+     with the copy and the buttons pushed off the bottom - the exact problem
+     the reorder was for, reintroduced by having room. Capped by height rather
+     than cropped: `contain` keeps the whole asset visible, which is the rule
+     the preview exists to serve. */
+  .queue-split .shot { max-height: 46vh; object-fit: contain; }
+
+  /* Measure. The card is free to be 800px wide; a line of body text is not.
+     Only the copy, because the tinted blocks carry their own background and a
+     capped one stops halfway across the card, which reads as a broken panel
+     rather than as a measure. */
+  .queue-split .copy-body p { max-width: 64ch; }
+
+  /* The other cards are still in the tree, so their lazy images never load and
+     the pane has nothing to scroll past. */
+  .queue-split .card:not(.picked) { display: none; }
+  .queue-split .card { margin-bottom: 0; }
+
+  .keyhint {
+    display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    font-size: 12px; color: var(--muted); margin: 0 0 10px;
+  }
+  .keyhint kbd {
+    font: inherit; font-size: 11px; font-weight: 700;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 6px;
+  }
+}

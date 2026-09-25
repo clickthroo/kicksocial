@@ -1,6 +1,6 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { approveDraft, rejectDraft, chooseStyle } from "./actions.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 import type { FormatKey } from "@/lib/render/templates.tsx";
@@ -45,7 +45,22 @@ function renderUrl(id: string, format: FormatKey, style?: string, v = 0): string
  * a look and reading the source rows are real needs but they are not the job,
  * so they fold away behind one line each.
  */
-export function DraftCard({ draft, age }: { draft: PostDraft; age: Freshness }) {
+export function DraftCard({
+  draft,
+  age,
+  picked = false,
+  hotkeys = false,
+}: {
+  draft: PostDraft;
+  age: Freshness;
+  /** The one the split layout is showing. Styling only. */
+  picked?: boolean;
+  /** Whether a/r decide this draft - true only for the picked card, and only
+   *  while the split layout is up. In the stacked layout nothing is
+   *  highlighted, and a keystroke that decides an unhighlighted post is a
+   *  decision taken blind. */
+  hotkeys?: boolean;
+}) {
   const available = (Object.keys(draft.copy) as Platform[]).filter((p) => draft.copy[p]);
   const [tab, setTab] = useState<Platform>(available[0] ?? "x");
   const [isPending, startTransition] = useTransition();
@@ -151,10 +166,34 @@ export function DraftCard({ draft, age }: { draft: PostDraft; age: Freshness }) 
     });
   };
 
+  // Same two verbs as the buttons, no shortcut the buttons do not have. Bound
+  // here rather than in the list because the optimistic "Approved" state and
+  // the pending guard already live on this card.
+  useEffect(() => {
+    if (!hotkeys || resolved) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable]")) return;
+      if (event.key === "a") {
+        event.preventDefault();
+        act("approved");
+      } else if (event.key === "r") {
+        event.preventDefault();
+        act("rejected");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // No dependency list on purpose: rebinding each render is cheap, and it is
+    // the only way the handler is guaranteed to see the current `resolved`
+    // rather than the value it closed over when the card first mounted.
+  });
+
   const styleName = CARD_STYLES.find((s) => s.key === preview)?.name ?? "";
 
   return (
-    <article className={`card${resolved ? " resolved" : ""}`}>
+    <article className={`card${resolved ? " resolved" : ""}${picked ? " picked" : ""}`}>
       <div className="card-head">
         <div className="card-head-row">
           <span className="recipe-tag">{draft.recipe_key.replace(/_/g, " ")}</span>

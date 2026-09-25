@@ -1,7 +1,7 @@
 import { Nav } from "./Nav.tsx";
 import Link from "next/link";
 import { pendingDrafts } from "@/lib/run-recipe.ts";
-import { DraftCard } from "./DraftCard.tsx";
+import { Queue } from "./Queue.tsx";
 import { freshness } from "@/lib/engine/freshness.ts";
 import type { PostDraft } from "@/lib/engine/types.ts";
 
@@ -20,8 +20,10 @@ export default async function QueuePage() {
 
   // Worked out once, and reused for each card below, so the header and the
   // cards can never disagree about what is stale.
-  const ages = new Map(drafts.map((d) => [d.id, freshness(d.created_at, d.recipe_key)]));
-  const needChecking = [...ages.values()].filter((a) => a.state === "stale").length;
+  const ages = Object.fromEntries(
+    drafts.map((d) => [d.id, freshness(d.created_at, d.recipe_key)]),
+  );
+  const needChecking = Object.values(ages).filter((a) => a.state === "stale").length;
 
   return (
     <div className="wrap">
@@ -51,17 +53,7 @@ export default async function QueuePage() {
         </div>
       )}
 
-      {/* Age is worked out here rather than in the card. The card is a client
-          component, so a clock read during render would differ between the
-          server's HTML and the browser's first paint - the sort of mismatch
-          that makes React replace the markup and shows up as a flicker. */}
-      {drafts.map((draft) => (
-        <DraftCard
-          key={draft.id}
-          draft={draft}
-          age={ages.get(draft.id)!}
-        />
-      ))}
+      {drafts.length > 0 && <Queue drafts={drafts} ages={ages} />}
     </div>
   );
 }
