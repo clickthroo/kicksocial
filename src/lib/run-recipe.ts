@@ -6,6 +6,7 @@
  * should be explainable without digging through logs.
  */
 import { engine } from "./engine/client.ts";
+import { isDuplicateSubject, duplicateSubjectReason } from "./engine/duplicate.ts";
 import { generateCopy } from "./copy/generate.ts";
 import { SOLD_CTA_POOL } from "./copy/brand-voice.ts";
 import { recipeByKey, type Recipe } from "./recipes/index.ts";
@@ -133,6 +134,13 @@ export async function runRecipe(
     .single();
 
   if (error) {
+    // The database refusing a second live post about the same subject is the
+    // cooldown working, not a fault - see engine/duplicate.ts.
+    if (isDuplicateSubject(error)) {
+      const reason = duplicateSubjectReason(candidate.subjectRef);
+      await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+      return { recipeKey: key, status: "skipped", reason };
+    }
     const reason = `Saving draft failed: ${error.message}`;
     await record("failed", { skipped_reason: reason });
     return { recipeKey: key, status: "failed", reason };
@@ -271,6 +279,13 @@ export async function createGrailSaleDraft(input: GrailSaleInput): Promise<RunOu
     .single();
 
   if (error) {
+    // The database refusing a second live post about the same subject is the
+    // cooldown working, not a fault - see engine/duplicate.ts.
+    if (isDuplicateSubject(error)) {
+      const reason = duplicateSubjectReason(candidate.subjectRef);
+      await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+      return { recipeKey: key, status: "skipped", reason };
+    }
     const reason = `Saving draft failed: ${error.message}`;
     await record("failed", { skipped_reason: reason });
     return { recipeKey: key, status: "failed", reason };
@@ -406,6 +421,13 @@ export async function createKickioDropDraft(input: KickioDropInput): Promise<Run
     .single();
 
   if (error) {
+    // The database refusing a second live post about the same subject is the
+    // cooldown working, not a fault - see engine/duplicate.ts.
+    if (isDuplicateSubject(error)) {
+      const reason = duplicateSubjectReason(candidate.subjectRef);
+      await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+      return { recipeKey: key, status: "skipped", reason };
+    }
     const reason = `Saving draft failed: ${error.message}`;
     await record("failed", { skipped_reason: reason });
     return { recipeKey: key, status: "failed", reason };
