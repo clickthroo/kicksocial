@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { ageLabel, freshness, perishKind } from "./freshness.ts";
+import { readFileSync } from "node:fs";
+import { PERISHES, ageLabel, freshness, perishKind } from "./freshness.ts";
 
 const NOW = Date.parse("2026-09-25T12:00:00Z");
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
@@ -60,6 +61,24 @@ describe("whether the age is a problem", () => {
    * reading asks for a check that may not be needed rather than staying quiet
    * about one that is.
    */
+  /**
+   * The classification is a hand-written map, so the only thing that keeps it
+   * honest is noticing when a recipe is added. Reading the keys out of the
+   * registry's source does that without importing it - every recipe module
+   * opens a Kickio connection, which has no business in a unit test.
+   */
+  test("every shipped recipe has been classified deliberately", () => {
+    const registry = readFileSync(
+      new URL("../recipes/index.ts", import.meta.url),
+      "utf8",
+    );
+    const keys = [...registry.matchAll(/^\s{4}key: "([a-z_]+)",$/gm)].map((m) => m[1]);
+    assert.ok(keys.length > 5, `only found ${keys.length} recipe keys - regex adrift?`);
+    for (const key of keys) {
+      assert.ok(key in PERISHES, `${key} is not classified in PERISHES`);
+    }
+  });
+
   test("an unknown recipe is treated as a listing", () => {
     assert.equal(perishKind("something_new"), "listing");
     assert.equal(freshness(hoursAgo(80), "something_new", NOW).state, "stale");

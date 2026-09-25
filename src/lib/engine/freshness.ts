@@ -37,6 +37,7 @@ export interface Freshness {
  */
 export const PERISHES: Record<string, PerishKind> = {
   grail_of_the_day: "listing",
+  legend_shelf: "listing",
   value_pick: "listing",
   featured_collection: "listing",
   featured_set: "listing",
