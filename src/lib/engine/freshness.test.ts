@@ -1,0 +1,74 @@
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import { ageLabel, freshness, perishKind } from "./freshness.ts";
+
+const NOW = Date.parse("2026-09-25T12:00:00Z");
+const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString();
+
+describe("how old a draft reads as", () => {
+  test("minutes, then hours, then days", () => {
+    assert.equal(ageLabel(30_000), "just now");
+    assert.equal(ageLabel(20 * 60_000), "20 min ago");
+    assert.equal(ageLabel(5 * 3_600_000), "5h ago");
+    assert.equal(ageLabel(26 * 3_600_000), "yesterday");
+    assert.equal(ageLabel(4 * 86_400_000), "4 days ago");
+  });
+
+  /** Clock skew between the browser and the server must not print "-3h ago". */
+  test("a draft from the future reads as just now, not as negative time", () => {
+    assert.equal(ageLabel(-60_000), "just now");
+  });
+});
+
+describe("whether the age is a problem", () => {
+  /**
+   * The case this exists for. A Grail of the Day points at a shirt that is for
+   * sale; three days later it may not be, and the post would send collectors
+   * to a dead page or quote a price that has moved.
+   */
+  test("a post about a live listing goes stale in days", () => {
+    assert.equal(freshness(hoursAgo(2), "grail_of_the_day", NOW).state, "fresh");
+    assert.equal(freshness(hoursAgo(30), "grail_of_the_day", NOW).state, "ageing");
+    assert.equal(freshness(hoursAgo(80), "grail_of_the_day", NOW).state, "stale");
+  });
+
+  /**
+   * A roundup is not wrong when it ages - its tense is. It gets longer before
+   * it needs looking at, because nothing behind it can sell.
+   */
+  test("a post about a window lasts longer than one about a listing", () => {
+    assert.equal(freshness(hoursAgo(30), "sold_this_week", NOW).state, "fresh");
+    assert.equal(freshness(hoursAgo(100), "sold_this_week", NOW).state, "ageing");
+    assert.equal(freshness(hoursAgo(200), "sold_this_week", NOW).state, "stale");
+  });
+
+  test("a completed sale never goes stale, because it already happened", () => {
+    const old = freshness(hoursAgo(500), "grail_sale", NOW);
+    assert.equal(old.state, "fresh");
+    assert.equal(old.note, null);
+    assert.equal(old.label, "21 days ago");
+  });
+
+  test("the note only appears once the age matters, and says why", () => {
+    assert.equal(freshness(hoursAgo(1), "value_pick", NOW).note, null);
+    assert.match(freshness(hoursAgo(90), "value_pick", NOW).note ?? "", /listing/i);
+    assert.match(freshness(hoursAgo(300), "price_trends", NOW).note ?? "", /moved on/i);
+  });
+
+  /**
+   * A recipe added later must not silently read as evergreen - the cautious
+   * reading asks for a check that may not be needed rather than staying quiet
+   * about one that is.
+   */
+  test("an unknown recipe is treated as a listing", () => {
+    assert.equal(perishKind("something_new"), "listing");
+    assert.equal(freshness(hoursAgo(80), "something_new", NOW).state, "stale");
+  });
+
+  test("an unreadable date is flagged, not treated as fresh", () => {
+    const bad = freshness("not a date", "grail_of_the_day", NOW);
+    assert.equal(bad.state, "ageing");
+    assert.equal(bad.label, "date unknown");
+    assert.ok(bad.note);
+  });
+});

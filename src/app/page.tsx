@@ -2,6 +2,7 @@ import { Nav } from "./Nav.tsx";
 import Link from "next/link";
 import { pendingDrafts } from "@/lib/run-recipe.ts";
 import { DraftCard } from "./DraftCard.tsx";
+import { freshness } from "@/lib/engine/freshness.ts";
 import type { PostDraft } from "@/lib/engine/types.ts";
 
 // The queue is the whole point of the tool - always show current state.
@@ -17,6 +18,11 @@ export default async function QueuePage() {
     loadError = (err as Error).message;
   }
 
+  // Worked out once, and reused for each card below, so the header and the
+  // cards can never disagree about what is stale.
+  const ages = new Map(drafts.map((d) => [d.id, freshness(d.created_at, d.recipe_key)]));
+  const needChecking = [...ages.values()].filter((a) => a.state === "stale").length;
+
   return (
     <div className="wrap">
       <header className="top">
@@ -26,7 +32,8 @@ export default async function QueuePage() {
             ? "Could not load drafts"
             : drafts.length === 0
               ? "Nothing waiting"
-              : `${drafts.length} post${drafts.length === 1 ? "" : "s"} awaiting review`}
+              : `${drafts.length} post${drafts.length === 1 ? "" : "s"} awaiting review` +
+                (needChecking > 0 ? ` · ${needChecking} old enough to need a check` : "")}
         </div>
         <Nav current="/" />
       </header>
@@ -44,8 +51,16 @@ export default async function QueuePage() {
         </div>
       )}
 
+      {/* Age is worked out here rather than in the card. The card is a client
+          component, so a clock read during render would differ between the
+          server's HTML and the browser's first paint - the sort of mismatch
+          that makes React replace the markup and shows up as a flicker. */}
       {drafts.map((draft) => (
-        <DraftCard key={draft.id} draft={draft} />
+        <DraftCard
+          key={draft.id}
+          draft={draft}
+          age={ages.get(draft.id)!}
+        />
       ))}
     </div>
   );

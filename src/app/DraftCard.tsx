@@ -6,6 +6,7 @@ import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts
 import type { FormatKey } from "@/lib/render/templates.tsx";
 import { exportText, tags, xLength } from "@/lib/copy/export.ts";
 import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
+import type { Freshness } from "@/lib/engine/freshness.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
@@ -30,7 +31,21 @@ function renderUrl(id: string, format: FormatKey, style?: string, v = 0): string
   return `/api/render/${id}?${q}`;
 }
 
-export function DraftCard({ draft }: { draft: PostDraft }) {
+/**
+ * One draft, laid out around the decision.
+ *
+ * ORDER IS THE DESIGN HERE. This card used to run head, picture, six style
+ * chips, tabs, copy, claims, a wall of raw JSON, verify links and five export
+ * buttons - and only then Approve and Reject, off the bottom of a phone
+ * screen. Everything was equally loud, so the one thing the screen exists for
+ * was the hardest thing on it to reach.
+ *
+ * So now: what you read to decide comes first (the picture, the copy, who it is
+ * about, the links that check it), then the decision, then the tools. Choosing
+ * a look and reading the source rows are real needs but they are not the job,
+ * so they fold away behind one line each.
+ */
+export function DraftCard({ draft, age }: { draft: PostDraft; age: Freshness }) {
   const available = (Object.keys(draft.copy) as Platform[]).filter((p) => draft.copy[p]);
   const [tab, setTab] = useState<Platform>(available[0] ?? "x");
   const [isPending, startTransition] = useTransition();
@@ -49,11 +64,6 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
   const [savedAt, setSavedAt] = useState(0);
   const [styleError, setStyleError] = useState<string | null>(null);
   const [savingStyle, startStyle] = useTransition();
-  // Every template reads the six style keys now. The photo-led cards express
-  // them as photo treatment and the grids and chart as field, cell and type -
-  // same vocabulary, different grammar - so there is no longer a card the
-  // picker would be a dead control on.
-  const restylable = true;
 
   /**
    * Get the rendered card onto the phone's camera roll.
@@ -141,11 +151,17 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
     });
   };
 
+  const styleName = CARD_STYLES.find((s) => s.key === preview)?.name ?? "";
 
   return (
     <article className={`card${resolved ? " resolved" : ""}`}>
       <div className="card-head">
-        <span className="recipe-tag">{draft.recipe_key.replace(/_/g, " ")}</span>
+        <div className="card-head-row">
+          <span className="recipe-tag">{draft.recipe_key.replace(/_/g, " ")}</span>
+          {/* Age, on every card. The queue used to show none at all, so a draft
+              written on Tuesday looked exactly like one written a minute ago. */}
+          <span className={`age age-${age.state}`}>{age.label}</span>
+        </div>
         <h2>{draft.headline}</h2>
       </div>
 
@@ -157,7 +173,11 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         loading="lazy"
       />
 
-      {restylable && (
+      {/* Every template reads the six style keys, so there is no card where
+          this is a dead control - but it is a tweak, not the decision, so it
+          costs one line until it is wanted. */}
+      <details className="facts">
+        <summary>Look: {styleName}</summary>
         <div className="styles">
           <div className="styles-row" role="radiogroup" aria-label="Card style">
             {CARD_STYLES.map((style) => (
@@ -181,7 +201,7 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
               : (CARD_STYLES.find((s) => s.key === preview)?.blurb ?? "")}
           </p>
         </div>
-      )}
+      </details>
 
       {available.length > 1 && (
         <div className="tabs" role="tablist">
@@ -268,28 +288,6 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         </div>
       )}
 
-      {/* Every number in the copy should be checkable against these before approving. */}
-      <details className="facts">
-        <summary>
-          Check {draft.claims.length} claim{draft.claims.length === 1 ? "" : "s"}
-        </summary>
-        {draft.claims.map((c, i) => (
-          <div className="claim" key={i}>
-            <span className="stmt">{c.statement}</span>
-            <span className="val">{String(c.value)}</span>
-            <span className="src">
-              {c.source}
-              {c.basis ? ` — ${c.basis}` : ""}
-            </span>
-          </div>
-        ))}
-      </details>
-
-      <details className="facts">
-        <summary>Source data</summary>
-        <pre className="raw">{JSON.stringify(draft.source_data, null, 2)}</pre>
-      </details>
-
       {/* Two distinct references: the page on Kickio, and where it was scraped
           from. Labelled apart so a reviewer is never misled about which. */}
       {(urlField(draft.source_data, "kickio_url") ||
@@ -317,56 +315,27 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
         </div>
       )}
 
-      <div className="export">
-        <a
-          className="link"
-          href={renderUrl(draft.id, "ig", preview, savedAt)}
-          download={`${draft.recipe_key}-ig.png`}
-          onClick={(e) => saveImage(e, "ig")}
-        >
-          {saving === "ig" ? "Saving…" : "Save 4:5"}
-        </a>
-        <a
-          className="link"
-          href={renderUrl(draft.id, "x", preview, savedAt)}
-          download={`${draft.recipe_key}-x.png`}
-          onClick={(e) => saveImage(e, "x")}
-        >
-          {saving === "x" ? "Saving…" : "Save 16:9"}
-        </a>
-        {/* Offered only where TikTok is actually one of this post's platforms -
-            a 9:16 download on a chart card nobody takes to TikTok is clutter. */}
-        {available.includes("tiktok") && (
-          <a
-            className="link"
-            href={renderUrl(draft.id, "tiktok", preview, savedAt)}
-            download={`${draft.recipe_key}-tiktok.png`}
-            onClick={(e) => saveImage(e, "tiktok")}
-          >
-            {saving === "tiktok" ? "Saving…" : "Save 9:16"}
-          </a>
-        )}
-        <button className="link" onClick={copyText} type="button">
-          {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
-        </button>
-        {/* X and Instagram both take alt text and both surface it in search.
-            It is a separate field in their composers, so it is a separate
-            button here rather than something to dig out of the caption. */}
-        {draft.copy.alt && (
-          <button
-            className="link"
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(draft.copy.alt ?? "");
-              setCopiedAlt(true);
-              setTimeout(() => setCopiedAlt(false), 1500);
-            }}
-          >
-            {copiedAlt ? "Copied" : "Copy alt text"}
-          </button>
-        )}
-      </div>
-      {saveError && <div className="banner">Could not save the image: {saveError}</div>}
+      {/* Every number in the copy should be checkable against these before approving. */}
+      <details className="facts">
+        <summary>
+          Check {draft.claims.length} claim{draft.claims.length === 1 ? "" : "s"}
+        </summary>
+        {draft.claims.map((c, i) => (
+          <div className="claim" key={i}>
+            <span className="stmt">{c.statement}</span>
+            <span className="val">{String(c.value)}</span>
+            <span className="src">
+              {c.source}
+              {c.basis ? ` — ${c.basis}` : ""}
+            </span>
+          </div>
+        ))}
+      </details>
+
+      {/* Said here rather than up by the date, because this is the moment it
+          changes what you do: it is a reason to open the listing before you
+          press Approve, not a badge. */}
+      {age.note && <p className={`age-note age-${age.state}`}>{age.note}</p>}
 
       <div className="actions">
         <button
@@ -384,6 +353,65 @@ export function DraftCard({ draft }: { draft: PostDraft }) {
           {resolved === "approved" ? "Approved" : "Approve"}
         </button>
       </div>
+
+      {/* Below the decision on purpose. Approving is what sends a post to
+          Publish, and Publish is where the image and text are taken from - so
+          nothing down here is needed to get a post out, and it stopped sitting
+          between the copy and the buttons. */}
+      <details className="facts">
+        <summary>Source data and downloads</summary>
+        <div className="export">
+          <a
+            className="link"
+            href={renderUrl(draft.id, "ig", preview, savedAt)}
+            download={`${draft.recipe_key}-ig.png`}
+            onClick={(e) => saveImage(e, "ig")}
+          >
+            {saving === "ig" ? "Saving…" : "Save 4:5"}
+          </a>
+          <a
+            className="link"
+            href={renderUrl(draft.id, "x", preview, savedAt)}
+            download={`${draft.recipe_key}-x.png`}
+            onClick={(e) => saveImage(e, "x")}
+          >
+            {saving === "x" ? "Saving…" : "Save 16:9"}
+          </a>
+          {/* Offered only where TikTok is actually one of this post's platforms -
+              a 9:16 download on a chart card nobody takes to TikTok is clutter. */}
+          {available.includes("tiktok") && (
+            <a
+              className="link"
+              href={renderUrl(draft.id, "tiktok", preview, savedAt)}
+              download={`${draft.recipe_key}-tiktok.png`}
+              onClick={(e) => saveImage(e, "tiktok")}
+            >
+              {saving === "tiktok" ? "Saving…" : "Save 9:16"}
+            </a>
+          )}
+          <button className="link" onClick={copyText} type="button">
+            {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
+          </button>
+          {/* X and Instagram both take alt text and both surface it in search.
+              It is a separate field in their composers, so it is a separate
+              button here rather than something to dig out of the caption. */}
+          {draft.copy.alt && (
+            <button
+              className="link"
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(draft.copy.alt ?? "");
+                setCopiedAlt(true);
+                setTimeout(() => setCopiedAlt(false), 1500);
+              }}
+            >
+              {copiedAlt ? "Copied" : "Copy alt text"}
+            </button>
+          )}
+        </div>
+        {saveError && <div className="banner">Could not save the image: {saveError}</div>}
+        <pre className="raw">{JSON.stringify(draft.source_data, null, 2)}</pre>
+      </details>
     </article>
   );
 }

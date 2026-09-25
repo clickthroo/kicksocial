@@ -59,10 +59,32 @@ header.top .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .card.resolved { opacity: 0.45; }
 
 .card-head { padding: 14px 16px 0; }
+.card-head-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
 .recipe-tag {
   display: inline-block; font-size: 11px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--muted); font-weight: 600;
 }
+
+/* How old the draft is. Quiet while it is fresh - it is context, not an alarm -
+   and it only takes on colour once the age is a reason to check something. */
+.age {
+  flex: 0 0 auto; font-size: 11px; font-weight: 600; white-space: nowrap;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.age-ageing { color: var(--warn); }
+.age-stale { color: var(--danger); }
+
+/* The same warning in words, placed where it changes what you do: immediately
+   above Approve, not up beside the date. */
+.age-note {
+  margin: 0; padding: 10px 16px; font-size: 13px; line-height: 1.5;
+  color: var(--text); background: var(--surface-2);
+  border-top: 1px solid var(--border);
+  border-left: 3px solid var(--warn);
+}
+.age-note.age-stale { border-left-color: var(--danger); }
 .card-head h2 { font-size: 16px; margin: 6px 0 0; line-height: 1.35; }
 
 /* No cropping: the reviewer must see the whole asset they are approving, so the
@@ -109,12 +131,18 @@ pre.raw {
 }
 
 .actions { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+/* Everything above this line is what you read to decide; everything below it is
+   a tool. The heavier buttons and the tinted strip are what makes that legible
+   at a glance on a phone. */
+.card > .actions { padding: 14px 16px; background: var(--surface-2); }
+.card > .actions .btn { font-size: 15px; padding: 13px; }
 button.btn {
   flex: 1; font: inherit; font-size: 14px; font-weight: 600;
   padding: 11px; border-radius: 10px; cursor: pointer; border: 1px solid var(--border);
   background: var(--surface-2); color: var(--text);
   transition: transform 0.06s ease;
 }
+.card > .actions .btn.reject { background: var(--surface); }
 button.btn:active { transform: scale(0.98); }
 button.btn:disabled { opacity: 0.5; cursor: default; }
 button.approve { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
@@ -129,6 +157,7 @@ button.reject { color: var(--danger); }
 }
 
 .export { display: flex; gap: 14px; padding: 10px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+details.facts .export { border-top: none; padding-top: 2px; }
 .export .link {
   font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
   background: none; border: none; padding: 0; cursor: pointer; text-decoration: none;
@@ -266,7 +295,7 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 .copy-body .collapsed { color: var(--muted); }
 
 /* --- card style picker --- */
-.styles { padding: 10px 16px 2px; border-top: 1px solid var(--border); }
+.styles { padding: 4px 16px 2px; }
 .styles-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .styles-row::-webkit-scrollbar { display: none; }
 .style-chip {
