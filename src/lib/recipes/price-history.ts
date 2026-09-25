@@ -49,6 +49,7 @@ import {
 } from "./grail-of-the-day.ts";
 import { buyerFeeSettings, buyerPriceCents } from "../kickio/pricing.ts";
 import { median } from "./collection-index.ts";
+import { salesReadable } from "./sales-access.ts";
 
 export const PRICE_HISTORY_KEY = "price_history";
 
@@ -494,6 +495,15 @@ export async function postedSaleIds(): Promise<Map<string, Set<string>>> {
  * picture has changed most is the one worth revisiting, and for a shirt never
  * posted that is simply its number of recorded sales.
  */
+/**
+ * Thrown rather than returned so the page shows the reason instead of an empty
+ * list. "No shirt has enough recorded sales yet" and "the engine cannot see the
+ * sales table" look identical from here and are opposite problems - the first
+ * is a fact about the market, the second is a fault, and this project has been
+ * caught by exactly that confusion twice (see sales-access.ts).
+ */
+export class SalesUnreadable extends Error {}
+
 export async function qualifyingShirts(limit = 60): Promise<QualifyingShirt[]> {
   const [keys, seen, live, fee] = await Promise.all([
     saleKeys(),
@@ -501,6 +511,20 @@ export async function qualifyingShirts(limit = 60): Promise<QualifyingShirt[]> {
     liveListingsByProduct(),
     buyerFeeSettings(),
   ]);
+
+  if (keys.length === 0) {
+    // Zero sales attached to ANY product is not a quiet market - there are
+    // nearly seven thousand of them. It means the read came back blind.
+    const readable = await salesReadable();
+    throw new SalesUnreadable(
+      readable
+        ? "Kickio returned no product-attached sales at all, which should not " +
+          "be possible - the shape of the data has changed."
+        : "The engine cannot see Kickio's recorded sales. sales_history read " +
+          "as empty even unfiltered, so this is the credential rather than " +
+          "the market (docs/unblocking-sold-this-week.md).",
+    );
+  }
 
   const salesByProduct = new Map<string, typeof keys>();
   for (const key of keys) {
@@ -662,6 +686,19 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
   const seen = (await postedSaleIds()).get(productId);
   const postedBefore = seen !== undefined;
   const fresh = freshCount(sales.map((s) => s.id), seen ?? new Set());
+
+  // One shirt with no recorded sales is ordinary; the engine reading nothing at
+  // all is not. Asked only when it matters, so the common path costs nothing.
+  if (sales.length === 0 && !(await salesReadable())) {
+    return {
+      ok: false,
+      reason:
+        "The engine cannot see Kickio's recorded sales — sales_history read as " +
+        "empty even unfiltered. This is the credential, not the shirt " +
+        "(docs/unblocking-sold-this-week.md).",
+      diagnostics: { salesTableReadable: false },
+    };
+  }
 
   if (!isEligible(sales.length, fresh, postedBefore)) {
     return {
