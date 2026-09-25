@@ -79,6 +79,16 @@ describe("whether the age is a problem", () => {
     }
   });
 
+  /**
+   * Two post kinds never appear in that registry because an admin drives them
+   * from a form rather than a recipe run - and they are the two with a price
+   * on the card, so they are the last ones that should go unclassified.
+   */
+  test("the hand-driven posts are classified too", () => {
+    assert.equal(perishKind("kickio_drop"), "listing");
+    assert.equal(perishKind("grail_sale"), "none");
+  });
+
   test("an unknown recipe is treated as a listing", () => {
     assert.equal(perishKind("something_new"), "listing");
     assert.equal(freshness(hoursAgo(80), "something_new", NOW).state, "stale");

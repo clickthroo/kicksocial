@@ -50,6 +50,10 @@ export const PERISHES: Record<string, PerishKind> = {
   collection_index: "window",
   // Posted by hand from /sold, about a sale that has already completed.
   grail_sale: "none",
+  // Posted by hand from /drops: one shirt you can buy now, with the price read
+  // off the listing. The shortest shelf life of the lot - the listing can sell
+  // or be undercut, and then the card prints a price that is not the price.
+  kickio_drop: "listing",
 };
 
 export function perishKind(recipeKey: string): PerishKind {
