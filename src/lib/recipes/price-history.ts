@@ -41,7 +41,14 @@ import {
   shortCondition,
   type Condition,
 } from "../kickio/condition.ts";
-import { imageUrls, kickioUrl } from "./grail-of-the-day.ts";
+import {
+  imageUrls,
+  kickioUrl,
+  KICKIO_DIRECT_SELLER,
+  APPROVED_PARTNER_SELLER,
+} from "./grail-of-the-day.ts";
+import { buyerFeeSettings, buyerPriceCents } from "../kickio/pricing.ts";
+import { median } from "./collection-index.ts";
 
 export const PRICE_HISTORY_KEY = "price_history";
 
@@ -97,6 +104,10 @@ export interface QualifyingShirt {
   latest: string;
   latestSoldAt: string;
   postedBefore: boolean;
+  /** What a buyer would pay today, where the shirt is buyable at all. */
+  stock: StockRead | null;
+  /** 0 in stock and under the market, 1 in stock, 2 neither. */
+  priority: 0 | 1 | 2;
 }
 
 /**
@@ -263,22 +274,182 @@ export function readSpread(points: readonly SalePoint[]): SpreadReading | null {
   };
 }
 
+
+/**
+ * Sellers whose listings actually appear on kickio.com, and how stale a
+ * scraped listing may be before "in stock" stops meaning anything.
+ *
+ * Both lifted from Grail of the Day rather than restated: whether a shirt is
+ * buyable is one question with one answer, and two recipes disagreeing about
+ * it would show up as a post pointing at a dead page.
+ */
+const LIVE_SELLERS = [KICKIO_DIRECT_SELLER, APPROVED_PARTNER_SELLER];
+const MAX_STOCK_CHECK_AGE_DAYS = 7;
+
+export interface LiveListing {
+  product_id: string;
+  price_cents: number;
+  size: string | null;
+  condition: string | null;
+}
+
+export interface StockRead {
+  /** How many are live, because "the only one" is usually false. */
+  count: number;
+  price: string;
+  priceCents: number;
+  size: string | null;
+  condition: string | null;
+  /**
+   * Where the asking price sits against the sales on the chart.
+   *
+   *   under-all     below every sale shown. The strongest version.
+   *   under-median  below the middle of them.
+   *   at-or-above   in stock, and not cheap. Still worth saying it is buyable.
+   */
+  standing: "under-all" | "under-median" | "at-or-above";
+  /** Printed on the card. Short, and a fact rather than a verdict. */
+  line: string;
+}
+
+/**
+ * What a buyer would pay today, against what the chart shows people have paid.
+ *
+ * THE PRICE IS THE BUYER'S PRICE, NOT THE ASKING PRICE. Kickio adds buyer
+ * protection on top of what the seller asks, and the recorded sales are what
+ * buyers actually paid elsewhere. Comparing the asking price to them would
+ * overstate every discount by about 4% - small, systematic, and in the
+ * direction that flatters us, which is the worst kind. Value Pick learned this
+ * one already.
+ *
+ * NO PERCENTAGE IS CLAIMED. The card prints the live price and the median side
+ * by side and draws every sale behind them, so the reader can see the spread
+ * that a single "32% below" would hide.
+ */
+export function readStock(
+  buyerCents: number,
+  soldCents: readonly number[],
+  options: { size?: string | null; condition?: string | null; count?: number } = {},
+): StockRead | null {
+  if (!Number.isFinite(buyerCents) || buyerCents <= 0 || soldCents.length === 0) return null;
+
+  const gbp = (cents: number) => formatPrice(cents, "GBP");
+  const mid = median([...soldCents]);
+  const lowest = Math.min(...soldCents);
+  const count = options.count ?? 1;
+  const price = gbp(buyerCents);
+  const lead = count > 1 ? `From ${price} on Kickio now` : `${price} on Kickio now`;
+
+  const standing: StockRead["standing"] =
+    buyerCents < lowest ? "under-all" : mid !== null && buyerCents < mid ? "under-median" : "at-or-above";
+
+  const line =
+    standing === "under-all"
+      ? `${lead} — under every sale shown`
+      : standing === "under-median"
+        ? `${lead} — below the ${gbp(mid!)} median`
+        : lead;
+
+  return {
+    count,
+    price,
+    priceCents: buyerCents,
+    size: normaliseSize(options.size),
+    condition: shortCondition(options.condition),
+    standing,
+    line,
+  };
+}
+
+/**
+ * Where a shirt sits in the picker.
+ *
+ * The order was "whatever has changed most since we last posted", which is a
+ * fact about the engine rather than about what is worth posting. A shirt
+ * someone can buy right now, at less than the market has been paying, is the
+ * best post on the list by a distance; a shirt they can buy at all is next;
+ * and after that, the shirt whose record is freshest.
+ */
+export function priorityOf(stock: StockRead | null): 0 | 1 | 2 {
+  if (!stock) return 2;
+  return stock.standing === "at-or-above" ? 1 : 0;
+}
+
+const LISTING_COLUMNS =
+  "product_id,price_cents,size,condition,seller_id,source,last_stock_checked_at," +
+  "removed_at,consecutive_gone_count,reserved_until,products!inner(status,deleted_at)";
+
+/**
+ * Every listing that is actually buyable on kickio.com, by product.
+ *
+ * The filters mirror Grail of the Day's exactly - the seller allowlist is the
+ * real "appears on the site" signal, since no column says so - and there are
+ * only about 1,600 of them, so they are fetched whole rather than looked up
+ * per shirt.
+ */
+export async function liveListingsByProduct(): Promise<Map<string, LiveListing[]>> {
+  const fresh = new Date(Date.now() - MAX_STOCK_CHECK_AGE_DAYS * 86_400_000).toISOString();
+
+  const rows = await pageAll<LiveListing>("Loading what is in stock", (from, to) =>
+    kickio()
+      .from("listings")
+      .select(LISTING_COLUMNS)
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .gt("stock_quantity", 0)
+      .is("removed_at", null)
+      .eq("consecutive_gone_count", 0)
+      .in("seller_id", LIVE_SELLERS)
+      .or(`source.neq.scrape,last_stock_checked_at.gte.${fresh}`)
+      .eq("products.status", "active")
+      .is("products.deleted_at", null)
+      .not("product_id", "is", null)
+      .order("product_id", { ascending: true })
+      .range(from, to),
+  );
+
+  const now = Date.now();
+  const byProduct = new Map<string, LiveListing[]>();
+  for (const row of rows) {
+    // The query cannot express "not reserved to someone else right now".
+    const reserved = (row as { reserved_until?: string | null }).reserved_until;
+    if (reserved && new Date(reserved).getTime() > now) continue;
+    if (!row.product_id || !Number.isFinite(row.price_cents)) continue;
+    const held = byProduct.get(row.product_id);
+    if (held) held.push(row);
+    else byProduct.set(row.product_id, [row]);
+  }
+  return byProduct;
+}
+
+/** The one a buyer would actually land on: the cheapest of them. */
+export function cheapest(listings: readonly LiveListing[]): LiveListing | null {
+  if (listings.length === 0) return null;
+  return [...listings].sort((a, b) => a.price_cents - b.price_cents)[0];
+}
+
 const SALE_COLUMNS = "id,product_id,sold_at,price_cents,currency,size,condition,source";
 const PRODUCT_COLUMNS = "id,slug,team,season,shirt_type,player_name,manufacturer,primary_image_url";
 
 /**
- * Every approved, undismissed sale attached to a product - as two columns.
+ * Every approved, undismissed sale attached to a product - four columns of it.
  *
  * Deciding which shirts qualify means grouping seven thousand rows, and
- * PostgREST has no GROUP BY, so the grouping happens here. It reads only the
- * id and the product to do it: the prices and dates are needed for about sixty
- * shirts, not for all of them, and they are fetched for those afterwards.
+ * PostgREST has no GROUP BY, so the grouping happens here. The price and the
+ * date come along because the ORDER of the list depends on both: which shirts
+ * are cheap against their own record, and which have the freshest record. Both
+ * have to be known before the list is cut to sixty, or a shirt that is in
+ * stock and underpriced sits at number sixty-one and is never seen.
  */
-async function saleKeys(): Promise<Array<{ id: string; product_id: string }>> {
-  return pageAll<{ id: string; product_id: string }>("Loading recorded sales", (from, to) =>
+async function saleKeys(): Promise<
+  Array<{ id: string; product_id: string; sold_at: string; price_cents: number }>
+> {
+  return pageAll<{ id: string; product_id: string; sold_at: string; price_cents: number }>(
+    "Loading recorded sales",
+    (from, to) =>
     kickio()
       .from("sales_history")
-      .select("id,product_id")
+      .select("id,product_id,sold_at,price_cents")
       .not("product_id", "is", null)
       .is("excluded_at", null)
       .is("dismissed_at", null)
@@ -324,74 +495,107 @@ export async function postedSaleIds(): Promise<Map<string, Set<string>>> {
  * posted that is simply its number of recorded sales.
  */
 export async function qualifyingShirts(limit = 60): Promise<QualifyingShirt[]> {
-  const [keys, seen] = await Promise.all([saleKeys(), postedSaleIds()]);
+  const [keys, seen, live, fee] = await Promise.all([
+    saleKeys(),
+    postedSaleIds(),
+    liveListingsByProduct(),
+    buyerFeeSettings(),
+  ]);
 
-  const idsByProduct = new Map<string, string[]>();
-  for (const { id, product_id } of keys) {
-    const held = idsByProduct.get(product_id);
-    if (held) held.push(id);
-    else idsByProduct.set(product_id, [id]);
+  const salesByProduct = new Map<string, typeof keys>();
+  for (const key of keys) {
+    const held = salesByProduct.get(key.product_id);
+    if (held) held.push(key);
+    else salesByProduct.set(key.product_id, [key]);
   }
 
-  const shortlist: Array<{ productId: string; total: number; fresh: number; postedBefore: boolean }> = [];
-  for (const [productId, ids] of idsByProduct) {
+  interface Shortlisted {
+    productId: string;
+    total: number;
+    fresh: number;
+    postedBefore: boolean;
+    plotted: typeof keys;
+    stock: StockRead | null;
+    priority: 0 | 1 | 2;
+  }
+
+  const shortlist: Shortlisted[] = [];
+  for (const [productId, rows] of salesByProduct) {
     const already = seen.get(productId);
     const postedBefore = already !== undefined;
-    const fresh = freshCount(ids, already ?? new Set());
-    if (isEligible(ids.length, fresh, postedBefore)) {
-      shortlist.push({ productId, total: ids.length, fresh, postedBefore });
-    }
+    const fresh = freshCount(rows.map((r) => r.id), already ?? new Set());
+    if (!isEligible(rows.length, fresh, postedBefore)) continue;
+
+    const plotted = chartSales(rows);
+    if (plotted.length < MIN_SALES) continue;
+
+    const listings = live.get(productId) ?? [];
+    const best = cheapest(listings);
+    const stock = best
+      ? readStock(buyerPriceCents(best.price_cents, fee), plotted.map((s) => s.price_cents), {
+          size: best.size,
+          condition: best.condition,
+          count: listings.length,
+        })
+      : null;
+
+    shortlist.push({
+      productId,
+      total: rows.length,
+      fresh,
+      postedBefore,
+      plotted,
+      stock,
+      priority: priorityOf(stock),
+    });
   }
 
-  // Most new information first: the shirt whose picture has changed most since
-  // anyone last looked is the one worth revisiting. For a shirt never posted
-  // that is simply how many sales are on record.
-  shortlist.sort((a, b) => b.fresh - a.fresh || b.total - a.total);
+  // The order the person sees, and the whole point of this pass:
+  //
+  //   1. buyable now AND under what the market has been paying. Nothing else
+  //      on the list gives a reader a reason to act.
+  //   2. buyable now. Still a post someone can do something with.
+  //   3. everything else, freshest record first.
+  //
+  // Within the first tier, biggest gap under the median first; everywhere else
+  // the most recent sale first, because a record that stops eight months ago
+  // is a worse post than one that ends last week whatever else is true of it.
+  const latestOf = (entry: Shortlisted) =>
+    Date.parse(entry.plotted[entry.plotted.length - 1].sold_at) || 0;
+  const gapOf = (entry: Shortlisted) => {
+    const mid = median(entry.plotted.map((s) => s.price_cents));
+    return mid && entry.stock ? mid - entry.stock.priceCents : 0;
+  };
+
+  shortlist.sort(
+    (a, b) =>
+      a.priority - b.priority ||
+      (a.priority === 0 ? gapOf(b) - gapOf(a) : 0) ||
+      latestOf(b) - latestOf(a),
+  );
+
   const top = shortlist.slice(0, limit);
   if (top.length === 0) return [];
 
-  const ids = top.map((entry) => entry.productId);
-  const [products, sales] = await Promise.all([
-    pageIn<ProductRow, string>("Loading shirts", ids, (batch, from, to) =>
+  const products = await pageIn<ProductRow, string>(
+    "Loading shirts",
+    top.map((entry) => entry.productId),
+    (batch, from, to) =>
       kickio()
         .from("products")
         .select(PRODUCT_COLUMNS)
         .in("id", batch)
         .order("id", { ascending: true })
         .range(from, to),
-    ),
-    pageIn<SaleRow, string>("Loading those shirts' sales", ids, (batch, from, to) =>
-      kickio()
-        .from("sales_history")
-        .select(SALE_COLUMNS)
-        .in("product_id", batch)
-        .is("excluded_at", null)
-        .is("dismissed_at", null)
-        .eq("review_state", "approved")
-        .order("id", { ascending: true })
-        .range(from, to),
-    ),
-  ]);
-
+  );
   const productFor = new Map(products.map((p) => [p.id, p]));
-  const salesFor = new Map<string, SaleRow[]>();
-  for (const sale of sales) {
-    if (!sale.product_id) continue;
-    const held = salesFor.get(sale.product_id);
-    if (held) held.push(sale);
-    else salesFor.set(sale.product_id, [sale]);
-  }
 
-  return top.flatMap(({ productId, total, fresh, postedBefore }) => {
-    const product = productFor.get(productId);
-    const rows = salesFor.get(productId) ?? [];
+  return top.flatMap((entry) => {
+    const product = productFor.get(entry.productId);
     // A sale whose product has gone from the catalogue has nothing to draw.
     if (!product) return [];
 
-    const plotted = chartSales(rows);
-    if (plotted.length < MIN_SALES) return [];
-
-    const prices = plotted.map((s) => s.price_cents);
+    const prices = entry.plotted.map((s) => s.price_cents);
     const { lead, main } = shirtTitle(product);
     const season = seasonLabel(product.season);
     const named = [season, cleanValue(product.team), cleanValue(product.shirt_type)]
@@ -400,20 +604,22 @@ export async function qualifyingShirts(limit = 60): Promise<QualifyingShirt[]> {
 
     return [
       {
-        productId,
+        productId: entry.productId,
         slug: product.slug,
         title: lead ? `${lead} · ${named || main}` : named || main,
         subtitle: [cleanValue(product.manufacturer), cleanValue(product.shirt_type)]
           .filter(Boolean)
           .join(" · "),
         imageUrl: imageUrls([product.primary_image_url])[0] ?? null,
-        totalSales: total,
-        freshSales: fresh,
+        totalSales: entry.total,
+        freshSales: entry.fresh,
         lowest: formatPrice(Math.min(...prices), "GBP"),
         highest: formatPrice(Math.max(...prices), "GBP"),
-        latest: formatPrice(plotted[plotted.length - 1].price_cents, "GBP"),
-        latestSoldAt: plotted[plotted.length - 1].sold_at,
-        postedBefore,
+        latest: formatPrice(prices[prices.length - 1], "GBP"),
+        latestSoldAt: entry.plotted[entry.plotted.length - 1].sold_at,
+        postedBefore: entry.postedBefore,
+        stock: entry.stock,
+        priority: entry.priority,
       },
     ];
   });
@@ -477,6 +683,10 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
     };
   }
 
+  const [live, fee] = await Promise.all([liveListingsByProduct(), buyerFeeSettings()]);
+  const listings = live.get(productId) ?? [];
+  const best = cheapest(listings);
+
   const photo = imageUrls([product.primary_image_url])[0];
   if (!photo) {
     return { ok: false, reason: "That shirt has no photograph, and this card is built around one" };
@@ -491,6 +701,13 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
     .join(" ");
   const name = lead ? `${lead} · ${named || main}` : named || main;
   const reading = readSpread(plotted);
+  const stock = best
+    ? readStock(buyerPriceCents(best.price_cents, fee), prices, {
+        size: best.size,
+        condition: best.condition,
+        count: listings.length,
+      })
+    : null;
 
   // The queue label, and the first thing the copy model reads. It used to be
   // the shirt's name and nothing else, which told a reviewer scrolling the
@@ -498,7 +715,18 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
   // model nothing it could not already see. It now carries the range and what
   // the range is about.
   const headline = [
-    `${name} — ${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales`,
+    // What makes the post worth doing goes first. A shirt someone can buy
+    // today, under what the market has been paying, is a different post from a
+    // chart of six sales, and the queue should be able to tell them apart
+    // without opening either.
+    stock?.standing === "under-all"
+      ? `IN STOCK ${stock.price}, under every sale — ${name}`
+      : stock?.standing === "under-median"
+        ? `IN STOCK ${stock.price}, below the median — ${name}`
+        : stock
+          ? `IN STOCK ${stock.price} — ${name}`
+          : `${name} — ${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales`,
+    stock ? `${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales` : null,
     reading?.verdict === "explained"
       ? `${shortCondition(reading.cheapest.condition)} to ${shortCondition(reading.dearest.condition)}`
       : reading?.verdict === "inverted"
@@ -546,6 +774,18 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
             )}, ${shortCondition(reading.dearest.condition)} at ${gbp(reading.dearest.price_cents)}`,
             source: "sales_history.condition on the cheapest and dearest of the sales shown",
             basis: "Grades ranked Needs Attention < Fair < Good < Very Good < Excellent < Mint < Brand New",
+          },
+        ]
+      : []),
+    ...(stock
+      ? [
+          {
+            statement: stock.line,
+            value: stock.priceCents / 100,
+            source: `listings.price_cents plus buyer protection (${stock.count} live on kickio.com)`,
+            basis:
+              "What a buyer pays today, against what buyers paid elsewhere. " +
+              `The live one is ${[stock.size, stock.condition].filter(Boolean).join(", ") || "of unrecorded size and grade"}`,
           },
         ]
       : []),
@@ -629,6 +869,18 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
             }
           : null,
         caveat: reading?.summary ?? "Recorded sales vary by size and condition",
+        // What a reader could do about it. Absent rather than false where the
+        // shirt is not buyable - the brief forbids inventing availability.
+        in_stock: stock
+          ? {
+              price: stock.price,
+              size: stock.size,
+              condition: stock.condition,
+              listings: stock.count,
+              standing: stock.standing,
+              line: stock.line,
+            }
+          : null,
         // The eligibility mark for next time: every sale this post could see,
         // not only the ones it drew. A sale left off the chart has still been
         // accounted for, so it cannot count as new information later.
@@ -645,10 +897,31 @@ export const PRICE_HISTORY_BRIEF = `**Price History** - one shirt, and what it h
 
 The card already carries the chart, every price, every date, and the size and
 condition of each sale. Do not read those back out. Your job is the bit the
-card cannot say: what the shape means.
+card cannot say: what the shape means, and what a reader could do about it.
 
-START FROM \`condition_read\`. It is worked out from the rows, and it decides
-what kind of post this is:
+IF \`in_stock\` IS PRESENT, IT LEADS. One is buyable on Kickio right now, and
+that is the only thing on this card a reader can act on today. \`standing\`
+says where it sits:
+
+- \`under-all\` - the live one is cheaper than every sale on the chart. The
+  strongest post this recipe makes. Say the price, say it is under the record,
+  and let the chart be the evidence.
+- \`under-median\` - cheaper than the middle of them. Worth leading with, more
+  quietly.
+- \`at-or-above\` - buyable, but not cheap. Say it is available; do not dress
+  the price up.
+
+CHECK THE GRADE BEFORE YOU CALL IT A BARGAIN. \`in_stock.condition\` and
+\`in_stock.size\` are the shirt you would actually receive. A Good at less than
+a row of Mints is not a deal, it is a different shirt, and saying otherwise is
+the fastest way to lose a collector. Where the live grade is at or above what
+the chart shows, say so - that is what makes it a find.
+
+Never say it is the only one. \`in_stock.listings\` says how many are live.
+
+WHERE THERE IS NO \`in_stock\`, the post is the record itself. Start from
+\`condition_read\`, which is worked out from the rows and decides what kind of
+post this is:
 
 - \`explained\` - the dearest sale was the better shirt. This is ORDINARY, and
   saying so is the valuable thing: a £139-to-£277 range looks like a wild
@@ -673,8 +946,12 @@ where they show it.
 Hard rules:
 - Never present the range as what the shirt "is worth", and never call the
   highest price its value. These are different shirts in different states.
+- Never claim a shirt is available unless \`in_stock\` says so, and never quote
+  a price for it other than \`in_stock.price\`.
 - This is MARKET-WIDE data Kickio aggregates from across the hobby. It is not
   Kickio's own sales. Never write "sold on Kickio" or imply Kickio's volume.
+  The one exception is the shirt in \`in_stock\`, which IS on Kickio and can be
+  described that way.
 - Never predict. No "expect this to keep rising", no "now is the time to buy".
   Observation only - what happened, not what happens next.
 - Do not contradict \`caveat\`: it is printed on the card.

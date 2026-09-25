@@ -46,6 +46,15 @@ export function ShirtPicker({ shirt }: { shirt: QualifyingShirt }) {
 
         <div className="pick-main">
           <h2>{shirt.title}</h2>
+          {/* First, because it is the reason to pick this row over the next
+              one: buyable today, and how it sits against its own record. */}
+          {shirt.stock && (
+            <div className={`pick-stock${shirt.priority === 0 ? " good" : ""}`}>
+              {shirt.stock.line}
+              {[shirt.stock.size, shirt.stock.condition].filter(Boolean).length > 0 &&
+                ` · ${[shirt.stock.size, shirt.stock.condition].filter(Boolean).join(", ")}`}
+            </div>
+          )}
           <div className="pick-meta">
             {shirt.totalSales} recorded sale{shirt.totalSales === 1 ? "" : "s"} ·{" "}
             {shirt.lowest}–{shirt.highest} · latest {shirt.latest}

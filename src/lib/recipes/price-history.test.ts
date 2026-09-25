@@ -136,7 +136,7 @@ describe("naming the shirt", () => {
   });
 });
 
-import { readSpread } from "./price-history.ts";
+import { cheapest, priorityOf, readSpread, readStock } from "./price-history.ts";
 
 const point = (price: number, size: string | null, condition: string | null) => ({
   price_cents: price,
@@ -231,5 +231,85 @@ describe("reading what the spread is about", () => {
   test("one sale has nothing to read at all", () => {
     assert.equal(readSpread([point(10_000, "M", "Good")]), null);
     assert.equal(readSpread([]), null);
+  });
+});
+
+describe("what a buyer could do about it today", () => {
+  const sold = [13_899, 16_199, 16_699, 18_499, 27_699, 14_299];
+
+  /**
+   * Under every sale on the chart is the strongest thing this recipe can say,
+   * and the chart is the evidence for it - which is why no percentage is
+   * claimed anywhere.
+   */
+  test("cheaper than every recorded sale is called that", () => {
+    const stock = readStock(12_999, sold)!;
+    assert.equal(stock.standing, "under-all");
+    assert.match(stock.line, /£129\.99 on Kickio now/);
+    assert.match(stock.line, /under every sale shown/);
+  });
+
+  test("cheaper than the middle of them names the median", () => {
+    const stock = readStock(15_999, sold)!;
+    assert.equal(stock.standing, "under-median");
+    assert.match(stock.line, /below the £164\.49 median/);
+  });
+
+  /** Still worth saying it is buyable; not worth dressing the price up. */
+  test("in stock and not cheap says only that it is in stock", () => {
+    const stock = readStock(29_999, sold)!;
+    assert.equal(stock.standing, "at-or-above");
+    assert.equal(stock.line, "£299.99 on Kickio now");
+  });
+
+  /**
+   * "The only one" is usually false - Value Pick learned it the hard way - so
+   * where several are live the card says "from".
+   */
+  test("several live listings are never implied to be one", () => {
+    assert.match(readStock(12_999, sold, { count: 3 })!.line, /^From £129\.99/);
+    assert.match(readStock(12_999, sold, { count: 1 })!.line, /^£129\.99/);
+  });
+
+  test("carries the grade of the shirt you would actually receive", () => {
+    const stock = readStock(12_999, sold, { size: "XL", condition: "Very Good" })!;
+    assert.equal(stock.size, "XL");
+    assert.equal(stock.condition, "Very Good");
+  });
+
+  /** Junk in the size column must not reach the post here either. */
+  test("a club name is not a size", () => {
+    assert.equal(readStock(12_999, sold, { size: "Manchester United" })!.size, null);
+  });
+
+  test("nothing to compare against means no claim", () => {
+    assert.equal(readStock(12_999, []), null);
+    assert.equal(readStock(0, sold), null);
+    assert.equal(readStock(Number.NaN, sold), null);
+  });
+
+  test("the cheapest live listing is the one a buyer lands on", () => {
+    const listings = [
+      { product_id: "p", price_cents: 20_000, size: "L", condition: "Good" },
+      { product_id: "p", price_cents: 12_000, size: "M", condition: "Mint" },
+    ];
+    assert.equal(cheapest(listings)!.price_cents, 12_000);
+    assert.equal(cheapest([]), null);
+  });
+});
+
+describe("the order the picker puts them in", () => {
+  const sold = [13_899, 16_199, 16_699, 18_499, 27_699, 14_299];
+
+  /**
+   * The priority the list is built around: something a reader can buy today at
+   * less than the market has been paying beats everything else, then anything
+   * buyable at all, then the freshest record.
+   */
+  test("under the market first, then in stock, then neither", () => {
+    assert.equal(priorityOf(readStock(12_999, sold)), 0);
+    assert.equal(priorityOf(readStock(15_999, sold)), 0);
+    assert.equal(priorityOf(readStock(29_999, sold)), 1);
+    assert.equal(priorityOf(null), 2);
   });
 });

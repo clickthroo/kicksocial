@@ -56,6 +56,17 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       price_high: "£276.99",
       price_latest: "£138.99",
       caveat: "Very Good at the bottom, Brand New at the top — the spread tracks condition",
+      // The case the card is ordered around: one live on Kickio, under every
+      // sale behind it. Previewing without this hides the busiest the header
+      // block ever gets.
+      in_stock: {
+        price: "£129.99",
+        size: "L",
+        condition: "Very Good",
+        listings: 2,
+        standing: "under-all",
+        line: "From £129.99 on Kickio now — under every sale shown",
+      },
       condition_read: {
         verdict: "explained",
         summary: "Very Good at the bottom, Brand New at the top — the spread tracks condition",

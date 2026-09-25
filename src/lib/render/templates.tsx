@@ -2086,11 +2086,11 @@ function PriceHistoryCard({
   // to go. Both are why the line does not start in the corner.
   const box: ChartBox = portrait
     ? { width: 968, height: 300, padX: 84, padY: 64 }
-    : { width: 654, height: 210, padX: 58, padY: 46 };
+    : { width: 704, height: 200, padX: 62, padY: 44 };
 
   // Narrower than the gap between two points, or two prices on the same side
   // of a rising line overlap.
-  const labelW = portrait ? 150 : 104;
+  const labelW = portrait ? 150 : 110;
   const labelSize = portrait ? 30 : 21;
   const dateSize = portrait ? 30 : 21;
   const specSize = portrait ? 23 : 18;
@@ -2218,6 +2218,18 @@ function PriceHistoryCard({
     </div>
   );
 
+  const stock = (d.in_stock ?? null) as { line?: unknown } | null;
+  const stockLine = typeof stock?.line === "string" ? stock.line : null;
+
+  const footnote = [
+    d.subtitle ? String(d.subtitle) : null,
+    Number(d.total_recorded_sales ?? 0) > Number(d.recorded_sales ?? 0)
+      ? `most recent of ${String(d.total_recorded_sales ?? "")} on record`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   const title = (
     <div style={{ display: "flex", flexDirection: "column" }}>
       <div
@@ -2244,17 +2256,31 @@ function PriceHistoryCard({
         {String(d.recorded_sales ?? "")} recorded sales · {String(d.price_low ?? "")}–
         {String(d.price_high ?? "")}
       </div>
-      {/* Said plainly when the card is showing a window on a longer record.
-          "6 recorded sales" beside a chart drawn from the last six of thirty
-          would be a straightforwardly false count. */}
-      {Number(d.total_recorded_sales ?? 0) > Number(d.recorded_sales ?? 0) && (
-        <div style={{ display: "flex", fontSize: portrait ? 26 : 21, color: palette.muted, marginTop: 8 }}>
-          most recent of {String(d.total_recorded_sales ?? "")} on record
+      {/* The one thing on this card a reader can act on today, so it sits
+          directly under the range and is the only line in the brand colour. */}
+      {stockLine ? (
+        <div
+          style={{
+            display: "flex",
+            // Sized so the longest line this can produce - "From £1,299.99 on
+            // Kickio now — below the £1,164.49 median" - still sets on one
+            // line. A wrap here pushes the caveat off the bottom edge.
+            fontSize: portrait ? 32 : 23,
+            fontWeight: 700,
+            color: titleInk,
+            marginTop: portrait ? 14 : 10,
+          }}
+        >
+          {stockLine}
         </div>
-      )}
-      {d.subtitle ? (
-        <div style={{ display: "flex", fontSize: portrait ? 28 : 22, color: palette.muted, marginTop: 8 }}>
-          {String(d.subtitle)}
+      ) : null}
+
+      {/* One muted line, not two. The maker and the cut, and - said plainly,
+          because "6 recorded sales" beside a chart drawn from the last six of
+          thirty would be a false count - how much record is behind it. */}
+      {footnote ? (
+        <div style={{ display: "flex", fontSize: portrait ? 26 : 21, color: palette.muted, marginTop: 10 }}>
+          {footnote}
         </div>
       ) : null}
     </div>
@@ -2265,6 +2291,7 @@ function PriceHistoryCard({
   // because it is a claim about the data and belongs with the other claims.
   const caveat = String(d.caveat ?? "Recorded sales vary by size and condition");
 
+
   if (!portrait) {
     return (
       <Frame format={format} background={palette.to} ink={palette.ink}>
@@ -2274,7 +2301,7 @@ function PriceHistoryCard({
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              width: 430,
+              width: 380,
               marginRight: 28,
             }}
           >
@@ -2282,12 +2309,12 @@ function PriceHistoryCard({
               <img
                 src={photo}
                 alt=""
-                width={430}
-                height={430}
-                style={{ width: 430, height: 430, objectFit: "contain" }}
+                width={380}
+                height={380}
+                style={{ width: 380, height: 380, objectFit: "contain" }}
               />
             ) : (
-              <div style={{ display: "flex", width: 430, height: 430 }} />
+              <div style={{ display: "flex", width: 380, height: 380 }} />
             )}
             <BrandLockup format={format} brand={brand} muted={palette.muted} surface={palette.to} />
           </div>
@@ -2300,7 +2327,7 @@ function PriceHistoryCard({
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
-              width: 654,
+              width: 704,
             }}
           >
             {title}

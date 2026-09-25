@@ -16,7 +16,8 @@ export default async function PriceHistoryPage() {
     loadError = (err as Error).message;
   }
 
-  const returning = shirts.filter((s) => s.postedBefore).length;
+  const buyable = shirts.filter((s) => s.stock !== null).length;
+  const underMarket = shirts.filter((s) => s.priority === 0).length;
 
   return (
     <div className="wrap">
@@ -28,7 +29,8 @@ export default async function PriceHistoryPage() {
             : shirts.length === 0
               ? "No shirt has enough recorded sales yet"
               : `${shirts.length} shirt${shirts.length === 1 ? "" : "s"} ready` +
-                (returning > 0 ? ` · ${returning} posted before` : "")}
+                (buyable > 0 ? ` · ${buyable} in stock` : "") +
+                (underMarket > 0 ? `, ${underMarket} under the market` : "")}
         </div>
         <Nav current="/price-history" />
       </header>
@@ -38,8 +40,9 @@ export default async function PriceHistoryPage() {
       {!loadError && (
         <p className="section-note">
           A shirt earns this post with {MIN_SALES} recorded sales — and, once it has had
-          one, {MIN_SALES} the last post did not have. Sorted by how much the picture has
-          changed since, so the top of the list is where the new information is.
+          one, {MIN_SALES} the last post did not have. Ordered by what a reader could do
+          about it: in stock and under what the market has been paying first, then in
+          stock, then whichever record is freshest.
         </p>
       )}
 
