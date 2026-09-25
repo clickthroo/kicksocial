@@ -54,6 +54,9 @@ export const PERISHES: Record<string, PerishKind> = {
   collection_index: "window",
   // Posted by hand from /sold, about a sale that has already completed.
   grail_sale: "none",
+  // A career that ended years ago does not go out of date, and the shirts are
+  // the catalogue's rather than one seller's. Nothing here can stop being true.
+  who_am_i: "none",
   // Posted by hand from /drops: one shirt you can buy now, with the price read
   // off the listing. The shortest shelf life of the lot - the listing can sell
   // or be undercut, and then the card prints a price that is not the price.

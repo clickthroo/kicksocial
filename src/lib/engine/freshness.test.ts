@@ -88,6 +88,7 @@ describe("whether the age is a problem", () => {
     assert.equal(perishKind("kickio_drop"), "listing");
     assert.equal(perishKind("grail_sale"), "none");
     assert.equal(perishKind("price_history"), "window");
+    assert.equal(perishKind("who_am_i"), "none");
   });
 
   test("an unknown recipe is treated as a listing", () => {

@@ -49,3 +49,16 @@ values ('price_history', 'Price History',
   '<PRICE_HISTORY_BRIEF, from src/lib/recipes/price-history.ts>',
   'price_history_card')
 on conflict (key) do nothing;
+
+-- 2026-09-25: the Who Am I? recipe's configuration row. Same reason as above -
+-- `post_drafts.recipe_key` has a foreign key against this table, so a recipe
+-- without a row runs its whole selection, spends a copy generation, and only
+-- then fails on the insert.
+insert into recipes (key, name, description, enabled, cadence, platforms,
+  selection, prompt_template, visual_template)
+values ('who_am_i', 'Who Am I?',
+  'Six club shirts from one career, and a question. Chosen by hand from the careers the shelf can currently field.',
+  true, 'on_demand', array['x','instagram'], '{"style":"paper"}'::jsonb,
+  '<WHO_AM_I_BRIEF, from src/lib/recipes/who-am-i.ts>',
+  'who_am_i_card')
+on conflict (key) do nothing;

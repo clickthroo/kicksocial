@@ -525,3 +525,16 @@ ol.queue .link:hover { color: var(--danger); }
 @media (min-width: 640px) {
   .pick-shot { width: 78px; height: 78px; }
 }
+
+
+/* --- picking a career for Who Am I? --- */
+/* Six at a glance, because whether the grid looks good is most of whether the
+   puzzle works - a name on its own tells a reviewer nothing. */
+.pick-grid {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+  padding: 0 16px 13px;
+}
+.pick-grid img {
+  width: 100%; aspect-ratio: 1; object-fit: contain;
+  background: #ffffff; border-radius: 6px;
+}

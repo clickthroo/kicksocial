@@ -35,6 +35,37 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       images: [],
     },
   },
+  who_am_i_card: {
+    ...base,
+    id: "sample-who-am-i",
+    recipe_key: "who_am_i",
+    subject_ref: "crespo",
+    headline: "Who am I? — Hernán Crespo (6 clubs, 3 countries)",
+    generation: { visual_template: "who_am_i_card", style: "paper" },
+    // One of the four careers the shelf can actually field today, with its real
+    // six clubs - so the preview is the post, not a mock-up of one.
+    source_data: {
+      answer: "Hernán Crespo",
+      clubs_shown: 6,
+      countries: 3,
+      span: "1993–2010",
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/BRAA069V/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/GERH1221VL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/BRAA06098912/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/GERH1216EXL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/ed40e67a-d264-412e-90ee-37a4b3e006b7/" +
+          "6e5e6f6ac78efab47279e92f9d52c24b8e1511b2.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/scraped/cfs/BRAA069V/0.jpg",
+      ],
+    },
+  },
   price_history_card: {
     ...base,
     id: "sample-price-history",

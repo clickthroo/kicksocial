@@ -2395,6 +2395,137 @@ function PriceHistoryCard({
   );
 }
 
+
+/**
+ * Who Am I? - six club shirts, career order, and a question.
+ *
+ * The shirts ARE the puzzle, which decides almost every choice here: no club
+ * names, no crests called out, no year under each tile. Labelling them is
+ * answering them. What is allowed is the shape of the career - how many clubs,
+ * how many countries, which years - because that sets the difficulty without
+ * giving anything away, and it is the line that makes a scroller stop.
+ *
+ * Six across on 16:9 and three-by-two on 4:5. A 3x2 grid in a landscape frame
+ * leaves tiles too short to read a shirt in; a single row in a portrait frame
+ * wastes the height.
+ */
+function WhoAmICard({
+  draft,
+  format,
+  brand,
+  style = "paper",
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const palette = styleFor(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+  const shirts = (Array.isArray(d.images) ? (d.images as string[]) : []).slice(0, 6);
+
+  const titleInk = mix(palette.accent, palette.ink, 0.42);
+  const pad = portrait ? 56 : 44;
+
+  const cols = portrait ? 3 : 6;
+  const gap = portrait ? 18 : 14;
+  const cellW = Math.floor(((portrait ? 1080 : 1200) - pad * 2 - gap * (cols - 1)) / cols);
+  // Sized so the two rows, the lockup, the title block and the ask all fit
+  // inside the frame. At 420 the ask was clipped off the bottom edge.
+  const cellH = portrait ? 390 : 300;
+
+  const facts = [
+    `${String(d.clubs_shown ?? shirts.length)} clubs`,
+    `${String(d.countries ?? "")} ${Number(d.countries ?? 0) === 1 ? "country" : "countries"}`,
+    String(d.span ?? ""),
+  ]
+    .filter((line) => !line.startsWith("undefined") && line.trim() !== "")
+    .join(" · ");
+
+  const rows: string[][] = [];
+  for (let i = 0; i < shirts.length; i += cols) rows.push(shirts.slice(i, i + cols));
+
+  return (
+    <Frame format={format} background={palette.to} ink={palette.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="GUESS THE CAREER"
+          muted={palette.muted}
+          surface={palette.to}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 96 : 66,
+              fontWeight: 800,
+              letterSpacing: -3,
+              color: titleInk,
+            }}
+          >
+            Who am I?
+          </div>
+          {facts && (
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 34 : 26,
+                fontWeight: 700,
+                color: palette.ink,
+                marginTop: portrait ? 10 : 6,
+              }}
+            >
+              {facts}
+            </div>
+          )}
+        </div>
+
+        {/* Career order, left to right and top to bottom. It reads as a story
+            and it is a fair extra clue - the first tile is where he started. */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {rows.map((row, r) => (
+            <div key={r} style={{ display: "flex", marginTop: r === 0 ? 0 : gap }}>
+              {row.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  width={cellW}
+                  height={cellH}
+                  style={{
+                    width: cellW,
+                    height: cellH,
+                    objectFit: "contain",
+                    marginRight: i < row.length - 1 ? gap : 0,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", fontSize: portrait ? 30 : 22, color: palette.muted }}>
+          Six clubs, one career. Answer in the comments.
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -2406,6 +2537,15 @@ export function templateFor(
     (draft.generation as { visual_template?: string })?.visual_template ?? "grail_card";
 
   switch (template) {
+    case "who_am_i_card":
+      return (
+        <WhoAmICard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "price_history_card":
       return (
         <PriceHistoryCard
