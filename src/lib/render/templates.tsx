@@ -14,6 +14,7 @@
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./styles.ts";
 import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, type FormatKey } from "./formats.ts";
+import { axisDates, plotted, priceLineSvg, type ChartBox } from "./price-chart.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
 export { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM };
@@ -2030,6 +2031,292 @@ function IndexCard({
   );
 }
 
+
+/**
+ * Price History - one shirt, and every sale we have a record of.
+ *
+ * The chart IS the post, which is the opposite of the Price Trends card next
+ * door: there the figure is the message and the line is texture, so it carries
+ * no labels at all. Here the individual results are the message - six sellers,
+ * six prices - so every point wears its own price and its own date, and there
+ * are no axes because a scale to read them against would be furniture.
+ *
+ * Two things are deliberately NOT done. The last point is not coloured red
+ * when it is lower: a shirt selling for less is good news if you are buying,
+ * and the stock-market reflex would put a verdict on the card that the data
+ * does not support. And the spread is never called a value - the caveat line
+ * is not decoration, it is the reason six numbers disagree.
+ */
+function PriceHistoryCard({
+  draft,
+  format,
+  brand,
+  style = "paper",
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const palette = styleFor(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+
+  const points = Array.isArray(d.points)
+    ? (d.points as Array<{ sold_at: string; price: string; price_cents: number }>)
+    : [];
+  const values = points.map((p) => Number(p.price_cents)).filter(Number.isFinite);
+  const photo = Array.isArray(d.images) ? (d.images as string[])[0] : null;
+
+  // The title green is the brand's, deepened against the cream: accentDeep neat
+  // is a mid green that sits at about 3:1 on this surface, which is thin for
+  // anything but the largest type on the card.
+  const titleInk = mix(palette.accent, palette.ink, 0.42);
+  const lineColour = titleInk;
+
+  const pad = portrait ? 56 : 44;
+  // padX is half a label plus a margin, so the first and last prices stay
+  // inside the card; padY is a label's height, so a peak's price has somewhere
+  // to go. Both are why the line does not start in the corner.
+  const box: ChartBox = portrait
+    ? { width: 968, height: 300, padX: 84, padY: 64 }
+    : { width: 654, height: 210, padX: 58, padY: 46 };
+
+  // Narrower than the gap between two points, or two prices on the same side
+  // of a rising line overlap.
+  const labelW = portrait ? 150 : 104;
+  const labelSize = portrait ? 30 : 21;
+  const dateSize = portrait ? 30 : 21;
+  const dotR = portrait ? 11 : 8;
+  const gap = portrait ? 18 : 13;
+  // The last point says "Latest" above its price, so its block is a line taller
+  // and has to be lifted by that much when it sits above the line.
+  const latestExtra = Math.round(labelSize * 1.15);
+
+  // How far each label reaches toward its neighbours, so the anchor can be
+  // lifted clear of a steep leg rather than sitting on it.
+  const spacing = values.length > 1 ? (box.width - box.padX * 2) / (values.length - 1) : box.width;
+  const marks = plotted(values, box, labelW / 2 / spacing);
+  const dates = axisDates(points.map((p) => p.sold_at));
+  const line = priceLineSvg(marks, box, {
+    colour: lineColour,
+    surface: palette.to,
+    stroke: portrait ? 6 : 4.5,
+    dot: dotR,
+  });
+
+  const chart = (
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: box.width,
+        // Room under the plot for the dates, and under those for the "Latest"
+        // block when the last sale is the lowest one - which is exactly when
+        // its two lines hang furthest down.
+        height: box.height + (portrait ? 96 : 68),
+      }}
+    >
+      {line && (
+        <img
+          src={line}
+          alt=""
+          width={box.width}
+          height={box.height}
+          style={{ position: "absolute", left: 0, top: 0, width: box.width, height: box.height }}
+        />
+      )}
+
+      {marks.map((mark, i) => {
+        const last = i === marks.length - 1;
+        const height = labelSize * 1.25 + (last ? latestExtra : 0);
+        return (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: mark.above ? "flex-end" : "flex-start",
+              position: "absolute",
+              left: mark.x - labelW / 2,
+              top: mark.above ? mark.anchorY - dotR - gap - height : mark.anchorY + dotR + gap,
+              width: labelW,
+              height,
+            }}
+          >
+            {last && (
+              <div style={{ display: "flex", fontSize: labelSize * 0.82, color: palette.muted }}>
+                Latest
+              </div>
+            )}
+            <div style={{ display: "flex", fontSize: labelSize, fontWeight: 700, color: palette.ink }}>
+              {String(points[i]?.price ?? "")}
+            </div>
+          </div>
+        );
+      })}
+
+      {marks.map((mark, i) => (
+        <div
+          key={`d${i}`}
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            position: "absolute",
+            left: mark.x - labelW / 2,
+            top: box.height + (portrait ? 46 : 32),
+            width: labelW,
+            fontSize: dateSize,
+            color: palette.ink,
+          }}
+        >
+          {dates[i] ?? ""}
+        </div>
+      ))}
+    </div>
+  );
+
+  const title = (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          fontSize: Math.round((portrait ? 78 : 58) * palette.titleScale),
+          fontWeight: 800,
+          letterSpacing: -2,
+          lineHeight: 1.06,
+          color: titleInk,
+        }}
+      >
+        {[String(d.title_lead ?? ""), String(d.title_main ?? "")].filter(Boolean).join(" · ")}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontSize: portrait ? 38 : 30,
+          fontWeight: 700,
+          color: palette.ink,
+          marginTop: portrait ? 18 : 12,
+        }}
+      >
+        {String(d.recorded_sales ?? "")} recorded sales · {String(d.price_low ?? "")}–
+        {String(d.price_high ?? "")}
+      </div>
+      {/* Said plainly when the card is showing a window on a longer record.
+          "6 recorded sales" beside a chart drawn from the last six of thirty
+          would be a straightforwardly false count. */}
+      {Number(d.total_recorded_sales ?? 0) > Number(d.recorded_sales ?? 0) && (
+        <div style={{ display: "flex", fontSize: portrait ? 26 : 21, color: palette.muted, marginTop: 8 }}>
+          most recent of {String(d.total_recorded_sales ?? "")} on record
+        </div>
+      )}
+      {d.subtitle ? (
+        <div style={{ display: "flex", fontSize: portrait ? 28 : 22, color: palette.muted, marginTop: 8 }}>
+          {String(d.subtitle)}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const caveat = "Recorded sales vary by size and condition";
+
+  if (!portrait) {
+    return (
+      <Frame format={format} background={palette.to} ink={palette.ink}>
+        <div style={{ display: "flex", width: "100%", height: "100%", padding: pad }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              width: 430,
+              marginRight: 28,
+            }}
+          >
+            {photo ? (
+              <img
+                src={photo}
+                alt=""
+                width={430}
+                height={430}
+                style={{ width: 430, height: 430, objectFit: "contain" }}
+              />
+            ) : (
+              <div style={{ display: "flex", width: 430, height: 430 }} />
+            )}
+            <BrandLockup format={format} brand={brand} muted={palette.muted} surface={palette.to} />
+          </div>
+
+          {/* An explicit width, not flexGrow. Satori gives a growing column
+              its content's width first, so the title ran straight off the
+              right-hand edge of the card instead of wrapping. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              width: 654,
+            }}
+          >
+            {title}
+            {chart}
+            <div style={{ display: "flex", fontSize: 19, color: palette.muted }}>{caveat}</div>
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+
+  return (
+    <Frame format={format} background={palette.to} ink={palette.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+        }}
+      >
+        {/* At the top rather than the foot: the chart needs every pixel it can
+            get at the bottom of the card, and a lockup squeezed in under it
+            simply ran off the edge. */}
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="PRICE HISTORY"
+          muted={palette.muted}
+          surface={palette.to}
+        />
+
+        {title}
+
+        {photo ? (
+          <img
+            src={photo}
+            alt=""
+            width={520}
+            height={286}
+            style={{ width: 520, height: 286, objectFit: "contain", alignSelf: "center" }}
+          />
+        ) : (
+          <div style={{ display: "flex", height: 40 }} />
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {chart}
+          <div style={{ display: "flex", fontSize: 24, color: palette.muted, marginTop: 10 }}>
+            {caveat}
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -2041,6 +2328,15 @@ export function templateFor(
     (draft.generation as { visual_template?: string })?.visual_template ?? "grail_card";
 
   switch (template) {
+    case "price_history_card":
+      return (
+        <PriceHistoryCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
     case "trend_chart":
       return (
         <TrendCard

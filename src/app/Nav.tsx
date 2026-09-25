@@ -10,6 +10,7 @@ const DESTINATIONS = [
   { href: "/publish", label: "Publish" },
   { href: "/sold", label: "Grail Sale" },
   { href: "/drops", label: "Drops" },
+  { href: "/price-history", label: "Price History" },
   { href: "/runs", label: "Runs" },
   { href: "/admin", label: "Settings" },
 ] as const;

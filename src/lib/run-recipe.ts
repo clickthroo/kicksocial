@@ -12,6 +12,11 @@ import { SOLD_CTA_POOL } from "./copy/brand-voice.ts";
 import { recipeByKey, type Recipe } from "./recipes/index.ts";
 import { runGrailSale, GRAIL_SALE_BRIEF, type GrailSaleInput } from "./recipes/grail-sale.ts";
 import { runKickioDrop, KICKIO_DROP_BRIEF, type KickioDropInput } from "./recipes/kickio-drop.ts";
+import {
+  runPriceHistory,
+  PRICE_HISTORY_BRIEF,
+  PRICE_HISTORY_KEY,
+} from "./recipes/price-history.ts";
 import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./render/styles.ts";
 import type { PlatformCopy, PostDraft } from "./engine/types.ts";
 
@@ -423,6 +428,103 @@ export async function createKickioDropDraft(input: KickioDropInput): Promise<Run
   if (error) {
     // The database refusing a second live post about the same subject is the
     // cooldown working, not a fault - see engine/duplicate.ts.
+    if (isDuplicateSubject(error)) {
+      const reason = duplicateSubjectReason(candidate.subjectRef);
+      await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+      return { recipeKey: key, status: "skipped", reason };
+    }
+    const reason = `Saving draft failed: ${error.message}`;
+    await record("failed", { skipped_reason: reason });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const draftId = (data as { id: string }).id;
+  await record("created", { draft_id: draftId });
+  return { recipeKey: key, status: "created", draftId, headline: candidate.headline };
+}
+
+/**
+ * Price History: admin-chosen, like Grail Sale and Kickio Drops, but for a
+ * different reason.
+ *
+ * The other two take input a person has to supply - a link, a price. This one
+ * takes a shirt off a list the engine has already worked out, so the person is
+ * choosing rather than typing. What cannot be automated is the judgement: a
+ * shirt with six sales is a shirt this post CAN be made about, not one it
+ * should be.
+ */
+export async function createPriceHistoryDraft(productId: string): Promise<RunOutcome> {
+  const key = PRICE_HISTORY_KEY;
+  const startedAt = Date.now();
+
+  const record = async (status: string, extra: Record<string, unknown> = {}): Promise<void> => {
+    await engine()
+      .from("recipe_runs")
+      .insert({ recipe_key: key, trigger: "manual", status, duration_ms: Date.now() - startedAt, ...extra });
+  };
+
+  const { data: configRow } = await engine()
+    .from("recipes")
+    .select("enabled,prompt_template,platforms,selection")
+    .eq("key", key)
+    .maybeSingle();
+  const config = configRow as {
+    enabled: boolean;
+    prompt_template: string | null;
+    platforms: string[] | null;
+    selection: Record<string, unknown> | null;
+  } | null;
+
+  if (config && !config.enabled) {
+    await record("skipped", { skipped_reason: "Recipe is disabled" });
+    return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
+  }
+
+  const result = await runPriceHistory(productId);
+  if (!result.ok) {
+    // Comes straight back to the picker as well as into the run log: the usual
+    // reason is that a sale landed between the page loading and the click, and
+    // the person looking at the list should be told that rather than left
+    // wondering where their post went.
+    await record("skipped", { skipped_reason: result.reason, diagnostics: result.diagnostics ?? {} });
+    return { recipeKey: key, status: "skipped", reason: result.reason };
+  }
+
+  const { candidate } = result;
+  const platforms = (config?.platforms as Recipe["platforms"] | undefined) ?? ["x", "instagram"];
+
+  let generated;
+  try {
+    generated = await generateCopy(config?.prompt_template?.trim() || PRICE_HISTORY_BRIEF, candidate);
+  } catch (err) {
+    const reason = `Copy generation failed: ${(err as Error).message}`;
+    await record("failed", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .insert({
+      recipe_key: key,
+      status: "draft",
+      subject_ref: candidate.subjectRef,
+      headline: candidate.headline,
+      copy: forPlatforms(generated.copy, platforms),
+      source_data: { ...candidate.sourceData, images: candidate.images },
+      claims: candidate.claims,
+      generation: {
+        model: "claude-opus-5",
+        usage: generated.usage,
+        visual_template: "price_history_card",
+        // The mockup this card was built from is a cream page with dark green
+        // type, which is `paper`. A reviewer can still change it.
+        style: asCardStyle((config?.selection as Record<string, unknown>)?.style ?? "paper"),
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
     if (isDuplicateSubject(error)) {
       const reason = duplicateSubjectReason(candidate.subjectRef);
       await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });

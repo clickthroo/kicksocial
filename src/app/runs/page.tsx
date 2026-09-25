@@ -26,6 +26,7 @@ interface RunRow {
 const ON_DEMAND_RECIPES = [
   { key: "grail_sale", name: "Grail Sale" },
   { key: "kickio_drop", name: "Kickio Drops" },
+  { key: "price_history", name: "Price History" },
 ];
 
 function titleise(key: string): string {

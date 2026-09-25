@@ -87,6 +87,7 @@ describe("whether the age is a problem", () => {
   test("the hand-driven posts are classified too", () => {
     assert.equal(perishKind("kickio_drop"), "listing");
     assert.equal(perishKind("grail_sale"), "none");
+    assert.equal(perishKind("price_history"), "window");
   });
 
   test("an unknown recipe is treated as a listing", () => {

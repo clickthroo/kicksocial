@@ -45,6 +45,10 @@ export const PERISHES: Record<string, PerishKind> = {
   collector_spotlight: "listing",
   collector_set_progress: "listing",
   sold_this_week: "window",
+  // Every point on the card is a completed sale, so none of it can stop being
+  // true - but the card labels one of them "Latest", and the next recorded sale
+  // makes that word wrong. It ages like a roundup, not like a listing.
+  price_history: "window",
   price_trends: "window",
   market_index: "window",
   collection_index: "window",

@@ -33,3 +33,19 @@ alter type draft_status add value if not exists 'expired';
 create unique index post_drafts_one_live_per_subject
   on post_drafts (recipe_key, subject_ref)
   where status in ('draft', 'approved');
+
+-- 2026-09-25: the Price History recipe's configuration row.
+--
+-- Data rather than schema, but it belongs with these: `post_drafts.recipe_key`
+-- carries a foreign key against this table and no screen inserts a row, so a
+-- recipe without one runs its whole selection, spends a copy generation, and
+-- only then fails on the insert. See the note on `Recipe` in
+-- src/lib/recipes/index.ts, where that was learned the hard way.
+insert into recipes (key, name, description, enabled, cadence, platforms,
+  selection, prompt_template, visual_template)
+values ('price_history', 'Price History',
+  'One shirt and every sale on record, plotted. Chosen by hand from the shirts that qualify.',
+  true, 'on_demand', array['x','instagram'], '{"style":"paper"}'::jsonb,
+  '<PRICE_HISTORY_BRIEF, from src/lib/recipes/price-history.ts>',
+  'price_history_card')
+on conflict (key) do nothing;

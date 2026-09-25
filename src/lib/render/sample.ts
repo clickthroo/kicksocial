@@ -35,6 +35,41 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       images: [],
     },
   },
+  price_history_card: {
+    ...base,
+    id: "sample-price-history",
+    recipe_key: "price_history",
+    subject_ref: "ed40e67a-d264-412e-90ee-37a4b3e006b7",
+    headline: "Messi · 2009/10 Barcelona Away",
+    generation: { visual_template: "price_history_card", style: "paper" },
+    // Real rows, straight out of Kickio's sales_history: the most recent six
+    // of the eight on record, which is what the card draws and also puts the
+    // "most recent of 8" line in front of anyone previewing it.
+    source_data: {
+      product_id: "ed40e67a-d264-412e-90ee-37a4b3e006b7",
+      title_lead: "Messi",
+      title_main: "2009/10 Barcelona Away",
+      subtitle: "Nike · Away shirt",
+      recorded_sales: 6,
+      total_recorded_sales: 8,
+      price_low: "£138.99",
+      price_high: "£276.99",
+      price_latest: "£138.99",
+      points: [
+        { sold_at: "2026-06-21T00:00:00Z", price: "£142.99", price_cents: 14299 },
+        { sold_at: "2026-06-26T00:00:00Z", price: "£166.99", price_cents: 16699 },
+        { sold_at: "2026-08-06T00:00:00Z", price: "£184.99", price_cents: 18499 },
+        { sold_at: "2026-08-07T00:00:00Z", price: "£276.99", price_cents: 27699 },
+        { sold_at: "2026-08-12T00:00:00Z", price: "£161.99", price_cents: 16199 },
+        { sold_at: "2026-08-21T00:00:00Z", price: "£138.99", price_cents: 13899 },
+      ],
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
+          "product-images/ed40e67a-d264-412e-90ee-37a4b3e006b7/" +
+          "6e5e6f6ac78efab47279e92f9d52c24b8e1511b2.jpg",
+      ],
+    },
+  },
   trend_chart: {
     ...base,
     id: "sample-trend",
