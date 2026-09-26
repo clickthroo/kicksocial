@@ -60,6 +60,15 @@ export interface Career {
    * for the country he was born in" is a guess and a card is a claim.
    */
   international?: { team: string; from: number; to: number };
+  /**
+   * Other ways his name gets printed on a shirt, beyond the words in
+   * `display`: a nickname, a mononym, a shortened surname.
+   *
+   * These are never shown. They exist so a shirt carrying his own name can be
+   * kept off the grid - see `ownNames` in who-am-i.ts. A "CHICHARITO" shirt
+   * answers the puzzle exactly as loudly as a "HERNANDEZ" one.
+   */
+  shirtNames?: string[];
   spells: Spell[];
   /**
    * Facts the copy may use, and nothing beyond them. No "widely regarded as",
@@ -1439,6 +1448,9 @@ export const CAREERS: Career[] = [
     key: "chicharito",
     display: "Javier Hernández",
     nationality: "Mexico",
+    // The name actually printed on most of his shirts, and the one that would
+    // answer the puzzle fastest.
+    shirtNames: ["Chicharito"],
     international: { team: "Mexico", from: 2009, to: 2023 },
     spells: [
       { team: "Manchester United", from: 2010, to: 2013, england: "top" },

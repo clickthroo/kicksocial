@@ -10,6 +10,8 @@ import {
   seasonStart,
   shirtFitsSpell,
   teamsFor,
+  ownNames,
+  isOwnName,
   type ShirtRow,
 } from "./who-am-i.ts";
 import { CAREERS, CLUB_COUNTRY, MIN_LOAN_APPS, spellCounts, type Career } from "./careers.ts";
@@ -487,4 +489,118 @@ test("every national side a career names is a team the loader will ask for", () 
       `${career.display}: ${career.international.team} would never be fetched`,
     );
   }
+});
+
+describe("the answer's own name never reaches the grid", () => {
+  const boateng: Career = {
+    key: "kp", display: "Kevin-Prince Boateng", nationality: "Ghana",
+    spells: [{ team: "Portsmouth", from: 2009, to: 2009, england: "top" }], notes: [],
+  };
+
+  const shirt = (over: Partial<ShirtRow>): ShirtRow => ({
+    id: "1", slug: null, team: "Portsmouth", season: "2009-10", shirt_type: "Home",
+    player_name: null, primary_image_url: "https://x/y.jpg", ...over,
+  });
+
+  test("ownNames covers every word of the display name", () => {
+    assert.deepEqual(ownNames(boateng), ["kevin", "prince", "boateng"]);
+  });
+
+  test("ownNames drops particles too short to be a name", () => {
+    const career: Career = { ...boateng, display: "Ángel Di María" };
+    // "di" would match half the shelf and identifies nobody.
+    assert.deepEqual(ownNames(career), ["angel", "maria"]);
+  });
+
+  test("ownNames picks up accents and nicknames", () => {
+    const zlatan: Career = { ...boateng, display: "Zlatan Ibrahimović" };
+    assert.ok(ownNames(zlatan).includes("ibrahimovic"));
+    const chicharito: Career = {
+      ...boateng, display: "Javier Hernández", shirtNames: ["Chicharito"],
+    };
+    assert.deepEqual(ownNames(chicharito), ["javier", "hernandez", "chicharito"]);
+  });
+
+  test("a printed name matches whatever punctuation and number it carries", () => {
+    const own = ownNames(boateng);
+    assert.equal(isOwnName("Boateng", own), true);
+    assert.equal(isOwnName("BOATENG #23", own), true);
+    assert.equal(isOwnName("boateng 23", own), true);
+    assert.equal(isOwnName("K-P Boateng", own), true);
+  });
+
+  test("somebody else's name is not his", () => {
+    const own = ownNames(boateng);
+    assert.equal(isOwnName("Crouch", own), false);
+    assert.equal(isOwnName("", own), false);
+    assert.equal(isOwnName(null, own), false);
+  });
+
+  test("the club is dropped rather than shown with his name on it", () => {
+    // The real case: Kickio holds exactly two Portsmouth 2009-10 shirts and
+    // both are "Boateng #23". Before this, the card printed the answer.
+    const both = [
+      shirt({ id: "a", shirt_type: "Home", player_name: "Boateng" }),
+      shirt({ id: "b", shirt_type: "Away", player_name: "Boateng" }),
+    ];
+    assert.equal(bestShirtFor(both, boateng.spells[0]!, ownNames(boateng)), null);
+    assert.deepEqual(coverFor(boateng, new Map([["Portsmouth", both]])), []);
+  });
+
+  test("an unnamed shirt at the same club is still fine", () => {
+    const mixed = [
+      shirt({ id: "a", player_name: "Boateng" }),
+      shirt({ id: "b", shirt_type: "Away", player_name: null }),
+    ];
+    assert.equal(bestShirtFor(mixed, boateng.spells[0]!, ownNames(boateng))?.id, "b");
+  });
+
+  test("a teammate sharing the surname is refused, which is the safe direction", () => {
+    // An Ashley Cole shirt on an Andy Cole card costs a tile. Printing the
+    // answer costs the post.
+    const andy: Career = { ...boateng, display: "Andy Cole" };
+    const cole = [shirt({ player_name: "Cole" })];
+    assert.equal(bestShirtFor(cole, andy.spells[0]!, ownNames(andy)), null);
+  });
+
+  test("with no names supplied nothing is filtered, so old callers are unchanged", () => {
+    const named = [shirt({ player_name: "Boateng" })];
+    assert.equal(bestShirtFor(named, boateng.spells[0]!)?.player_name, "Boateng");
+  });
+});
+
+test("a nobiliary particle is not treated as a name", () => {
+  const career: Career = {
+    key: "rvn", display: "Ruud van Nistelrooy", nationality: "Netherlands",
+    spells: [], notes: [],
+  };
+  // Matching on "van" would refuse every van Persie and van Dijk shirt on the
+  // shelf, and point at nobody.
+  assert.deepEqual(ownNames(career), ["ruud", "nistelrooy"]);
+  assert.equal(isOwnName("van Persie", ownNames(career)), false);
+  assert.equal(isOwnName("van Nistelrooy", ownNames(career)), true);
+});
+
+test("tiles run in the order of the shirts, not the order the spells started", () => {
+  // A loan taken in the middle of a longer contract. Ordering by spell start
+  // would put the 2015 shirt before the 2012 one, and the grid claims to read
+  // left to right in time.
+  const career: Career = {
+    key: "x", display: "X Y", nationality: "England",
+    spells: [
+      { team: "Arsenal", from: 2010, to: 2016, england: "top" },
+      { team: "Everton", from: 2012, to: 2012, loan: true, apps: 30, england: "top" },
+    ],
+    notes: [],
+  };
+  const row = (team: string, season: string): ShirtRow => ({
+    id: team, slug: null, team, season, shirt_type: "Home",
+    player_name: null, primary_image_url: "https://x/y.jpg",
+  });
+  const covered = coverFor(career, new Map([
+    ["Arsenal", [row("Arsenal", "2015-16")]],
+    ["Everton", [row("Everton", "2012-13")]],
+  ]));
+  assert.deepEqual(covered.map((c) => c.team), ["Everton", "Arsenal"]);
+  assert.deepEqual(covered.map((c) => c.season), ["2012-13", "2015-16"]);
 });

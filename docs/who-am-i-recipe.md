@@ -308,3 +308,56 @@ How it is implemented:
 
 `teammates` and `teammate_note` both go into `source_data`, so the reveal page
 and the post copy work from the same list the card drew.
+
+## 10. The answer on its own shirt
+
+A Kevin-Prince Boateng card went out with a Portsmouth shirt reading
+**Boateng #23** in the second tile. The catalogue holds exactly two photographed
+Portsmouth 2009-10 shirts and both carry that name, so the picker, which prefers
+an unnamed shirt but takes a named one over nothing, had no other option. Worse,
+the teammate line then described the answer's own shirt as a teammate's.
+
+This is the one leak that looks legitimate from every other angle. The shirt is
+the right club, the right season and the right type. Nothing about it is wrong
+except the thing the whole format depends on.
+
+`ownNames` takes every word of the career's `display`, plus anything in the new
+`shirtNames` field, lowercased and unaccented, and `bestShirtFor` refuses any
+shirt whose printed name contains one of them. If that leaves a club with
+nothing, the club is not covered and does not go on the grid.
+
+Two deliberate choices in the matching:
+
+- **Eager.** An Ashley Cole shirt is refused on an Andy Cole card. A false
+  positive costs a tile; a false negative costs the post. The asymmetry only
+  points one way.
+- **Particles excluded.** `van`, `der`, `den` and the rest are dropped, or a
+  van Nistelrooy card would refuse every van Persie and van Dijk shirt on the
+  shelf and identify nobody.
+
+Seven of the ninety careers on file were affected. One, Boateng, was live on the
+picker at the time:
+
+| career | the tile | after |
+|---|---|---|
+| Kevin-Prince Boateng | Portsmouth 2009-10 "Boateng" | 5 of 6, drops off |
+| Thierry Henry | New York Red Bulls 2012-13 "Henry" | 4 of 6 |
+| Fernando Torres | Atletico Madrid 2005-06 "Torres" | 4 of 6 |
+| Radamel Falcao | Monaco 2017-18 "Falcao" | 4 of 6 |
+| Mark Viduka | Leeds United 2002-03 "Viduka" | 4 of 6 |
+| Chris Sutton | Blackburn 1996-97 "Sutton" | 5 of 6 |
+| Brian Laudrup | Ajax 1999-00 "Laudrup" | still qualifies |
+
+Qualifying careers go from 22 to 21.
+
+### And the order they are shown in
+
+Confirmed against all 21: every club tile runs oldest to newest, and the
+national tile is pinned last on purpose, because an international career is not
+a chapter between two clubs.
+
+The sort now keys on the season printed on the shirt rather than on the year
+the spell began. The two agree for a career of consecutive moves, which is why
+nothing moved when it changed. They part company for a loan taken inside a
+longer contract, where spell order would put a 2015 shirt before a 2012 one.
+The grid claims to read left to right in time, so it is ordered by the shirts.

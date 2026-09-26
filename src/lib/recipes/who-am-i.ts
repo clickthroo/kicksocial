@@ -102,15 +102,78 @@ export function shirtFitsSpell(season: string | null | undefined, spell: Spell):
 }
 
 /**
+ * Every form of the answer's own name that could appear on a shirt back.
+ *
+ * Lower-cased, unaccented, punctuation and squad numbers stripped, so
+ * "Ibrahimović" matches a shirt printed "IBRAHIMOVIC #11".
+ */
+export function ownNames(career: Career): string[] {
+  const words = [career.display, ...(career.shirtNames ?? [])].flatMap((name) =>
+    normaliseName(name).split(" "),
+  );
+  return [...new Set(words.filter((w) => w.length >= 3 && !PARTICLES.has(w)))];
+}
+
+/**
+ * Not names on their own, and ruinous as match words.
+ *
+ * "van" would refuse every van Persie, van Dijk and van der Sar shirt on a van
+ * Nistelrooy card, which is most of the Dutch shelf and identifies nobody.
+ */
+const PARTICLES = new Set([
+  "van", "von", "der", "den", "ten", "ter", "del", "della", "dos", "das", "dei", "los", "las",
+]);
+
+function normaliseName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z ]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Is this the answer's own name printed on the back?
+ *
+ * The whole format rests on the grid not naming him, and this is the one route
+ * to the card that looks legitimate from every other angle: a shirt from the
+ * right club, in the right season, of the right type. Kickio holds exactly two
+ * Portsmouth 2009-10 shirts and both read "Boateng #23", so a Kevin-Prince
+ * Boateng card had no unnamed option and printed the answer.
+ *
+ * Deliberately eager. A teammate who shares a surname with the answer, an
+ * Ashley Cole shirt on an Andy Cole card, is refused too. That costs a tile.
+ * Printing the answer costs the post, so the asymmetry is the right way round.
+ */
+export function isOwnName(printed: string | null | undefined, own: readonly string[]): boolean {
+  const value = cleanValue(printed);
+  if (!value) return false;
+  const words = new Set(normaliseName(value).split(" ").filter(Boolean));
+  return own.some((name) => words.has(name));
+}
+
+/**
  * The best shirt for a spell: one from the middle of it.
  *
  * A player who was somewhere five years is remembered in the middle of that,
  * not in the season he arrived - and the first and last seasons are the ones
  * most likely to be a shirt he barely wore.
  */
-export function bestShirtFor(shirts: readonly ShirtRow[], spell: Spell): ShirtRow | null {
+export function bestShirtFor(
+  shirts: readonly ShirtRow[],
+  spell: Spell,
+  own: readonly string[] = [],
+): ShirtRow | null {
   const fitting = shirts.filter(
-    (s) => shirtFitsSpell(s.season, spell) && s.primary_image_url && isMatchShirt(s.shirt_type),
+    (s) =>
+      shirtFitsSpell(s.season, spell) &&
+      s.primary_image_url &&
+      isMatchShirt(s.shirt_type) &&
+      // A shirt with his name on it is not a fallback, it is the answer. If
+      // this leaves a club with nothing, the club does not go on the grid.
+      !isOwnName(s.player_name, own),
   );
   if (fitting.length === 0) return null;
   const middle = (spell.from + spell.to) / 2;
@@ -134,12 +197,13 @@ export function bestShirtFor(shirts: readonly ShirtRow[], spell: Spell): ShirtRo
 export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): CoveredClub[] {
   const covered: CoveredClub[] = [];
   const used = new Set<string>();
+  const own = ownNames(career);
 
   for (const spell of career.spells) {
     if (!spellCounts(spell)) continue;
     // One club once. A second spell at the same place is the same tile.
     if (used.has(spell.team)) continue;
-    const shirt = bestShirtFor(byTeam.get(spell.team) ?? [], spell);
+    const shirt = bestShirtFor(byTeam.get(spell.team) ?? [], spell, own);
     if (!shirt) continue;
     used.add(spell.team);
     covered.push({
@@ -159,7 +223,14 @@ export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): Cover
     });
   }
 
-  covered.sort((a, b) => a.from - b.from);
+  // By the season on the shirt, not by when the spell began. They agree for a
+  // career of consecutive moves, and differ for a loan taken in the middle of
+  // a longer contract: a 2012 loan shirt belongs before the 2015 shirt from
+  // the contract that surrounds it, even though that contract started first.
+  // The grid is read as six shirts in order, so it is ordered by the shirts.
+  covered.sort(
+    (a, b) => (seasonStart(a.season) ?? a.from) - (seasonStart(b.season) ?? b.from) || a.from - b.from,
+  );
 
   // ONE national side, and only to reach six.
   //
@@ -175,7 +246,7 @@ export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): Cover
       from: career.international.from,
       to: career.international.to,
     };
-    const shirt = bestShirtFor(byTeam.get(spell.team) ?? [], spell);
+    const shirt = bestShirtFor(byTeam.get(spell.team) ?? [], spell, own);
     if (shirt) {
       covered.push({
         team: spell.team,
