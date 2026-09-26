@@ -16,6 +16,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { BRAND_VOICE, ctaForDay } from "./brand-voice.ts";
 import type { Claim, PlatformCopy, RecipeCandidate } from "../engine/types.ts";
 import { PLATFORM_LIMITS } from "./limits.ts";
+import { stripEmDashesDeep } from "./dashes.ts";
 
 const MODEL = "claude-opus-5";
 
@@ -135,6 +136,12 @@ function renderClaims(claims: Claim[]): string {
 export interface GenerateResult {
   copy: PlatformCopy;
   usage: { input: number; output: number; cacheRead: number };
+  /**
+   * Em dashes the model wrote in spite of the brand voice banning them, and
+   * which were replaced before the copy went anywhere. Non-zero is not an
+   * error, but it is worth knowing: it means the brief is being ignored.
+   */
+  emDashesStripped: number;
 }
 
 export interface GenerateOptions {
@@ -206,8 +213,13 @@ export async function generateCopy(
     throw new Error(`Copy generation returned unparseable JSON: ${(err as Error).message}`);
   }
 
+  // Punctuation is a preference to a model, not a constraint, so the ban is
+  // enforced here rather than assumed to have been followed.
+  const stripped = stripEmDashesDeep(copy);
+
   return {
-    copy,
+    copy: stripped.value,
+    emDashesStripped: stripped.replaced,
     usage: {
       input: response.usage.input_tokens,
       output: response.usage.output_tokens,

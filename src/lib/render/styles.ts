@@ -20,7 +20,7 @@ export const CARD_STYLES = [
   {
     key: "studio",
     name: "Studio",
-    blurb: "Lit plate on a dark field. The safe one — works with anything.",
+    blurb: "Lit plate on a dark field. The safe one. Works with anything.",
   },
   {
     key: "spotlight",
@@ -30,7 +30,7 @@ export const CARD_STYLES = [
   {
     key: "sweep",
     name: "Sweep",
-    blurb: "Brand-tinted field — from the shirt itself where there is one.",
+    blurb: "Brand-tinted field, from the shirt itself where there is one.",
   },
   {
     key: "paper",

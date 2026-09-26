@@ -320,7 +320,7 @@ export async function runKickioDrop(input: KickioDropInput): Promise<RecipeResul
     ok: true,
     candidate: {
       subjectRef: subjectRefFor(listing.id),
-      headline: `${product.name ?? listing.title ?? "Kickio Drop"} — ${price}`,
+      headline: `${product.name ?? listing.title ?? "Kickio Drop"} · ${price}`,
       sourceData: {
         subject: product.name ?? listing.title,
         title: product.name ?? listing.title,

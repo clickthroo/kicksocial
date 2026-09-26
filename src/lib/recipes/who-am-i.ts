@@ -343,7 +343,7 @@ export function revealText(career: Career, six: readonly CoveredClub[]): string 
   const clubs = six.map((c) => c.team);
   const last = clubs[clubs.length - 1];
   return (
-    `It's ${career.display}. ${clubs.slice(0, -1).join(", ")} and ${last} — ` +
+    `It's ${career.display}. ${clubs.slice(0, -1).join(", ")} and ${last}: ` +
     `${six.length} clubs, ${new Set(six.map((c) => c.country)).size} countries. ` +
     `Shirts from most of them are on kickio.com.`
   );
@@ -361,8 +361,8 @@ export function teammateNote(six: readonly CoveredClub[]): string | null {
   const named = six.filter((club) => club.playerName).length;
   if (named === 0) return null;
   return named === 1
-    ? "One of these carries a teammate's name — not mine"
-    : `${named === 2 ? "Two" : named === 3 ? "Three" : String(named)} of these carry a teammate's name — none of them mine`;
+    ? "One of these carries a teammate's name, not mine"
+    : `${named === 2 ? "Two" : named === 3 ? "Three" : String(named)} of these carry a teammate's name, none of them mine`;
 }
 
 export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
@@ -407,7 +407,7 @@ export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
       .map((club) => ({
         statement:
           `The ${club.team} shirt shown carries ${club.playerName}, who wore it in ` +
-          `${club.season} — a season this player was at the club`,
+          `${club.season}, a season this player was at the club`,
         value: club.playerName!,
         source: `products.player_name (id ${club.productId})`,
         basis: "Teammate by squad and season, from the shirt itself - not a claim about anything more",
@@ -419,7 +419,7 @@ export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
     candidate: {
       subjectRef: career.key,
       // The queue needs to know who it is. The card and the copy never do.
-      headline: `Who am I? — ${career.display} (${six.length} clubs, ${countries.size} countries)`,
+      headline: `Who am I? ${career.display} (${six.length} clubs, ${countries.size} countries)`,
       sourceData: {
         // THE ANSWER. Held for the reviewer and the reveal, and named in the
         // brief as forbidden in the copy.

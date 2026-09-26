@@ -55,6 +55,11 @@ describe any shirt is a failed post.
 - Decades: "the 90s", not "the 1990's"
 - Numbers under ten as words in prose, numerals for prices, percentages and stats
 - British English throughout: colour, jersey is a "shirt", "kit" not "uniform"
+- **No em dashes.** Not one, anywhere, in any variant, including alt text. The
+  character \u2014 is banned outright. Use a comma, a colon, a semicolon, a full
+  stop or brackets, and where the sentence resists all five, write two sentences
+  instead. Nine times in ten it reads better for being split. Hyphens in
+  1993-94 and en dashes in a range of years are fine and unaffected.
 
 ## Accuracy - non-negotiable
 

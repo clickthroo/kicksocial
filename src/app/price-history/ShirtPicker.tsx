@@ -25,8 +25,8 @@ export function ShirtPicker({ shirt }: { shirt: QualifyingShirt }) {
         setDone(outcome.status === "created");
         setResult(
           outcome.status === "created"
-            ? "Draft created — it is waiting in the queue"
-            : `${outcome.status === "skipped" ? "Not posted" : "Failed"} — ${outcome.reason ?? ""}`,
+            ? "Draft created. It is waiting in the queue"
+            : `${outcome.status === "skipped" ? "Not posted" : "Failed"}: ${outcome.reason ?? ""}`,
         );
       } catch (err) {
         setResult((err as Error).message);

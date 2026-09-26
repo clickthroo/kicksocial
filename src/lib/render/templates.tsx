@@ -974,7 +974,7 @@ function MissingPhoto({ width, height }: { width: number; height: number }) {
         padding: 40,
       }}
     >
-      No renderable photo — do not post
+      No renderable photo. Do not post
     </div>
   );
 }
@@ -2263,7 +2263,7 @@ function PriceHistoryCard({
           style={{
             display: "flex",
             // Sized so the longest line this can produce - "From £1,299.99 on
-            // Kickio now — below the £1,164.49 median" - still sets on one
+            // Kickio now, below the £1,164.49 median" - still sets on one
             // line. A wrap here pushes the caveat off the bottom edge.
             fontSize: portrait ? 32 : 23,
             fontWeight: 700,

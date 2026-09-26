@@ -50,7 +50,7 @@ export default async function QueuePage() {
       {!loadError && cleared > 0 && (
         <p className="status-line">
           {cleared} draft{cleared === 1 ? "" : "s"} cleared {cleared === 1 ? "itself" : "themselves"}{" "}
-          in the last week — nobody decided on {cleared === 1 ? "it" : "them"} before{" "}
+          in the last week. Nobody decided on {cleared === 1 ? "it" : "them"} before{" "}
           {cleared === 1 ? "it" : "they"} went out of date.
         </p>
       )}

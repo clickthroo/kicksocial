@@ -129,7 +129,7 @@ export function knockoutBorder(
 
 export function describeKnockout(result: KnockoutResult, total: number): string {
   if (!result.background) {
-    return "Edges were already transparent, or the background is not one flat colour — left as uploaded.";
+    return "Edges were already transparent, or the background is not one flat colour. Left as uploaded.";
   }
   const { r, g, b } = result.background;
   const pct = Math.round((result.cleared / total) * 100);

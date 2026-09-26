@@ -137,7 +137,7 @@ export function checkDirectionPair(
       `(red-green), ${tritan.toFixed(1)} (blue-yellow). ` +
       (worstCvd >= CVD_FLOOR
         ? "Distinguishable."
-        : `Below ${CVD_FLOOR} — these will look like the same colour to a ` +
+        : `Below ${CVD_FLOOR}: these will look like the same colour to a ` +
           "red-green colourblind reader. The arrow and the sign still carry direction."),
   });
 
@@ -151,7 +151,7 @@ export function checkDirectionPair(
       level: ratio >= CONTRAST_MIN ? "ok" : "warn",
       message:
         `${name} on the card: ${ratio.toFixed(1)}:1 contrast. ` +
-        (ratio >= CONTRAST_MIN ? "Clearly visible." : `Below ${CONTRAST_MIN}:1 — faint against the background.`),
+        (ratio >= CONTRAST_MIN ? "Clearly visible." : `Below ${CONTRAST_MIN}:1, faint against the background.`),
     });
   }
 

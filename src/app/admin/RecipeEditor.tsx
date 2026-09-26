@@ -110,7 +110,7 @@ export function RecipeEditor({
   const choices: QueueChoice[] = picksSet
     ? sets.map((o) => ({
         value: o.slug,
-        label: `${o.name} — ${o.buyable} of ${o.slots} buyable (${o.scope})`,
+        label: `${o.name} · ${o.buyable} of ${o.slots} buyable (${o.scope})`,
         available: o.available,
         lastPostedAt: o.lastPostedAt,
       }))
@@ -121,9 +121,9 @@ export function RecipeEditor({
           // biggest collection on the platform, and an admin who cannot see
           // why it is missing will assume the list is broken.
           label:
-            `${o.name} — ${o.shirts} shirts` +
+            `${o.name} · ${o.shirts} shirts` +
             (o.blocked === "house"
-              ? " (Kickio account — never featured)"
+              ? " (Kickio account, never featured)"
               : o.blocked === "excluded"
                 ? " (excluded in settings)"
                 : ""),
@@ -133,7 +133,7 @@ export function RecipeEditor({
       : teams.map((o) => ({
           value: o.name,
           label:
-            `${o.name} — ${o.shirts} shirts` +
+            `${o.name} · ${o.shirts} shirts` +
             (o.earliest && o.latest ? `, ${o.earliest}–${o.latest}` : ""),
           available: o.available,
           lastPostedAt: o.lastPostedAt,
@@ -163,7 +163,7 @@ export function RecipeEditor({
             title: "No collectors to feature yet",
             detail:
               "Nobody has added enough shirts to their Kickio collection, or everyone " +
-              "who has is opted out. This fills up on its own as people collect — " +
+              "who has is opted out. This fills up on its own as people collect, " +
               "nothing to do here.",
           }
         : {
@@ -244,7 +244,7 @@ export function RecipeEditor({
         <div className="row">
           <div className="field-label">Sellers shown on kickio.com</div>
           <p className="hint">
-            Nothing on a listing records whether it appears on the site — it depends on
+            Nothing on a listing records whether it appears on the site. It depends on
             who is selling it. Only ticked sellers can be featured.
           </p>
           {sellers.map((seller) => (
@@ -329,7 +329,7 @@ export function RecipeEditor({
       {isListingRecipe && (
         <p className="hint" style={{ padding: "0 16px" }}>
           A rejected shirt is never offered again, whatever these windows say.
-          Club and kit windows are preferences — they reorder candidates rather
+          Club and kit windows are preferences: they reorder candidates rather
           than block a post, so a thin day still produces one.
         </p>
       )}
@@ -338,7 +338,7 @@ export function RecipeEditor({
         <div className="row">
           <div className="field-label">Default card style</div>
           <p className="hint">
-            Where a new sale starts. Every draft can still be restyled in the queue —
+            Where a new sale starts. Every draft can still be restyled in the queue,
             changing a look never changes a fact.
           </p>
           <div className="styles-row">
@@ -385,7 +385,7 @@ export function RecipeEditor({
 
               {picksCollector && (
                 <p className="hint">
-                  Only collectors who have left both switches on are listed — anyone who
+                  Only collectors who have left both switches on are listed. Anyone who
                   turned off “my collection is public” or “Kickio may feature me” is not
                   here and cannot be queued.
                 </p>
@@ -409,7 +409,7 @@ export function RecipeEditor({
                 </ol>
               ) : (
                 <p className="hint queue-empty">
-                  Nothing queued — the next run picks the best {subjectWord} that has not
+                  Nothing queued. The next run picks the best {subjectWord} that has not
                   been posted in {Math.round(cooldownDays / 30)} months.
                 </p>
               )}
@@ -445,7 +445,7 @@ export function RecipeEditor({
               {choices.some((c) => !c.available) && (
                 <p className="hint">
                   Anything posted in the last {Math.round(cooldownDays / 30)} months is
-                  listed but cannot be chosen — picking one would only produce a run that
+                  listed but cannot be chosen: picking one would only produce a run that
                   refuses itself.
                 </p>
               )}

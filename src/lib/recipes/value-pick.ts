@@ -451,7 +451,7 @@ export async function runValuePick(
     ok: true,
     candidate: {
       subjectRef: subjectRefFor(winner.listing.product_id!, winner.size, winner.condition),
-      headline: `${product.name ?? "Value Pick"} — ${price}, ${winner.discount}% below`,
+      headline: `${product.name ?? "Value Pick"} · ${price}, ${winner.discount}% below`,
       sourceData: {
         subject: product.name,
         title: product.name,

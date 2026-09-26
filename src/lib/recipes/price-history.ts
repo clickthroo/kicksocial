@@ -251,7 +251,7 @@ export function readSpread(points: readonly SalePoint[]): SpreadReading | null {
       verdict: "explained",
       cheapest,
       dearest,
-      summary: `${lowName} at the bottom, ${highName} at the top — the spread tracks condition`,
+      summary: `${lowName} at the bottom, ${highName} at the top. The spread tracks condition`,
       likeForLike,
     };
   }
@@ -261,7 +261,7 @@ export function readSpread(points: readonly SalePoint[]): SpreadReading | null {
       verdict: "inverted",
       cheapest,
       dearest,
-      summary: `The dearest was the lower grade — ${highName} over ${lowName}`,
+      summary: `The dearest was the lower grade: ${highName} over ${lowName}`,
       likeForLike,
     };
   }
@@ -270,7 +270,7 @@ export function readSpread(points: readonly SalePoint[]): SpreadReading | null {
     verdict: "same-condition",
     cheapest,
     dearest,
-    summary: `Both ends were ${highName} — condition is not what separates them`,
+    summary: `Both ends were ${highName}. Condition is not what separates them`,
     likeForLike,
   };
 }
@@ -346,9 +346,9 @@ export function readStock(
 
   const line =
     standing === "under-all"
-      ? `${lead} — under every sale shown`
+      ? `${lead}, under every sale shown`
       : standing === "under-median"
-        ? `${lead} — below the ${gbp(mid!)} median`
+        ? `${lead}, below the ${gbp(mid!)} median`
         : lead;
 
   return {
@@ -693,7 +693,7 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
     return {
       ok: false,
       reason:
-        "The engine cannot see Kickio's recorded sales — sales_history read as " +
+        "The engine cannot see Kickio's recorded sales: sales_history read as " +
         "empty even unfiltered. This is the credential, not the shirt " +
         "(docs/unblocking-sold-this-week.md).",
       diagnostics: { salesTableReadable: false },
@@ -757,12 +757,12 @@ export async function runPriceHistory(productId: string): Promise<RecipeResult> 
     // chart of six sales, and the queue should be able to tell them apart
     // without opening either.
     stock?.standing === "under-all"
-      ? `IN STOCK ${stock.price}, under every sale — ${name}`
+      ? `IN STOCK ${stock.price}, under every sale · ${name}`
       : stock?.standing === "under-median"
-        ? `IN STOCK ${stock.price}, below the median — ${name}`
+        ? `IN STOCK ${stock.price}, below the median · ${name}`
         : stock
-          ? `IN STOCK ${stock.price} — ${name}`
-          : `${name} — ${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales`,
+          ? `IN STOCK ${stock.price} · ${name}`
+          : `${name} · ${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales`,
     stock ? `${gbp(Math.min(...prices))}–${gbp(Math.max(...prices))} across ${plotted.length} sales` : null,
     reading?.verdict === "explained"
       ? `${shortCondition(reading.cheapest.condition)} to ${shortCondition(reading.dearest.condition)}`

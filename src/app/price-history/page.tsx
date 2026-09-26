@@ -39,7 +39,7 @@ export default async function PriceHistoryPage() {
 
       {!loadError && (
         <p className="section-note">
-          A shirt earns this post with {MIN_SALES} recorded sales — and, once it has had
+          A shirt earns this post with {MIN_SALES} recorded sales; and, once it has had
           one, {MIN_SALES} the last post did not have. Ordered by what a reader could do
           about it: in stock and under what the market has been paying first, then in
           stock, then whichever record is freshest.

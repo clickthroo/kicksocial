@@ -95,7 +95,7 @@ export function SoldForm() {
           <h2>Which shirt sold?</h2>
           <p className="desc">
             Paste its Kickio link. Everything about the shirt is read from Kickio&apos;s own
-            record — nothing is taken from the page itself.
+            record. Nothing is taken from the page itself.
           </p>
         </div>
 
@@ -126,7 +126,7 @@ export function SoldForm() {
             <span className="recipe-tag">Step 2</span>
             <h2>{preview.title}</h2>
             <p className="desc">
-              Check this is the right shirt before generating — writing the post calls
+              Check this is the right shirt before generating. Writing the post calls
               Claude and creates a draft.
             </p>
           </div>
@@ -190,7 +190,7 @@ export function SoldForm() {
           <p className="hint" style={{ padding: "0 16px" }}>
             The price is the one thing here that is not read from Kickio, so the draft
             records it as entered by you rather than as a verified figure. Enter what the
-            buyer actually paid — no fee is added on top.
+            buyer actually paid. No fee is added on top.
           </p>
 
           <div className="row">

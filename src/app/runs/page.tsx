@@ -74,7 +74,7 @@ function diagnosticLines(diagnostics: Record<string, unknown>): string[] {
       // e.g. the price-trend rejections, each with its own reason
       for (const entry of value.slice(0, 12)) {
         if (entry && typeof entry === "object" && "key" in entry && "reason" in entry) {
-          lines.push(`${(entry as { key: string }).key} — ${(entry as { reason: string }).reason}`);
+          lines.push(`${(entry as { key: string }).key}: ${(entry as { reason: string }).reason}`);
         } else {
           lines.push(`${label}: ${JSON.stringify(entry)}`);
         }
@@ -163,7 +163,7 @@ export default async function RunsPage() {
             <h2>Latest per recipe</h2>
             <p className="desc">
               Run one on demand, or read why the last one produced nothing. A recipe
-              that skips is working as intended — the reason says what it was looking
+              that skips is working as intended: the reason says what it was looking
               for and did not find.
             </p>
           </div>

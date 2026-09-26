@@ -280,8 +280,8 @@ export function DraftCard({
             <span className={`count${xLength(draft.copy) > PLATFORM_LIMITS.x.chars ? " count over" : ""}`}>
               {willCollapse(draft.copy.x.text)
                 ? `lead ${leadLength(draft.copy.x.text)}/${PLATFORM_LIMITS.x.lead} · ` +
-                  `${xLength(draft.copy)} total — grey text is behind “Show more”`
-                : `${xLength(draft.copy)} characters — shows in full`}
+                  `${xLength(draft.copy)} total · grey text is behind “Show more”`
+                : `${xLength(draft.copy)} characters · shows in full`}
             </span>
           </>
         )}
@@ -319,7 +319,7 @@ export function DraftCard({
           job. */}
       {typeof draft.source_data.collector_handle === "string" && (
         <div className="notice">
-          <strong>About {String(draft.source_data.collector_handle)}</strong> — a real
+          <strong>About {String(draft.source_data.collector_handle)}</strong>: a real
           collector, featured under Kickio&rsquo;s opt-out setting (
           {String(draft.source_data.collector_flags ?? "consent flags unknown")}). Worth a
           hello before this goes out. Nothing here states what the collection is worth or
@@ -365,7 +365,7 @@ export function DraftCard({
             <span className="val">{String(c.value)}</span>
             <span className="src">
               {c.source}
-              {c.basis ? ` — ${c.basis}` : ""}
+              {c.basis ? ` · ${c.basis}` : ""}
             </span>
           </div>
         ))}

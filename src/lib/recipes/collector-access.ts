@@ -170,7 +170,7 @@ export function readAccess(profiles: number, collections: number): AccessVerdict
     // the skip reason on the run log, so it has to stand on its own there as
     // well as under a heading in Settings.
     reason:
-      "The engine cannot see Kickio collections — it read " +
+      "The engine cannot see Kickio collections: it read " +
       `${profiles} profiles but 0 collection rows, so it is still connecting as ` +
       "`anon`. The kickio_content_reader role was applied on 2026-09-19 and " +
       "can see 23 collection rows, so the grant is in place and the " +

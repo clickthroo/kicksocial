@@ -1,4 +1,4 @@
-# Who Am I? — a guess-the-player post
+# Who Am I? A guess-the-player post
 
 A 3×2 grid of six club shirts from one player's career, a career written out
 without the name, and an invitation to answer in the comments. Modelled on
@@ -12,22 +12,22 @@ they come first.
 
 ## 1. The obvious way to build this does not work
 
-The instinct is to use `products.player_name` — the name printed on the shirt —
+The instinct is to use `products.player_name`, the name printed on the shirt,
 and find players whose name appears across six clubs. Measured against the live
 catalogue, every player who clears that bar:
 
 | name | clubs | what it actually is |
 |---|---|---|
 | Ronaldo | 8 | **two people.** Al-Nassr, Man Utd, Portugal, Juventus (Cristiano) plus Barcelona, Brazil, Inter (Nazário) |
-| Beckham | 5 | one person, but five — and one of them is England |
+| Beckham | 5 | one person, but five, and one of them is England |
 | Keane | 4 | **two people**, Roy and Robbie, plus a Northern Ireland shirt that is neither |
-| Cole | 4 | **four people** — Andy, Ashley, Joe, Carlton |
+| Cole | 4 | **four people**, Andy, Ashley, Joe, Carlton |
 | Goalkeeper | 4 | junk in the column |
 | Issue | 4 | junk in the column |
 
 So: **zero real players qualify today**, and the naive version produces posts
 that are confidently wrong. On this format that is the worst possible failure,
-because the entire design invites people to reply with the answer — the first
+because the entire design invites people to reply with the answer, the first
 comment would be someone pointing out there are two Ronaldos.
 
 `player_name` is also the wrong column conceptually. The reference post uses
@@ -45,13 +45,13 @@ six **plain** club shirts, no names printed. The puzzle is the clubs.
 That is a deep shelf. Checked against four real careers, counting only clubs
 where we hold a shirt from a season inside the player's spell:
 
-- **Anelka** — PSG, Arsenal, Real Madrid, Liverpool, Man City, Bolton, Chelsea,
+- **Anelka**: PSG, Arsenal, Real Madrid, Liverpool, Man City, Bolton, Chelsea,
   Juventus, West Brom. Nine coverable clubs.
-- **Robbie Keane** — Wolves, Coventry, Inter, Leeds, Spurs, Liverpool, Celtic,
+- **Robbie Keane**: Wolves, Coventry, Inter, Leeds, Spurs, Liverpool, Celtic,
   West Ham, Aston Villa. Nine.
-- **Craig Bellamy** — Norwich, Coventry, Newcastle, Celtic, Blackburn,
+- **Craig Bellamy**: Norwich, Coventry, Newcastle, Celtic, Blackburn,
   Liverpool, West Ham, Man City, Cardiff. Nine.
-- **Crespo** — River Plate, Parma, Lazio, Inter, Chelsea, Milan. Six.
+- **Crespo**: River Plate, Parma, Lazio, Inter, Chelsea, Milan. Six.
 
 The format works. What it needs is a career source, and that cannot come out of
 Kickio.
@@ -60,7 +60,7 @@ Kickio.
 
 **A curated career list, intersected live with the catalogue.**
 
-Careers are researched and written into the repo — a small, reviewable file,
+Careers are researched and written into the repo, a small, reviewable file,
 the same shape `legend-shelf.ts` already uses for its legend allowlist, and for
 the same reason: an allowlist cannot fail open, and a wrong attribution here is
 a false claim about a real person.
@@ -95,14 +95,14 @@ A player is offerable when **all** of these hold:
    product whose `season` falls inside that spell. Six is the grid.
 2. **Era match is mandatory.** A 2019 Ajax shirt is not a Seedorf shirt. This is
    the rule that keeps the post honest, and it is the one most likely to be
-   quietly dropped later to make the list longer — it must not be.
+   quietly dropped later to make the list longer, it must not be.
 3. **At least one English club at Championship level or better**, per the brief.
    Carried on the spell, not inferred from the club, because clubs move
    divisions.
 4. **Club shirts only.** A national shirt gives away nationality in one glance
    and halves the puzzle. National spells may still be mentioned in the copy.
 5. **No two shirts from the same club**, and preferably no two from the same
-   season — the grid should read as six chapters.
+   season, the grid should read as six chapters.
 6. **Home, away or third only.** `shirt_type` also carries Training,
    Goalkeeper, GK Home/Away/Third, Fourth, Pre-Match, Track Jacket, Jacket, Cap
    and Socks. See §9.
@@ -112,9 +112,9 @@ A player is offerable when **all** of these hold:
 Same pattern as Price History: the list is ordered by what makes the best post,
 not by what is easiest to compute.
 
-1. **Coverage** — players where we can field seven or more clubs, so the six
+1. **Coverage**: players where we can field seven or more clubs, so the six
    chosen are the six most interesting rather than the only six available.
-2. **Spread** — more countries and more decades first. A career across six
+2. **Spread**: more countries and more decades first. A career across six
    English clubs is a weaker puzzle than one across six countries.
 3. **Recency of the last post about them**, so the same face does not recur.
 
@@ -145,7 +145,7 @@ Deliberate choices:
 
 - **No club names, no crests called out, no years per shirt.** The shirts are
   the puzzle. Labelling them is answering it.
-- **A career-in-numbers strip** — clubs, countries, span. It is a hook, it adds
+- **A career-in-numbers strip**: clubs, countries, span. It is a hook, it adds
   difficulty gradients, and it names nobody.
 - **Chronological order.** It reads as a story and it is a fair extra clue.
 - **No silhouette.** The reference uses one; we have no player photography and a
@@ -155,14 +155,14 @@ Deliberate choices:
 
 ## 5. The copy
 
-A short career written in the first person — "I signed at seventeen and left
-before I was twenty" — ending on the ask. The brief's hard rules:
+A short career written in the first person, "I signed at seventeen and left
+before I was twenty", ending on the ask. The brief's hard rules:
 
 - **Never the name.** Not the surname, not a nickname, not a shirt number that
   only one person wore at that club.
 - Everything stated must come from `spells` or `notes`. No invented transfer
   fees, no invented trophies, no "widely regarded as".
-- The clubs may be alluded to but not named — the grid already shows them, and
+- The clubs may be alluded to but not named, the grid already shows them, and
   naming them turns a puzzle into a caption.
 - End with the ask. One line, no hashtag soup.
 - No TikTok variant.
@@ -178,8 +178,8 @@ Two things make it work better:
 - **A reveal.** The answer posted as a reply a few hours later, with a line about
   where to find those shirts. The draft carries the answer text ready to send.
 - **Difficulty honesty.** A career nobody can get is not engaging, it is
-  annoying. The picker shows a difficulty read — how famous the clubs are, how
-  recent the career — so an easy one and a hard one can be alternated.
+  annoying. The picker shows a difficulty read, how famous the clubs are, how
+  recent the career, so an easy one and a hard one can be alternated.
 
 ## 7. Decisions needed
 
@@ -196,14 +196,14 @@ Two things make it work better:
 
 ---
 
-## 8. What building it taught us — reverse the search
+## 8. What building it taught us: reverse the search
 
 The first thirty careers were chosen the obvious way: think of well-travelled
 players, write them down, see who the shelf could carry. **Four of thirty
-qualified.** The near-misses were all the same shape — five clubs covered and
+qualified.** The near-misses were all the same shape, five clubs covered and
 one gap, usually a single missing season at a mid-table English club.
 
-Reversing it — reading the inventory first, then looking for careers that fit —
+Reversing it, reading the inventory first, then looking for careers that fit,
 does not fix that. It makes the search efficient, and it makes the ceiling
 visible, which is the more useful result:
 
@@ -227,7 +227,7 @@ exactly five. It is not a search problem; it is the shelf.
 
 Three ways to widen it, and only one is honest:
 
-1. **Loosen the era match** — allow a shirt from a season either side. No. That
+1. **Loosen the era match**: allow a shirt from a season either side. No. That
    is the one rule the format cannot survive losing.
 2. **Drop to five tiles.** Works, but it is a different format, and 3×2 is the
    thing people recognise.
@@ -235,7 +235,7 @@ Three ways to widen it, and only one is honest:
 
 A national shirt is still a shirt he wore, so nothing becomes untrue. It fills
 the last tile rather than replacing a club, so the puzzle stays a club puzzle.
-It does narrow nationality at a glance — which is why it is a last resort, why
+It does narrow nationality at a glance, which is why it is a last resort, why
 it is never more than one, and why it does not satisfy the English-club rule.
 A hint makes a puzzle answerable; two hints make it a caption.
 
@@ -257,7 +257,7 @@ Third, Fourth, Pre-Match, Track Jacket, Jacket, Cap and Socks. A row of six
 shirts is a claim: *this player wore these*. A training top or a manager's
 jacket weakens the claim, and on a 3×2 grid it simply looks like a mistake.
 
-`isMatchShirt` is an **allowlist** — home, away, third — applied as a hard
+`isMatchShirt` is an **allowlist**: home, away, third, applied as a hard
 filter inside `bestShirtFor`, so a club with no match shirt in the era does not
 count towards the six. Allowlist rather than a list of things to exclude,
 because a negation list is only ever as good as today's data: the next odd
@@ -278,16 +278,16 @@ Laudrup's is Denmark rather than Ajax.
 
 ### Named shirts are a clue, not a leak
 
-About one shirt in three carries a player's name on the back — and it is never
+About one shirt in three carries a player's name on the back, and it is never
 the mystery player's, because a shirt with *his* name would answer the puzzle
 outright and never gets chosen. So the card has a choice: hide named shirts,
 or explain them.
 
 Hiding them throws away a third of the inventory, and several careers with it.
-Explaining them is better than neutral — it is the strongest clue on the card.
+Explaining them is better than neutral, it is the strongest clue on the card.
 Left unexplained, a name in a row of otherwise blank shirts reads either as the
 answer being handed over or as a bug. Said out loud, it becomes: *the named
-player was my teammate, at that club, in that season* — which narrows the answer
+player was my teammate, at that club, in that season*, which narrows the answer
 far more than a blank shirt does, while still requiring the reader to do the
 work.
 
@@ -295,8 +295,8 @@ How it is implemented:
 
 - `bestShirtFor` **prefers an unnamed shirt** when it has the choice, and takes
   a named one over nothing. Named shirts are a fallback, not a default.
-- `teammateNote` writes the line under the career-in-numbers strip — "Two of
-  these carry a teammate's name — none of them mine". It is absent entirely when
+- `teammateNote` writes the line under the career-in-numbers strip, "Two of
+  these carry a teammate's name, none of them mine". It is absent entirely when
   no shirt is named, and the card shrinks its tiles to make room when it is
   present (390 → 355 on the portrait crop, 300 → 272 on the landscape one).
 - Each named shirt adds a claim the writer may use: the name, the club, and the

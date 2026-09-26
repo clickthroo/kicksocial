@@ -38,6 +38,12 @@ in code comments, not in documentation. Use a comma, a colon, a semicolon, a
 full stop, or brackets instead. Nine times in ten the sentence reads better for
 being split in two.
 
-This is about prose written here. It is not, on its own, a rule about the
-copy the engine generates for posts, which is a separate decision; ask before
-changing that.
+It applies to the copy the engine generates as well. The ban is in the brand
+voice, so the model is told not to write them, and enforced in
+`src/lib/copy/dashes.ts`, which strips any that survive the instruction before
+the draft is saved. Do not rely on the prompt alone.
+
+The character appears in exactly three places on purpose: that matcher, its
+tests, and `lib/kickio/values.ts`, where it is a placeholder value in Kickio's
+own data and must keep being recognised. Hyphens in 1993-94 and en dashes in a
+range of years are unaffected.

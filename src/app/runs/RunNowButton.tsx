@@ -26,7 +26,7 @@ export function RunNowButton({ recipeKey }: { recipeKey: string }) {
             : outcome.status === "skipped"
               ? "Nothing to post"
               : "Failed";
-        setResult(outcome.reason ? `${verdict} — ${outcome.reason}` : verdict);
+        setResult(outcome.reason ? `${verdict}: ${outcome.reason}` : verdict);
       } catch (err) {
         setResult((err as Error).message);
       }

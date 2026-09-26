@@ -70,7 +70,7 @@ export function DropForm() {
           <span className="recipe-tag">Step 1</span>
           <h2>Which listing?</h2>
           <p className="desc">
-            Paste the <strong>listing</strong> link — one seller&apos;s copy of a shirt, not
+            Paste the <strong>listing</strong> link: one seller&apos;s copy of a shirt, not
             the product page. The post will link to the product page, so it still works
             after this one sells.
           </p>
@@ -103,7 +103,7 @@ export function DropForm() {
             <span className="recipe-tag">Step 2</span>
             <h2>{preview.title}</h2>
             <p className="desc">
-              Check this is right before generating — writing the post calls Claude and
+              Check this is right before generating. Writing the post calls Claude and
               creates a draft.
             </p>
           </div>
@@ -120,7 +120,7 @@ export function DropForm() {
 
           {preview.photoSource === "listing" && (
             <p className="hint" style={{ padding: "0 16px" }}>
-              Using the seller&apos;s own photos — this product has no catalogue image the
+              Using the seller&apos;s own photos, because this product has no catalogue image the
               card can use. They show the actual item rather than the reference shot.
             </p>
           )}

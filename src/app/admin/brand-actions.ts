@@ -38,7 +38,7 @@ export async function uploadBrandMark(
 
   if (!ACCEPTED.has(file.type)) {
     throw new Error(
-      `${file.type || "That file"} cannot be used. PNG or JPEG only — the card ` +
+      `${file.type || "That file"} cannot be used. PNG or JPEG only. The card ` +
         "renderer decodes neither SVG reliably nor WebP at all, and would draw an empty box.",
     );
   }

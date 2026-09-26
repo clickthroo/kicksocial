@@ -88,7 +88,7 @@ export function salesAccess(
     // Conclusion, evidence, remedy - this string is the skip reason on the run
     // log and has to stand on its own there.
     reason:
-      "The engine cannot see Kickio's recorded sales — it read " +
+      "The engine cannot see Kickio's recorded sales: it read " +
       `${candidates} ${subject} but 0 sales_history rows. The ` +
       "`kickio_content_reader` role was applied on 2026-09-19 and can read " +
       "28,858 approved sales, so this is the credential, not the grant: " +

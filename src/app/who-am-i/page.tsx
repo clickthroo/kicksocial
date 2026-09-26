@@ -34,7 +34,7 @@ export default async function WhoAmIPage() {
       {!loadError && (
         <p className="section-note">
           A career is ready when we hold a photographed shirt from {SHIRTS} of its clubs,
-          from a season he was actually there — a 2019 Ajax shirt is not a 1994 Ajax
+          from a season he was actually there. A 2019 Ajax shirt is not a 1994 Ajax
           player&rsquo;s shirt. The list fills itself as the catalogue grows. Most
           countries first, then the careers where we could pick from more than {SHIRTS}.
         </p>

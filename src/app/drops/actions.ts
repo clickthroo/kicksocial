@@ -119,7 +119,7 @@ export async function lookupListing(
       warning: cheaper
         ? `A cheaper listing for this shirt is live at ` +
           `${formatPrice(buyerPriceCents(cheaper.lowestCents, fee), currency)}. ` +
-          `The post links to the product page, which leads with the cheapest one — ` +
+          `The post links to the product page, which leads with the cheapest one, ` +
           `so a reader may see that price first. Post it anyway if you are ` +
           `featuring this particular listing on purpose.`
         : null,

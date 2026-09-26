@@ -40,7 +40,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     id: "sample-who-am-i",
     recipe_key: "who_am_i",
     subject_ref: "crespo",
-    headline: "Who am I? — Hernán Crespo (6 clubs, 3 countries)",
+    headline: "Who am I? Hernán Crespo (6 clubs, 3 countries)",
     generation: { visual_template: "who_am_i_card", style: "paper" },
     // One of the four careers the shelf can actually field today, with its real
     // six clubs - so the preview is the post, not a mock-up of one.
@@ -52,7 +52,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       // About one shirt in three carries a player's name, and it is never the
       // answer's. The card has to say so, or a name in a row of blank shirts
       // reads as the answer being handed over. Two named is the common case.
-      teammate_note: "Two of these carry a teammate's name — none of them mine",
+      teammate_note: "Two of these carry a teammate's name, none of them mine",
       teammates: [
         { name: "Zanetti", club: "Inter Milan", season: "2002-03" },
         { name: "Lampard", club: "Chelsea", season: "2003-04" },
@@ -94,7 +94,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       price_low: "£138.99",
       price_high: "£276.99",
       price_latest: "£138.99",
-      caveat: "Very Good at the bottom, Brand New at the top — the spread tracks condition",
+      caveat: "Very Good at the bottom, Brand New at the top. The spread tracks condition",
       // The case the card is ordered around: one live on Kickio, under every
       // sale behind it. Previewing without this hides the busiest the header
       // block ever gets.
@@ -104,11 +104,11 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
         condition: "Very Good",
         listings: 2,
         standing: "under-all",
-        line: "From £129.99 on Kickio now — under every sale shown",
+        line: "From £129.99 on Kickio now, under every sale shown",
       },
       condition_read: {
         verdict: "explained",
-        summary: "Very Good at the bottom, Brand New at the top — the spread tracks condition",
+        summary: "Very Good at the bottom, Brand New at the top. The spread tracks condition",
         cheapest: { price: "£138.99", size: "M", condition: "Very Good" },
         dearest: { price: "£276.99", size: "XXL", condition: "Brand New" },
         like_for_like: { condition: "Very Good", count: 4, low: "£138.99", high: "£184.99" },
@@ -171,7 +171,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     id: "sample-grail-sale",
     recipe_key: "grail_sale",
     subject_ref: "1990-92-england-third-shirt@2026-09-17",
-    headline: "Sold: 1990-92 England Third Shirt — £346.99",
+    headline: "Sold: 1990-92 England Third Shirt · £346.99",
     generation: { visual_template: "grail_sale_card" },
     source_data: {
       title: "1990-92 England Third Shirt",
@@ -368,7 +368,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     id: "sample-drop",
     recipe_key: "kickio_drop",
     subject_ref: "drop:21b7f8c2-6e2c-4203-9d0a-65f93232cf6b",
-    headline: "2002-03 Rangers FC Away Shirt — £192.99",
+    headline: "2002-03 Rangers FC Away Shirt · £192.99",
     generation: { visual_template: "drop_card" },
     source_data: {
       title: "2002-03 Rangers FC Away Shirt",
@@ -426,7 +426,7 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     id: "sample-value",
     recipe_key: "value_pick",
     subject_ref: "value:p1|S|very good",
-    headline: "1993-94 Manchester United Away Shirt Cantona #7 — £154.31, 38% below",
+    headline: "1993-94 Manchester United Away Shirt Cantona #7 · £154.31, 38% below",
     generation: { visual_template: "value_card" },
     source_data: {
       title: "1993-94 Manchester United Away Shirt Cantona #7",

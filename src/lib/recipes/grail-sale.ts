@@ -217,7 +217,7 @@ export function buildCandidate(
       // is part of the identity. Keying on the slug alone would make a second
       // sale look like a duplicate.
       subjectRef: `${product.slug}@${soldAt}`,
-      headline: `Sold: ${title} — ${price}`,
+      headline: `Sold: ${title} · ${price}`,
       sourceData: cleanFacts({
         title,
         price,

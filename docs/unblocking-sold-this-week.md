@@ -18,7 +18,7 @@ that can read the table.
 - [ ] **The engine still connects as `anon`.** Until
       `KICKIO_SUPABASE_PUBLISHABLE_KEY` holds a JWT carrying the
       `kickio_content_reader` role claim, every recipe above stays blocked and
-      will say so. See "Connecting as the role" below — it needs Kickio's JWT
+      will say so. See "Connecting as the role" below, it needs Kickio's JWT
       secret from the Supabase dashboard, so it is a hands-on step.
 
 ## The approach
@@ -33,12 +33,12 @@ The important property: the policy is scoped `TO kickio_content_reader`, not
 |---|---|---|
 | Who can read the data | The engine's server-side credential | Anyone who views the marketplace's page source |
 | Data modified | None | None |
-| Can write to Kickio | No — no write grants | No |
+| Can write to Kickio | No, no write grants | No |
 | Reversible | Yes, 3 statements | Yes |
 
 `anon` is the key Kickio's own frontend ships to every visitor's browser. A
-policy scoped to it would publish ~28,700 rows of aggregated market pricing —
-data normalised from CFS, VFS, eBay and Shopify — to anyone who wants it.
+policy scoped to it would publish ~28,700 rows of aggregated market pricing,
+data normalised from CFS, VFS, eBay and Shopify, to anyone who wants it.
 
 Worth noting the current state looks deliberate rather than accidental: `anon`
 can already read `listings`, `products`, `teams` and the derived
@@ -56,8 +56,8 @@ Two of those are easy to overlook, and they fail differently:
 
 | Table | Used for | If the grant is missing |
 |---|---|---|
-| `profiles` | Seller checkboxes in Settings | `listSellers()` throws — visible error banner |
-| `marketplace_settings` | Buyer protection fee → the price in every post | **Silent.** `buyerFeeSettings()` falls back to hardcoded defaults on error, so posts keep working and keep matching the site — until Kickio changes the fee, at which point every price is quietly wrong |
+| `profiles` | Seller checkboxes in Settings | `listSellers()` throws, visible error banner |
+| `marketplace_settings` | Buyer protection fee → the price in every post | **Silent.** `buyerFeeSettings()` falls back to hardcoded defaults on error, so posts keep working and keep matching the site, until Kickio changes the fee, at which point every price is quietly wrong |
 
 The second is the dangerous one, and it is the same failure shape as the bugs
 this project keeps hitting: nothing errors, the output looks plausible, and the
@@ -65,7 +65,7 @@ number is wrong. Run the verification block.
 
 ## Connecting as the role
 
-The role is `NOLOGIN` — the engine never logs in directly, so there is no
+The role is `NOLOGIN`, the engine never logs in directly, so there is no
 database password to manage. PostgREST switches into the role for the duration
 of a request, based on the `role` claim in the JWT.
 
@@ -73,7 +73,7 @@ of a request, based on the `role` claim in the JWT.
 > moved to asymmetric JWT signing (ECC P-256), and the Legacy HS256 shared
 > secret was demoted to "Previously used keys", annotated *"Revoke once all
 > tokens have expired"*. Supabase never reveals the private half of the current
-> ECC key, so nothing here can be signed with it — this token is signed with
+> ECC key, so nothing here can be signed with it; this token is signed with
 > the legacy secret, which previous keys are still used to verify.
 >
 > That is why the token is minted for **90 days, not a year**: a year-long
@@ -83,10 +83,10 @@ of a request, based on the `role` claim in the JWT.
 >
 > Do not revoke the previous key while the engine depends on it. To cut the
 > engine's access off deliberately, drop the role instead (rollback block in
-> `kickio-read-only-role.sql`) — that is immediate and affects nothing else.
+> `kickio-read-only-role.sql`), that is immediate and affects nothing else.
 
 1. Get the secret: Supabase dashboard → Kickio project → **Project Settings →
-   JWT Keys → the *Legacy JWT Secret* tab**. Not the *JWT Signing Keys* tab —
+   JWT Keys → the *Legacy JWT Secret* tab**. Not the *JWT Signing Keys* tab,
    the Key ID shown there (a UUID like `3C806ED1-…`) is a public label, and
    signing with it yields a token rejected for "invalid signature". The script
    refuses a UUID for that reason.
@@ -100,7 +100,7 @@ of a request, based on the `role` claim in the JWT.
    It prompts for the secret rather than taking it as an argument, so the
    secret never reaches shell history or disk, and the same command works on
    macOS, Linux and Windows. Do not paste the secret into jwt.io or any other
-   website — it signs every token Kickio trusts, including live user sessions.
+   website, it signs every token Kickio trusts, including live user sessions.
 
    The payload it produces matches the existing anon key's shape, with only the
    role changed:
@@ -115,7 +115,7 @@ of a request, based on the `role` claim in the JWT.
 
    | Request | Expected |
    |---|---|
-   | `GET /sales_history?select=id&limit=1` | one row — **not** `[]` |
+   | `GET /sales_history?select=id&limit=1` | one row, **not** `[]` |
    | `POST /sales_history` with a row body | permission denied |
    | `GET /collections?select=paid_cents&limit=1` | permission denied |
 
@@ -127,8 +127,8 @@ of a request, based on the `role` claim in the JWT.
    key as `apikey` and the minted token as `Authorization`, which is a small
    change to `src/lib/kickio/client.ts`.
 
-4. Set it as `KICKIO_SUPABASE_PUBLISHABLE_KEY` on the content engine only —
-   server-side, never `NEXT_PUBLIC_` — and redeploy.
+4. Set it as `KICKIO_SUPABASE_PUBLISHABLE_KEY` on the content engine only,
+   server-side, never `NEXT_PUBLIC_`, and redeploy.
 
 Do not revoke the previous (Legacy HS256) key in the Supabase dashboard while
 this is in use: that key is what verifies this token, and revoking it kills the
@@ -138,11 +138,11 @@ engine's access immediately.
 
 `scripts/mint-reader-token.js` needs Node. macOS ships neither Node nor git by
 default, and installing them for a 90-day credential is a poor trade. `openssl`
-*is* built in, and produces a byte-identical token — the one-liner is in the
+*is* built in, and produces a byte-identical token, the one-liner is in the
 session notes; it prints the pasted secret's length so a Key ID (36 characters,
 dashed) is obvious against the real secret.
 
-The client already accepts it — `kickio_content_reader` is on the allowlist in
+The client already accepts it, `kickio_content_reader` is on the allowlist in
 `src/lib/kickio/client.ts`. Nothing else changes, and the read-only guarantee
 still holds in all three layers, now with Postgres grants as a fourth.
 
@@ -150,13 +150,13 @@ still holds in all three layers, now with Postgres grants as a fourth.
 
 This is smaller than public exposure, not zero:
 
-- **The JWT is a secret.** Treat it like the service key — server-side env var
+- **The JWT is a secret.** Treat it like the service key, server-side env var
   only, never in client code. If it leaks, the holder can read approved sales
   data. They still cannot write anything.
 - **A long-lived JWT cannot be revoked individually.** Rotating it means
   rotating Kickio's JWT secret, which invalidates every token including live
   user sessions. If that matters, set a shorter `exp` and re-mint on a schedule,
-  or drop the role to cut access instantly (`drop policy` + `drop role` — the
+  or drop the role to cut access instantly (`drop policy` + `drop role`, the
   rollback block in the SQL file).
 - **Row scope is enforced, not conventional.** The policy's `USING` clause
   restricts the role to `review_state = 'approved'` with no exclusions, so the
@@ -176,4 +176,4 @@ insert into sales_history (sold_at, price_cents, currency, source)
 reset role;
 ```
 
-If that insert succeeds, roll back immediately — the role is not read-only.
+If that insert succeeds, roll back immediately, the role is not read-only.

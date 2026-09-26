@@ -110,7 +110,7 @@ export function BrandEditor({ brand }: { brand: Brand }) {
         <span className="recipe-tag">Branding</span>
         <h2>Logo and colours</h2>
         <p className="desc">
-          Used on every generated card. Changes apply to the next render — existing
+          Used on every generated card. Changes apply to the next render. Existing
           drafts pick them up too, since the image is drawn on demand.
         </p>
       </div>
@@ -132,7 +132,7 @@ export function BrandEditor({ brand }: { brand: Brand }) {
             {mark ? <img src={mark} alt="" /> : <span className="brand-mark-empty light">KICKIO</span>}
           </div>
           <div className="brand-mark-meta">
-            <div>{mark ? (markName ?? "Uploaded") : "No logo — cards use the wordmark"}</div>
+            <div>{mark ? (markName ?? "Uploaded") : "No logo, cards use the wordmark"}</div>
             <div className="brand-mark-actions">
               <button
                 className="link"
@@ -161,8 +161,8 @@ export function BrandEditor({ brand }: { brand: Brand }) {
         </label>
         <p className="hint">
           Clears the surround so the logo sits on the card rather than in a white box.
-          It spreads inwards from the edges, so white <em>inside</em> the artwork — a
-          ring, lettering — is kept. Turn it off for a logo that is meant to have a
+          It spreads inwards from the edges, so white <em>inside</em> the artwork, such as a
+          ring or lettering, is kept. Turn it off for a logo that is meant to have a
           panel behind it.
         </p>
 
@@ -214,7 +214,7 @@ export function BrandEditor({ brand }: { brand: Brand }) {
           <div className="field-label">How the trend colours read</div>
           <p className="hint">
             Rising and falling were picked so a colourblind reader can still tell them
-            apart. This re-checks whatever you choose — direction is also carried by an
+            apart. This re-checks whatever you choose. Direction is also carried by an
             arrow and a signed number, so these are warnings, not refusals.
           </p>
           {checks.map((check, i) => (

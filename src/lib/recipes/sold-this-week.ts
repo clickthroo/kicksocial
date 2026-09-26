@@ -134,7 +134,7 @@ export async function runSoldThisWeek(
       reason: readable
         ? `No sale in the last ${config.windowDays} days clears ` +
           `${formatPrice(config.minPriceCents)} - a quiet week, not a fault`
-        : "The engine cannot see Kickio's recorded sales — sales_history read " +
+        : "The engine cannot see Kickio's recorded sales: sales_history read " +
           "as empty even unfiltered. The `kickio_content_reader` role was " +
           "applied on 2026-09-19, so this is the credential, not the grant: " +
           "KICKIO_SUPABASE_PUBLISHABLE_KEY is still an `anon` key. Mint a JWT " +
@@ -239,7 +239,7 @@ export async function runSoldThisWeek(
 
   const candidate: RecipeCandidate = {
     subjectRef,
-    headline: `Sold this week — ${[cleanValue(featured[0].team), cleanValue(featured[0].season)]
+    headline: `Sold this week: ${[cleanValue(featured[0].team), cleanValue(featured[0].season)]
       .filter(Boolean)
       .join(" ")} at ${gbp(featured[0].price_cents)}`,
     sourceData: {
