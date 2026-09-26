@@ -62,3 +62,12 @@ values ('who_am_i', 'Who Am I?',
   '<WHO_AM_I_BRIEF, from src/lib/recipes/who-am-i.ts>',
   'who_am_i_card')
 on conflict (key) do nothing;
+
+-- 2026-09-26: re-sync the Who Am I? brief after the teammate mechanic was added
+-- to it. The brief lives in code (`WHO_AM_I_BRIEF`); this column is what the
+-- generator actually reads, so the two drift silently unless the update is run.
+-- `do nothing` above means a re-run of the insert will not fix it - the update
+-- is the fix. 1,411 chars -> 2,069.
+update recipes
+set prompt_template = '<WHO_AM_I_BRIEF, from src/lib/recipes/who-am-i.ts>'
+where key = 'who_am_i';

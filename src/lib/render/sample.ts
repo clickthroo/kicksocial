@@ -49,6 +49,14 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       clubs_shown: 6,
       countries: 3,
       span: "1993–2010",
+      // About one shirt in three carries a player's name, and it is never the
+      // answer's. The card has to say so, or a name in a row of blank shirts
+      // reads as the answer being handed over. Two named is the common case.
+      teammate_note: "Two of these carry a teammate's name — none of them mine",
+      teammates: [
+        { name: "Zanetti", club: "Inter Milan", season: "2002-03" },
+        { name: "Lampard", club: "Chelsea", season: "2003-04" },
+      ],
       images: [
         "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/" +
           "product-images/scraped/cfs/BRAA069V/0.jpg",
