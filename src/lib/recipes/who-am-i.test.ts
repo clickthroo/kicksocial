@@ -2,6 +2,8 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   bestShirtFor,
+  isMatchShirt,
+  teammateNote,
   coverFor,
   pickSix,
   revealText,
@@ -11,12 +13,13 @@ import {
 } from "./who-am-i.ts";
 import { CAREERS, CLUB_COUNTRY, MIN_LOAN_APPS, spellCounts } from "./careers.ts";
 
-const shirt = (team: string, season: string, type = "Home"): ShirtRow => ({
-  id: `${team}-${season}`,
+const shirt = (team: string, season: string, type = "Home", player: string | null = null): ShirtRow => ({
+  id: `${team}-${season}${player ? `-${player}` : ""}`,
   slug: null,
   team,
   season,
   shirt_type: type,
+  player_name: player,
   primary_image_url: "https://example/x.jpg",
 });
 
@@ -125,6 +128,7 @@ describe("choosing the six", () => {
     england,
     loan: false,
     international: false,
+    playerName: null,
     productId: team,
     slug: null,
     imageUrl: "https://example/x.jpg",
@@ -245,6 +249,7 @@ describe("the reveal", () => {
     england: country === "England",
     loan: false,
     international: false,
+    playerName: null,
     productId: team,
     slug: null,
     imageUrl: "x",
@@ -355,5 +360,96 @@ describe("the one national-side tile", () => {
     const uncapped = { ...career, international: undefined };
     const covered = coverFor(uncapped, byTeam(shirts));
     assert.equal(covered.length, 2);
+  });
+});
+
+describe("what may appear on the grid", () => {
+  const spell = { team: "Chelsea", from: 2003, to: 2003 };
+
+  /**
+   * A training top or a pair of socks in a row of match shirts does not read as
+   * a clue, it reads as a mistake - and `shirt_type` carries both.
+   */
+  test("only home, away and third are match shirts", () => {
+    for (const kind of ["Home", "Away", "Third", "home", " away "]) {
+      assert.equal(isMatchShirt(kind), true, `${kind} should be allowed`);
+    }
+    for (const kind of [
+      "Training",
+      "Goalkeeper",
+      "GK Home",
+      "GK Away",
+      "Fourth",
+      "Pre-Match",
+      "Track Jacket",
+      "Jacket",
+      "Cap",
+      "Socks",
+      "long sleeve",
+      null,
+      "",
+    ]) {
+      assert.equal(isMatchShirt(kind), false, `${kind} should be refused`);
+    }
+  });
+
+  test("a goalkeeper shirt is never chosen, even when it is the only one", () => {
+    assert.equal(bestShirtFor([shirt("Chelsea", "2003-04", "GK Home")], spell), null);
+    assert.equal(bestShirtFor([shirt("Chelsea", "2003-04", "Training")], spell), null);
+  });
+
+  /**
+   * A plain club shirt is the purer puzzle. A named one is not wrong - it is a
+   * teammate, and the card says so - but it hands over a clue a blank shirt
+   * does not, so it is the second choice.
+   */
+  test("prefers an unnamed shirt over a named one", () => {
+    const picked = bestShirtFor(
+      [shirt("Chelsea", "2003-04", "Home", "Lampard 8"), shirt("Chelsea", "2003-04", "Away")],
+      spell,
+    );
+    assert.equal(picked?.player_name, null);
+  });
+
+  test("takes the named one when that is all there is", () => {
+    const picked = bestShirtFor([shirt("Chelsea", "2003-04", "Home", "Lampard 8")], spell);
+    assert.equal(picked?.player_name, "Lampard 8");
+  });
+});
+
+describe("saying whose name is on the shirt", () => {
+  const club = (team: string, playerName: string | null) => ({
+    team,
+    country: "England",
+    season: "2003-04",
+    shirtType: "Home",
+    playerName,
+    from: 2003,
+    to: 2003,
+    england: true,
+    loan: false,
+    international: false,
+    productId: team,
+    slug: null,
+    imageUrl: "x",
+  });
+
+  /**
+   * The point of the line. A "Möller 10" shirt among blank ones otherwise reads
+   * as the answer being handed over, or as a mistake. It is neither - and
+   * saying so turns the oddity into the best clue on the card.
+   */
+  test("names the count and makes clear it is not him", () => {
+    assert.equal(teammateNote([club("Chelsea", null)]), null);
+    assert.match(teammateNote([club("Chelsea", "Lampard 8")])!, /One of these carries a teammate's name/);
+    assert.match(teammateNote([club("Chelsea", "Lampard 8")])!, /not mine/);
+    assert.match(
+      teammateNote([club("Chelsea", "Lampard 8"), club("Arsenal", "Henry 14")])!,
+      /Two of these carry a teammate's name/,
+    );
+    assert.match(
+      teammateNote([club("Chelsea", "Lampard 8"), club("Arsenal", "Henry 14")])!,
+      /none of them mine/,
+    );
   });
 });

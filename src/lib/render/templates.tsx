@@ -2427,13 +2427,15 @@ function WhoAmICard({
 
   const titleInk = mix(palette.accent, palette.ink, 0.42);
   const pad = portrait ? 56 : 44;
+  const teammateNote = typeof d.teammate_note === "string" ? d.teammate_note : null;
 
   const cols = portrait ? 3 : 6;
   const gap = portrait ? 18 : 14;
   const cellW = Math.floor(((portrait ? 1080 : 1200) - pad * 2 - gap * (cols - 1)) / cols);
   // Sized so the two rows, the lockup, the title block and the ask all fit
   // inside the frame. At 420 the ask was clipped off the bottom edge.
-  const cellH = portrait ? 390 : 300;
+  // The teammate line costs a row of type, so the tiles give it back.
+  const cellH = portrait ? (teammateNote ? 355 : 390) : teammateNote ? 272 : 300;
 
   const facts = [
     `${String(d.clubs_shown ?? shirts.length)} clubs`,
@@ -2490,6 +2492,21 @@ function WhoAmICard({
               }}
             >
               {facts}
+            </div>
+          )}
+          {/* Said on the card, not just in the caption. A named shirt in a row
+              of blank ones otherwise reads as the answer being handed over, or
+              as a mistake - and the caption is not always what gets seen. */}
+          {teammateNote && (
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 27 : 21,
+                color: palette.muted,
+                marginTop: portrait ? 8 : 5,
+              }}
+            >
+              {teammateNote}
             </div>
           )}
         </div>

@@ -40,7 +40,23 @@ export interface ShirtRow {
   team: string;
   season: string | null;
   shirt_type: string | null;
+  player_name: string | null;
   primary_image_url: string | null;
+}
+
+/**
+ * The only kinds of shirt that may appear on the grid.
+ *
+ * An allowlist, not a blocklist. `shirt_type` also carries Training,
+ * Goalkeeper, GK Home, Fourth, Pre-Match, Track Jacket, Cap and Socks, and a
+ * training top or a pair of socks in a row of match shirts does not read as a
+ * clue, it reads as a mistake. Matching by negation would also let the next
+ * odd value through on its own.
+ */
+const WEARABLE = new Set(["home", "away", "third"]);
+
+export function isMatchShirt(shirtType: string | null | undefined): boolean {
+  return WEARABLE.has((shirtType ?? "").trim().toLowerCase());
 }
 
 export interface CoveredClub {
@@ -55,6 +71,14 @@ export interface CoveredClub {
   loan: boolean;
   /** True for the one national-side tile, where one was needed. */
   international: boolean;
+  /**
+   * The name printed on this shirt, where there is one.
+   *
+   * It belongs to someone who wore that club's shirt in that season - a
+   * TEAMMATE of the man being guessed, not the man himself. That is a clue
+   * rather than a flaw, and the card and the copy both say so.
+   */
+  playerName: string | null;
   productId: string;
   slug: string | null;
   imageUrl: string;
@@ -85,10 +109,17 @@ export function shirtFitsSpell(season: string | null | undefined, spell: Spell):
  * most likely to be a shirt he barely wore.
  */
 export function bestShirtFor(shirts: readonly ShirtRow[], spell: Spell): ShirtRow | null {
-  const fitting = shirts.filter((s) => shirtFitsSpell(s.season, spell) && s.primary_image_url);
+  const fitting = shirts.filter(
+    (s) => shirtFitsSpell(s.season, spell) && s.primary_image_url && isMatchShirt(s.shirt_type),
+  );
   if (fitting.length === 0) return null;
   const middle = (spell.from + spell.to) / 2;
+  const named = (s: ShirtRow) => (cleanValue(s.player_name) ? 1 : 0);
   return [...fitting].sort((a, b) => {
+    // A plain club shirt is the purer puzzle, so an unnamed one wins outright.
+    // A named shirt is not wrong - it is a teammate, and the card says so -
+    // but it hands over a clue that a blank shirt does not.
+    if (named(a) !== named(b)) return named(a) - named(b);
     const distance =
       Math.abs((seasonStart(a.season) ?? 0) - middle) - Math.abs((seasonStart(b.season) ?? 0) - middle);
     if (distance !== 0) return distance;
@@ -116,6 +147,7 @@ export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): Cover
       country: CLUB_COUNTRY[spell.team] ?? "",
       season: shirt.season ?? "",
       shirtType: cleanValue(shirt.shirt_type),
+      playerName: cleanValue(shirt.player_name),
       from: spell.from,
       to: spell.to,
       england: spell.england !== undefined,
@@ -150,6 +182,7 @@ export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): Cover
         country: career.international.team,
         season: shirt.season ?? "",
         shirtType: cleanValue(shirt.shirt_type),
+        playerName: cleanValue(shirt.player_name),
         from: spell.from,
         to: spell.to,
         england: false,
@@ -216,7 +249,7 @@ export interface QualifyingPlayer {
   shirts: string[];
 }
 
-const COLUMNS = "id,slug,team,season,shirt_type,primary_image_url";
+const COLUMNS = "id,slug,team,season,shirt_type,player_name,primary_image_url";
 
 async function shirtsForTeams(teams: readonly string[]): Promise<Map<string, ShirtRow[]>> {
   const rows = await pageIn<ShirtRow, string>("Loading shirts", teams, (batch, from, to) =>
@@ -316,6 +349,22 @@ export function revealText(career: Career, six: readonly CoveredClub[]): string 
   );
 }
 
+/**
+ * The line the card prints when a shirt on the grid carries a name.
+ *
+ * Without it the grid is quietly confusing: a "Möller 10" shirt in a row of
+ * blank ones reads either as the answer being given away or as a mistake. It is
+ * neither - it is a teammate, and saying so turns the oddity into the best clue
+ * on the card.
+ */
+export function teammateNote(six: readonly CoveredClub[]): string | null {
+  const named = six.filter((club) => club.playerName).length;
+  if (named === 0) return null;
+  return named === 1
+    ? "One of these carries a teammate's name — not mine"
+    : `${named === 2 ? "Two" : named === 3 ? "Three" : String(named)} of these carry a teammate's name — none of them mine`;
+}
+
 export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
   const career = careerByKey(playerKey);
   if (!career) return { ok: false, reason: `No career on file for '${playerKey}'` };
@@ -342,12 +391,28 @@ export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
 
   // Every club shown is a claim that he played there, in those years, so each
   // one is stated as a claim with the shirt it was matched to.
-  const claims: Claim[] = six.map((club) => ({
-    statement: `Played for ${club.team}${club.loan ? " (on loan)" : ""}, ${club.from}–${club.to + 1}`,
-    value: club.season,
-    source: `careers.ts (${career.key}) matched to products.id ${club.productId}`,
-    basis: `The shirt shown is ${club.team} ${club.season}, inside that spell`,
-  }));
+  const claims: Claim[] = [
+    ...six.map((club) => ({
+      statement: `Played for ${club.team}${club.loan ? " (on loan)" : ""}, ${club.from}–${club.to + 1}`,
+      value: club.season,
+      source: `careers.ts (${career.key}) matched to products.id ${club.productId}`,
+      basis: `The shirt shown is ${club.team} ${club.season}, inside that spell`,
+    })),
+    // A named shirt is a claim about a second person, so it gets its own. The
+    // claim is narrow and checkable: that name was on that club's shirt in a
+    // season the mystery player was there. It is not "they were close" or
+    // "they played together every week".
+    ...six
+      .filter((club) => club.playerName)
+      .map((club) => ({
+        statement:
+          `The ${club.team} shirt shown carries ${club.playerName}, who wore it in ` +
+          `${club.season} — a season this player was at the club`,
+        value: club.playerName!,
+        source: `products.player_name (id ${club.productId})`,
+        basis: "Teammate by squad and season, from the shirt itself - not a claim about anything more",
+      })),
+  ];
 
   return {
     ok: true,
@@ -375,6 +440,13 @@ export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
           shirt: `${club.team} ${club.season}${club.shirtType ? ` ${club.shirtType}` : ""}`,
           kickio_url: club.slug ? kickioUrl(club.slug) : null,
         })),
+        // The named shirts, which are a mechanic rather than an accident: each
+        // one is somebody who wore that club's shirt in a season the mystery
+        // player was there. The copy is told to use them as clues.
+        teammates: six
+          .filter((club) => club.playerName)
+          .map((club) => ({ name: club.playerName, club: club.team, season: club.season })),
+        teammate_note: teammateNote(six),
         notes: career.notes,
         clubs_not_shown: covered.filter((c) => !six.includes(c)).map((c) => c.team),
       },
@@ -404,6 +476,17 @@ that are not in the notes, no "widely regarded as".
 Do not name the clubs either. They are in the grid; naming them answers the
 question. Allude to them instead - "a January move to Manchester", "two years
 in Italy", "the club I supported as a boy".
+
+SOME SHIRTS CARRY A NAME, AND THAT NAME IS NEVER HIS. It belongs to a player
+who wore that club's shirt in a season he was there - a TEAMMATE. \`teammates\`
+lists them and the card says so out loud, because a named shirt in a row of
+blank ones otherwise reads as the answer being handed over or as a mistake.
+
+Use them. "The name on the third shirt was in the same dressing room as me" is
+a better clue than anything you could invent, and it is the kind of thing that
+gets an answer in the comments. What you may NOT do is say more about the
+relationship than the shirt supports: same club, same season, nothing about
+friendship, position or who played more.
 
 Difficulty is the point. Lead with the least obvious chapter, not the most
 famous one, and save the giveaway for last if you use it at all.
