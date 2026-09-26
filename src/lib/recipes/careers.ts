@@ -1389,6 +1389,47 @@ export const CAREERS: Career[] = [
       "Won the league in Scotland twice",
     ],
   },
+  {
+    key: "collymore",
+    display: "Stan Collymore",
+    nationality: "England",
+    international: { team: "England", from: 1995, to: 1997 },
+    spells: [
+      { team: "Crystal Palace", from: 1990, to: 1992, england: "top" },
+      { team: "Nottingham Forest", from: 1993, to: 1994, england: "top" },
+      { team: "Liverpool", from: 1995, to: 1996, england: "top" },
+      { team: "Aston Villa", from: 1997, to: 1999, england: "top" },
+      // Fulham were in the second tier for both of these seasons, promoted the
+      // year after he left.
+      { team: "Fulham", from: 1999, to: 2000, england: "championship" },
+      { team: "Leicester City", from: 2000, to: 2000, england: "top" },
+    ],
+    notes: [
+      "Signed out of non-league football, and broke the British transfer record four years later",
+      "Scored on his debut for the club that paid it",
+      "Three caps, all of them won in the middle of this list",
+      "Dropped from the top flight to the second tier at twenty-nine",
+    ],
+  },
+  {
+    key: "nasri",
+    display: "Samir Nasri",
+    nationality: "France",
+    international: { team: "France", from: 2007, to: 2013 },
+    spells: [
+      { team: "Marseille", from: 2004, to: 2007 },
+      { team: "Arsenal", from: 2008, to: 2010, england: "top" },
+      { team: "Manchester City", from: 2011, to: 2016, england: "top" },
+      { team: "West Ham United", from: 2018, to: 2018, england: "top" },
+      { team: "RSC Anderlecht", from: 2019, to: 2019 },
+    ],
+    notes: [
+      "A European Under-17 champion before he had played a senior game",
+      "Made his first-team debut at seventeen, at the club he grew up supporting",
+      "Two league titles in England, both at the same club",
+      "Finished in Belgium, after a season in Turkey that is not on this grid",
+    ],
+  },
 ];
 
 export function careerByKey(key: string): Career | undefined {
