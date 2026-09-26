@@ -12,7 +12,14 @@ import type { QualifyingPlayer } from "@/lib/recipes/who-am-i.ts";
  * whether the puzzle works. The name is here too: this screen is the one place
  * the answer is allowed to be visible.
  */
-export function PlayerPicker({ player }: { player: QualifyingPlayer }) {
+export function PlayerPicker({
+  player,
+  isNew = false,
+}: {
+  player: QualifyingPlayer;
+  /** First seen on this list within the last week. */
+  isNew?: boolean;
+}) {
   const [result, setResult] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -38,7 +45,10 @@ export function PlayerPicker({ player }: { player: QualifyingPlayer }) {
     <article className={`card pick${done ? " resolved" : ""}`}>
       <div className="pick-row">
         <div className="pick-main">
-          <h2>{player.display}</h2>
+          <h2>
+            {player.display}
+            {isNew && <span className="tag-new">New</span>}
+          </h2>
           <div className="pick-meta">
             {player.countries} {player.countries === 1 ? "country" : "countries"} ·{" "}
             {player.span} · {player.clubs} clubs we can show

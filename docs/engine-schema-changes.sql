@@ -71,3 +71,36 @@ on conflict (key) do nothing;
 update recipes
 set prompt_template = '<WHO_AM_I_BRIEF, from src/lib/recipes/who-am-i.ts>'
 where key = 'who_am_i';
+
+-- 2026-09-26: the "new" badge on /who-am-i.
+--
+-- The picker re-tests every career against the live catalogue on each load, so
+-- careers appear and disappear on their own as shirts arrive and are removed.
+-- That is the design, and it is also why "19 ready of 71" tells you nothing
+-- about whether the shelf moved. This records the first time we saw each
+-- subject qualify.
+--
+-- Insert-only, deliberately. A cooldown takes a subject off the list for 180
+-- days and then hands it back; refreshing the date on its return would badge
+-- every recycled career as new and the badge would mean nothing.
+create table if not exists subject_first_seen (
+  recipe_key    text        not null,
+  subject_ref   text        not null,
+  first_seen_at timestamptz not null default now(),
+  primary key (recipe_key, subject_ref)
+);
+
+-- Backfill, run once. Without it the seventeen careers that already qualified
+-- would all be recorded on the first page load after deploy and every one of
+-- them would light up as new for a week. Dated outside the window rather than
+-- given an invented exact date, because we do not know when each one first
+-- became eligible. Collymore and Nasri are deliberately absent: they were
+-- added the same day and are genuinely new.
+insert into subject_first_seen (recipe_key, subject_ref, first_seen_at)
+select 'who_am_i', k, now() - interval '30 days'
+from unnest(array[
+  'stam','vieira','balotelli','ibrahimovic','ashley-young','brian-laudrup','anelka',
+  'bellamy','crespo','veron','heinze','kp-boateng','lukaku','defoe','david-james',
+  'andy-cole','woodgate'
+]) as k
+on conflict (recipe_key, subject_ref) do nothing;

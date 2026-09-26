@@ -514,6 +514,14 @@ ol.queue .link:hover { color: var(--danger); }
 .pick-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 .pick-main h2 { font-size: 15px; margin: 0; line-height: 1.3; }
 .pick-meta { font-size: 12px; color: var(--muted); }
+/* Marks a career that has only just become postable, so a list that re-tests
+   itself on every load still shows what actually moved. */
+.tag-new {
+  display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  vertical-align: 2px;
+}
 .pick-stock { font-size: 13px; font-weight: 600; color: var(--text); }
 .pick-stock.good { color: var(--accent); }
 .btn.pick-btn { flex: 0 0 auto; font-size: 13px; padding: 9px 15px; border-radius: 8px; }

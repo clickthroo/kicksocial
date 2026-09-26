@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { runRecipe } from "@/lib/run-recipe.ts";
 import { expireStaleDrafts, type ExpirySweep } from "@/lib/expiry.ts";
 import { checkTriggerAuth } from "@/lib/http-auth.ts";
+import { qualifyingPlayers, WHO_AM_I_KEY } from "@/lib/recipes/who-am-i.ts";
+import { recordFirstSeen } from "@/lib/recipes/first-seen.ts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -52,6 +54,19 @@ export async function GET(request: Request): Promise<NextResponse> {
     sweep.error = (err as Error).message;
   }
 
+  // The Who Am I list re-tests itself against the catalogue on every page
+  // load, so careers appear on their own as shirts arrive. Recording the ones
+  // we can see here as well as on the page means the "new" dates are right to
+  // the day even in a week when nobody opens the picker.
+  const firstSeen: { recorded: number; error: string | null } = { recorded: 0, error: null };
+  try {
+    const eligible = await qualifyingPlayers();
+    await recordFirstSeen(WHO_AM_I_KEY, eligible.map((p) => p.key));
+    firstSeen.recorded = eligible.length;
+  } catch (err) {
+    firstSeen.error = (err as Error).message;
+  }
+
   const keys = recipesForToday(new Date());
   // Sequential: these hit the same rate limits and the volume is tiny.
   const results = [];
@@ -59,5 +74,5 @@ export async function GET(request: Request): Promise<NextResponse> {
     results.push(await runRecipe(key, "cron"));
   }
 
-  return NextResponse.json({ swept: sweep, ran: results.length, results });
+  return NextResponse.json({ swept: sweep, firstSeen, ran: results.length, results });
 }
