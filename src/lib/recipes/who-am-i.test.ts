@@ -124,6 +124,7 @@ describe("choosing the six", () => {
     to: from,
     england,
     loan: false,
+    international: false,
     productId: team,
     slug: null,
     imageUrl: "https://example/x.jpg",
@@ -243,6 +244,7 @@ describe("the reveal", () => {
     to: 2000,
     england: country === "England",
     loan: false,
+    international: false,
     productId: team,
     slug: null,
     imageUrl: "x",
@@ -263,5 +265,95 @@ describe("the reveal", () => {
     assert.match(text, /Arsenal, Real Madrid and AC Milan/);
     assert.match(text, /3 clubs, 3 countries/);
     assert.match(text, /kickio\.com/);
+  });
+});
+
+describe("the one national-side tile", () => {
+  const byTeam = (rows: ShirtRow[]) => {
+    const map = new Map<string, ShirtRow[]>();
+    for (const row of rows) map.set(row.team, [...(map.get(row.team) ?? []), row]);
+    return map;
+  };
+
+  const career = {
+    key: "test",
+    display: "Test Player",
+    nationality: "France",
+    international: { team: "France", from: 1998, to: 2009 },
+    notes: [],
+    spells: [
+      { team: "Arsenal", from: 1997, to: 1998, england: "top" as const },
+      { team: "Chelsea", from: 2000, to: 2001, england: "top" as const },
+    ],
+  };
+
+  const shirts = [
+    shirt("Arsenal", "1997-98"),
+    shirt("Chelsea", "2000-01"),
+    shirt("France", "2002-03"),
+  ];
+
+  /**
+   * Six era-correct CLUB shirts is a high bar against this shelf - most
+   * careers cover five and stop. A national shirt is still a shirt he wore,
+   * and it fills the last tile rather than replacing a club.
+   */
+  test("appears when the clubs cannot reach six", () => {
+    const covered = coverFor(career, byTeam(shirts));
+    assert.equal(covered.filter((c) => c.international).length, 1);
+    // Last, not slotted in by date: it is the thread through the career rather
+    // than a chapter between two clubs.
+    assert.deepEqual(covered.map((c) => c.team), ["Arsenal", "Chelsea", "France"]);
+  });
+
+  /** A hint makes a puzzle answerable; two hints make it a caption. */
+  test("never more than one, however short of six we are", () => {
+    const covered = coverFor(career, byTeam([...shirts, shirt("France", "2006-07")]));
+    assert.equal(covered.filter((c) => c.international).length, 1);
+  });
+
+  test("stays away entirely once six clubs are covered", () => {
+    const wide = {
+      ...career,
+      spells: [
+        { team: "Arsenal", from: 1997, to: 1998, england: "top" as const },
+        { team: "Chelsea", from: 2000, to: 2001, england: "top" as const },
+        { team: "Everton", from: 2002, to: 2003, england: "top" as const },
+        { team: "Ajax", from: 2004, to: 2005 },
+        { team: "AC Milan", from: 2006, to: 2007 },
+        { team: "Roma", from: 2008, to: 2009 },
+      ],
+    };
+    const covered = coverFor(
+      wide,
+      byTeam([
+        shirt("Arsenal", "1997-98"),
+        shirt("Chelsea", "2000-01"),
+        shirt("Everton", "2002-03"),
+        shirt("Ajax", "2004-05"),
+        shirt("AC Milan", "2006-07"),
+        shirt("Roma", "2008-09"),
+        shirt("France", "2002-03"),
+      ]),
+    );
+    assert.equal(covered.some((c) => c.international), false);
+    assert.equal(covered.length, 6);
+  });
+
+  /** A national side is not an English club, whatever England's shirt says. */
+  test("an England shirt does not satisfy the English-club rule", () => {
+    const englishman = {
+      ...career,
+      international: { team: "England", from: 1998, to: 2009 },
+      spells: [{ team: "Ajax", from: 1997, to: 1998 }],
+    };
+    const covered = coverFor(englishman, byTeam([shirt("Ajax", "1997-98"), shirt("England", "2002-03")]));
+    assert.equal(covered.some((c) => c.england && !c.international), false);
+  });
+
+  test("a player with no international career simply falls short", () => {
+    const uncapped = { ...career, international: undefined };
+    const covered = coverFor(uncapped, byTeam(shirts));
+    assert.equal(covered.length, 2);
   });
 });

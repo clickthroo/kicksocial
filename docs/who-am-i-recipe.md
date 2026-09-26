@@ -5,8 +5,8 @@ without the name, and an invitation to answer in the comments. Modelled on
 Classic Football Shirts' "Guess the player", which is one of the most reliably
 commented-on formats in this corner of football.
 
-Status: **spec, not built**. The findings below decide the shape, so they come
-first.
+Status: **built**, at `/who-am-i`. The findings below decided the shape, so
+they come first.
 
 ---
 
@@ -189,3 +189,57 @@ Two things make it work better:
    hand?
 4. **Where it sits.** Its own page like Price History, or a section of it.
    Recommendation: its own, `/who-am-i`.
+
+
+---
+
+## 8. What building it taught us — reverse the search
+
+The first thirty careers were chosen the obvious way: think of well-travelled
+players, write them down, see who the shelf could carry. **Four of thirty
+qualified.** The near-misses were all the same shape — five clubs covered and
+one gap, usually a single missing season at a mid-table English club.
+
+Reversing it — reading the inventory first, then looking for careers that fit —
+does not fix that. It makes the search efficient, and it makes the ceiling
+visible, which is the more useful result:
+
+| club | seasons we hold, photographed |
+|---|---|
+| Manchester United | 1990–2025, nearly unbroken |
+| Liverpool | 1991–2026, nearly unbroken |
+| Arsenal | 1990–2025, nearly unbroken |
+| Chelsea | 1993–2022 |
+| Manchester City | 1989–99, 2003–13, 2015–25 |
+| Everton, Spurs, Villa, Newcastle | dense in patches, gaps of 3–6 years |
+| Middlesbrough | 2004, 2007, 2019 |
+| Bolton | 1995, 2012 |
+| Leicester | 2009 onwards only |
+
+Six era-correct **club** shirts needs a career spent almost entirely at clubs in
+the top block. Anelka, Vieira, Lukaku, Stam, Woodgate and Sheringham all cover
+exactly five. It is not a search problem; it is the shelf.
+
+### The lever, and why this one
+
+Three ways to widen it, and only one is honest:
+
+1. **Loosen the era match** — allow a shirt from a season either side. No. That
+   is the one rule the format cannot survive losing.
+2. **Drop to five tiles.** Works, but it is a different format, and 3×2 is the
+   thing people recognise.
+3. **Allow one national-side shirt, and only to reach six.** Taken.
+
+A national shirt is still a shirt he wore, so nothing becomes untrue. It fills
+the last tile rather than replacing a club, so the puzzle stays a club puzzle.
+It does narrow nationality at a glance — which is why it is a last resort, why
+it is never more than one, and why it does not satisfy the English-club rule.
+A hint makes a puzzle answerable; two hints make it a caption.
+
+**Four of thirty became eleven.**
+
+### Which means the seeding method changes
+
+Careers should now be chosen against the inventory rather than from memory: pick
+players whose clubs sit in the dense blocks above, and check before writing.
+The verifier is `coverFor` and it takes seconds to run against real years.

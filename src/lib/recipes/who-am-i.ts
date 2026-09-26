@@ -53,6 +53,8 @@ export interface CoveredClub {
   to: number;
   england: boolean;
   loan: boolean;
+  /** True for the one national-side tile, where one was needed. */
+  international: boolean;
   productId: string;
   slug: string | null;
   imageUrl: string;
@@ -118,13 +120,53 @@ export function coverFor(career: Career, byTeam: Map<string, ShirtRow[]>): Cover
       to: spell.to,
       england: spell.england !== undefined,
       loan: spell.loan === true,
+      international: false,
       productId: shirt.id,
       slug: shirt.slug,
       imageUrl: imageUrls([shirt.primary_image_url])[0]!,
     });
   }
 
-  return covered.sort((a, b) => a.from - b.from);
+  covered.sort((a, b) => a.from - b.from);
+
+  // ONE national side, and only to reach six.
+  //
+  // Six era-correct CLUB shirts is a high bar against this shelf - of the
+  // first thirty careers written down, most cover five and stop. A national
+  // shirt is still a shirt he wore, and it fills the last tile rather than
+  // replacing a club, so the puzzle stays a club puzzle. It does narrow
+  // nationality in one glance, which is why it is a last resort and never more
+  // than one: a hint makes a puzzle answerable, two hints make it a caption.
+  if (covered.length < SHIRTS && career.international) {
+    const spell: Spell = {
+      team: career.international.team,
+      from: career.international.from,
+      to: career.international.to,
+    };
+    const shirt = bestShirtFor(byTeam.get(spell.team) ?? [], spell);
+    if (shirt) {
+      covered.push({
+        team: spell.team,
+        country: career.international.team,
+        season: shirt.season ?? "",
+        shirtType: cleanValue(shirt.shirt_type),
+        from: spell.from,
+        to: spell.to,
+        england: false,
+        loan: false,
+        international: true,
+        productId: shirt.id,
+        slug: shirt.slug,
+        imageUrl: imageUrls([shirt.primary_image_url])[0]!,
+      });
+      // Left at the end rather than slotted in by date. An international
+      // career is not a chapter between two clubs, it is the thread running
+      // through all of them, and sorting it into the middle made the grid read
+      // as a transfer that never happened.
+    }
+  }
+
+  return covered;
 }
 
 /**
@@ -230,7 +272,7 @@ export async function qualifyingPlayers(now = Date.now()): Promise<QualifyingPla
     const covered = coverFor(career, byTeam);
     if (covered.length < SHIRTS) continue;
     // The brief: at least one English club, Championship or better.
-    if (!covered.some((c) => c.england)) continue;
+    if (!covered.some((c) => c.england && !c.international)) continue;
 
     const postedAt = posted.get(career.key) ?? null;
     if (postedAt && now - Date.parse(postedAt) < COOLDOWN_DAYS * 86_400_000) continue;

@@ -51,6 +51,15 @@ export interface Career {
   display: string;
   /** Country he played for. Used for the "countries" count, never shown. */
   nationality: string;
+  /**
+   * His international career, where he had one, as Kickio spells the national
+   * side in `products.team`.
+   *
+   * Used ONLY to fill the last tile when six clubs cannot be covered - see
+   * `coverFor`. Curated rather than assumed from nationality, because "played
+   * for the country he was born in" is a guess and a card is a claim.
+   */
+  international?: { team: string; from: number; to: number };
   spells: Spell[];
   /**
    * Facts the copy may use, and nothing beyond them. No "widely regarded as",
@@ -64,6 +73,7 @@ export const CAREERS: Career[] = [
     key: "anelka",
     display: "Nicolas Anelka",
     nationality: "France",
+    international: { team: "France", from: 1998, to: 2009 },
     spells: [
       { team: "Paris Saint-Germain", from: 1996, to: 1996 },
       { team: "Arsenal", from: 1997, to: 1998, england: "top" },
@@ -86,6 +96,7 @@ export const CAREERS: Career[] = [
     key: "robbie-keane",
     display: "Robbie Keane",
     nationality: "Republic of Ireland",
+    international: { team: "Republic of Ireland", from: 1997, to: 2016 },
     spells: [
       { team: "Wolverhampton Wanderers", from: 1997, to: 1998, england: "championship" },
       { team: "Coventry City", from: 1999, to: 1999, england: "top" },
@@ -105,6 +116,7 @@ export const CAREERS: Career[] = [
     key: "bellamy",
     display: "Craig Bellamy",
     nationality: "Wales",
+    international: { team: "Wales", from: 1998, to: 2013 },
     spells: [
       { team: "Norwich City", from: 1997, to: 1999, england: "championship" },
       { team: "Coventry City", from: 2000, to: 2000, england: "top" },
@@ -127,6 +139,7 @@ export const CAREERS: Career[] = [
     key: "crespo",
     display: "Hernán Crespo",
     nationality: "Argentina",
+    international: { team: "Argentina", from: 1995, to: 2007 },
     spells: [
       { team: "River Plate", from: 1993, to: 1995 },
       { team: "Parma", from: 1996, to: 1999 },
@@ -148,6 +161,7 @@ export const CAREERS: Career[] = [
     key: "crouch",
     display: "Peter Crouch",
     nationality: "England",
+    international: { team: "England", from: 2005, to: 2010 },
     spells: [
       { team: "Tottenham Hotspur", from: 2000, to: 2000, england: "top" },
       { team: "Queens Park Rangers", from: 2000, to: 2000, loan: true, apps: 42, england: "championship" },
@@ -189,6 +203,7 @@ export const CAREERS: Career[] = [
     key: "veron",
     display: "Juan Sebastián Verón",
     nationality: "Argentina",
+    international: { team: "Argentina", from: 1996, to: 2010 },
     spells: [
       { team: "Boca Juniors", from: 1996, to: 1996 },
       { team: "Sampdoria", from: 1996, to: 1997 },
@@ -228,6 +243,7 @@ export const CAREERS: Career[] = [
     key: "klinsmann",
     display: "Jürgen Klinsmann",
     nationality: "Germany",
+    international: { team: "Germany", from: 1987, to: 1998 },
     spells: [
       { team: "VfB Stuttgart", from: 1984, to: 1988 },
       { team: "Inter Milan", from: 1989, to: 1991 },
@@ -247,6 +263,7 @@ export const CAREERS: Career[] = [
     key: "ziege",
     display: "Christian Ziege",
     nationality: "Germany",
+    international: { team: "Germany", from: 1993, to: 2004 },
     spells: [
       { team: "Bayern Munich", from: 1990, to: 1996 },
       { team: "AC Milan", from: 1997, to: 1997 },
@@ -265,6 +282,7 @@ export const CAREERS: Career[] = [
     key: "mark-hughes",
     display: "Mark Hughes",
     nationality: "Wales",
+    international: { team: "Wales", from: 1984, to: 1999 },
     spells: [
       { team: "Manchester United", from: 1983, to: 1985, england: "top" },
       { team: "Barcelona", from: 1986, to: 1986 },
@@ -284,6 +302,7 @@ export const CAREERS: Career[] = [
     key: "heinze",
     display: "Gabriel Heinze",
     nationality: "Argentina",
+    international: { team: "Argentina", from: 2003, to: 2010 },
     spells: [
       { team: "Sporting CP", from: 2001, to: 2001 },
       { team: "Paris Saint-Germain", from: 2001, to: 2003 },
@@ -325,6 +344,7 @@ export const CAREERS: Career[] = [
     key: "lukaku",
     display: "Romelu Lukaku",
     nationality: "Belgium",
+    international: { team: "Belgium", from: 2010, to: 2024 },
     spells: [
       { team: "RSC Anderlecht", from: 2009, to: 2010 },
       { team: "Chelsea", from: 2011, to: 2013, england: "top" },
@@ -347,6 +367,7 @@ export const CAREERS: Career[] = [
     key: "makelele",
     display: "Claude Makélélé",
     nationality: "France",
+    international: { team: "France", from: 1995, to: 2008 },
     spells: [
       { team: "Nantes", from: 1992, to: 1996 },
       { team: "Marseille", from: 1997, to: 1997 },
@@ -365,6 +386,7 @@ export const CAREERS: Career[] = [
     key: "lescott",
     display: "Joleon Lescott",
     nationality: "England",
+    international: { team: "England", from: 2007, to: 2013 },
     spells: [
       { team: "Wolverhampton Wanderers", from: 2000, to: 2005, england: "championship" },
       { team: "Everton", from: 2006, to: 2008, england: "top" },
@@ -384,6 +406,7 @@ export const CAREERS: Career[] = [
     key: "defoe",
     display: "Jermain Defoe",
     nationality: "England",
+    international: { team: "England", from: 2004, to: 2017 },
     spells: [
       { team: "West Ham United", from: 2000, to: 2003, england: "top" },
       { team: "AFC Bournemouth", from: 2000, to: 2000, loan: true, apps: 31 },
@@ -405,6 +428,7 @@ export const CAREERS: Career[] = [
     key: "paul-ince",
     display: "Paul Ince",
     nationality: "England",
+    international: { team: "England", from: 1992, to: 2000 },
     spells: [
       { team: "West Ham United", from: 1986, to: 1988, england: "top" },
       { team: "Manchester United", from: 1989, to: 1994, england: "top" },
@@ -423,6 +447,7 @@ export const CAREERS: Career[] = [
     key: "les-ferdinand",
     display: "Les Ferdinand",
     nationality: "England",
+    international: { team: "England", from: 1993, to: 1998 },
     spells: [
       { team: "Queens Park Rangers", from: 1987, to: 1994, england: "top" },
       { team: "Besiktas", from: 1988, to: 1988, loan: true, apps: 24 },
@@ -443,6 +468,7 @@ export const CAREERS: Career[] = [
     key: "edgar-davids",
     display: "Edgar Davids",
     nationality: "Netherlands",
+    international: { team: "Netherlands", from: 1994, to: 2005 },
     spells: [
       { team: "Ajax", from: 1991, to: 1995 },
       { team: "AC Milan", from: 1996, to: 1996 },
@@ -462,6 +488,7 @@ export const CAREERS: Career[] = [
     key: "ryan-babel",
     display: "Ryan Babel",
     nationality: "Netherlands",
+    international: { team: "Netherlands", from: 2005, to: 2017 },
     spells: [
       { team: "Ajax", from: 2004, to: 2006 },
       { team: "Liverpool", from: 2007, to: 2010, england: "top" },
@@ -481,6 +508,7 @@ export const CAREERS: Career[] = [
     key: "nigel-de-jong",
     display: "Nigel de Jong",
     nationality: "Netherlands",
+    international: { team: "Netherlands", from: 2004, to: 2015 },
     spells: [
       { team: "Ajax", from: 2002, to: 2005 },
       { team: "Hamburger SV", from: 2006, to: 2008 },
@@ -499,6 +527,7 @@ export const CAREERS: Career[] = [
     key: "heskey",
     display: "Emile Heskey",
     nationality: "England",
+    international: { team: "England", from: 1999, to: 2010 },
     spells: [
       { team: "Leicester City", from: 1994, to: 1999, england: "top" },
       { team: "Liverpool", from: 2000, to: 2003, england: "top" },
@@ -517,6 +546,7 @@ export const CAREERS: Career[] = [
     key: "david-james",
     display: "David James",
     nationality: "England",
+    international: { team: "England", from: 1997, to: 2010 },
     spells: [
       { team: "Watford", from: 1990, to: 1991, england: "championship" },
       { team: "Liverpool", from: 1992, to: 1998, england: "top" },
@@ -537,6 +567,7 @@ export const CAREERS: Career[] = [
     key: "andy-cole",
     display: "Andy Cole",
     nationality: "England",
+    international: { team: "England", from: 1995, to: 2001 },
     spells: [
       { team: "Arsenal", from: 1989, to: 1991, england: "top" },
       { team: "Bristol City", from: 1992, to: 1992, england: "championship" },
@@ -561,6 +592,7 @@ export const CAREERS: Career[] = [
     key: "louis-saha",
     display: "Louis Saha",
     nationality: "France",
+    international: { team: "France", from: 2004, to: 2012 },
     spells: [
       { team: "Fulham", from: 2000, to: 2003, england: "top" },
       { team: "Manchester United", from: 2003, to: 2007, england: "top" },
@@ -579,6 +611,7 @@ export const CAREERS: Career[] = [
     key: "bolo-zenden",
     display: "Boudewijn Zenden",
     nationality: "Netherlands",
+    international: { team: "Netherlands", from: 1997, to: 2006 },
     spells: [
       { team: "PSV Eindhoven", from: 1994, to: 1997 },
       { team: "Barcelona", from: 1998, to: 2000 },
@@ -598,6 +631,7 @@ export const CAREERS: Career[] = [
     key: "woodgate",
     display: "Jonathan Woodgate",
     nationality: "England",
+    international: { team: "England", from: 1999, to: 2008 },
     spells: [
       { team: "Leeds United", from: 1998, to: 2002, england: "top" },
       { team: "Newcastle United", from: 2002, to: 2003, england: "top" },
@@ -616,6 +650,7 @@ export const CAREERS: Career[] = [
     key: "chris-sutton",
     display: "Chris Sutton",
     nationality: "England",
+    international: { team: "England", from: 1997, to: 1997 },
     spells: [
       { team: "Norwich City", from: 1991, to: 1993, england: "top" },
       { team: "Blackburn Rovers", from: 1994, to: 1998, england: "top" },
@@ -634,6 +669,7 @@ export const CAREERS: Career[] = [
     key: "gascoigne",
     display: "Paul Gascoigne",
     nationality: "England",
+    international: { team: "England", from: 1988, to: 1998 },
     spells: [
       { team: "Newcastle United", from: 1985, to: 1987, england: "top" },
       { team: "Tottenham Hotspur", from: 1988, to: 1991, england: "top" },
