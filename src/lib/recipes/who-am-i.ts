@@ -251,6 +251,21 @@ export interface QualifyingPlayer {
 
 const COLUMNS = "id,slug,team,season,shirt_type,player_name,primary_image_url";
 
+/**
+ * Every team whose shirts this career could use, the national side included.
+ *
+ * The national side is the easy one to forget, because it does not live in
+ * `spells`. Forgetting it does not fail loudly: `byTeam.get("England")` returns
+ * undefined, `bestShirtFor` reads that as "no shirt", and the one lever that
+ * takes a five-club career to six silently never fires. It cost eleven of the
+ * careers on file before anyone noticed.
+ */
+export function teamsFor(career: Career): string[] {
+  const teams = career.spells.map((s) => s.team);
+  if (career.international) teams.push(career.international.team);
+  return [...new Set(teams)];
+}
+
 async function shirtsForTeams(teams: readonly string[]): Promise<Map<string, ShirtRow[]>> {
   const rows = await pageIn<ShirtRow, string>("Loading shirts", teams, (batch, from, to) =>
     kickio()
@@ -297,7 +312,7 @@ async function lastPosted(): Promise<Map<string, string>> {
  * longest since we last used him.
  */
 export async function qualifyingPlayers(now = Date.now()): Promise<QualifyingPlayer[]> {
-  const teams = [...new Set(CAREERS.flatMap((c) => c.spells.map((s) => s.team)))];
+  const teams = [...new Set(CAREERS.flatMap(teamsFor))];
   const [byTeam, posted] = await Promise.all([shirtsForTeams(teams), lastPosted()]);
 
   const rows: QualifyingPlayer[] = [];
@@ -369,7 +384,7 @@ export async function runWhoAmI(playerKey: string): Promise<RecipeResult> {
   const career = careerByKey(playerKey);
   if (!career) return { ok: false, reason: `No career on file for '${playerKey}'` };
 
-  const byTeam = await shirtsForTeams([...new Set(career.spells.map((s) => s.team))]);
+  const byTeam = await shirtsForTeams(teamsFor(career));
   const covered = coverFor(career, byTeam);
 
   if (covered.length < SHIRTS) {

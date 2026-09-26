@@ -9,9 +9,10 @@ import {
   revealText,
   seasonStart,
   shirtFitsSpell,
+  teamsFor,
   type ShirtRow,
 } from "./who-am-i.ts";
-import { CAREERS, CLUB_COUNTRY, MIN_LOAN_APPS, spellCounts } from "./careers.ts";
+import { CAREERS, CLUB_COUNTRY, MIN_LOAN_APPS, spellCounts, type Career } from "./careers.ts";
 
 const shirt = (team: string, season: string, type = "Home", player: string | null = null): ShirtRow => ({
   id: `${team}-${season}${player ? `-${player}` : ""}`,
@@ -452,4 +453,38 @@ describe("saying whose name is on the shirt", () => {
       /none of them mine/,
     );
   });
+});
+
+test("teamsFor includes the national side, which is where the sixth shirt comes from", () => {
+  const career: Career = {
+    key: "x", display: "X", nationality: "Denmark",
+    international: { team: "Denmark", from: 1987, to: 1998 },
+    spells: [
+      { team: "Bayern Munich", from: 1989, to: 1991 },
+      { team: "Fiorentina", from: 1992, to: 1993, england: undefined },
+    ],
+    notes: [],
+  };
+  // The bug this pins: building the list from `spells` alone never fetches
+  // Denmark, so the national lever cannot fire and the career stops at five.
+  assert.deepEqual(teamsFor(career), ["Bayern Munich", "Fiorentina", "Denmark"]);
+});
+
+test("teamsFor is just the clubs when there is no national side on file", () => {
+  const career: Career = {
+    key: "y", display: "Y", nationality: "England",
+    spells: [{ team: "Arsenal", from: 1996, to: 1999, england: "top" }],
+    notes: [],
+  };
+  assert.deepEqual(teamsFor(career), ["Arsenal"]);
+});
+
+test("every national side a career names is a team the loader will ask for", () => {
+  for (const career of CAREERS) {
+    if (!career.international) continue;
+    assert.ok(
+      teamsFor(career).includes(career.international.team),
+      `${career.display}: ${career.international.team} would never be fetched`,
+    );
+  }
 });
