@@ -11,6 +11,39 @@ import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 
 const LABELS: Record<Platform, string> = { x: "X", instagram: "Instagram", tiktok: "TikTok" };
 
+/**
+ * Inline rather than an icon font or a package: two shapes, and Satori is not
+ * involved here so plain SVG is fine. `currentColor` so the button's own state
+ * colours them without a second rule.
+ */
+function CopyIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function TickIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 12.5 9 17.5 20 6.5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function urlField(sourceData: Record<string, unknown>, key: string): string | null {
   const url = sourceData[key];
   return typeof url === "string" && url.startsWith("http") ? url : null;
@@ -69,6 +102,7 @@ export function DraftCard({
   const [resolved, setResolved] = useOptimistic<null | "approved" | "rejected">(null);
 
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [copiedAlt, setCopiedAlt] = useState(false);
   const [saving, setSaving] = useState<FormatKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -152,9 +186,15 @@ export function DraftCard({
     try {
       await navigator.clipboard.writeText(exportText(draft.copy, tab));
       setCopied(true);
+      setCopyFailed(false);
       setTimeout(() => setCopied(false), 1500);
     } catch {
+      // The clipboard is refused outside a secure context and by some
+      // permission policies. Swallowing that left a button that looked like it
+      // had worked and had not, which is worse than the post going out unsent.
       setCopied(false);
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2500);
     }
   };
 
@@ -242,9 +282,14 @@ export function DraftCard({
         </div>
       </details>
 
-      {available.length > 1 && (
-        <div className="tabs" role="tablist">
-          {available.map((p) => (
+      {/* The copy button lives here, on the row above the text it copies, and
+          is rendered even for a single-platform post where there are no tabs.
+          It used to be the fourth item inside a collapsed "Source data and
+          downloads" panel, which is two clicks and a scroll away from the only
+          thing anyone comes to this card to take. */}
+      <div className="tabs" role={available.length > 1 ? "tablist" : undefined}>
+        {available.length > 1 &&
+          available.map((p) => (
             <button
               key={p}
               role="tab"
@@ -255,8 +300,17 @@ export function DraftCard({
               {LABELS[p]}
             </button>
           ))}
-        </div>
-      )}
+        <button
+          className={`copy-btn${copied ? " is-done" : ""}`}
+          type="button"
+          onClick={copyText}
+          aria-label={`Copy the ${LABELS[tab]} post text`}
+          title={`Copy the ${LABELS[tab]} post text`}
+        >
+          {copied ? <TickIcon /> : <CopyIcon />}
+          <span>{copied ? "Copied" : copyFailed ? "Could not copy" : "Copy"}</span>
+        </button>
+      </div>
 
       <div className="copy-body">
         {tab === "x" && draft.copy.x && (
@@ -428,9 +482,6 @@ export function DraftCard({
               {saving === "tiktok" ? "Saving…" : "Save 9:16"}
             </a>
           )}
-          <button className="link" onClick={copyText} type="button">
-            {copied ? "Copied" : `Copy ${LABELS[tab]} text`}
-          </button>
           {/* X and Instagram both take alt text and both surface it in search.
               It is a separate field in their composers, so it is a separate
               button here rather than something to dig out of the caption. */}
