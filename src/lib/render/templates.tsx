@@ -13,6 +13,7 @@
  */
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./styles.ts";
+import { noOrphan } from "./typography.ts";
 import {
   styleFor,
   mix,
@@ -662,7 +663,23 @@ function RoundupCard({
                       marginTop: 2,
                     }}
                   >
-                    {[s.team, s.season].filter(Boolean).join(" ")}
+                    {/* Stacked, always two lines. Joined on one line,
+                        "Manchester United 1990-91" wrapped where "AC Milan
+                        1988-89" did not, so a row of four captions sat at
+                        three different heights. Truncating to fit would have
+                        cost the season, which on a shirt is half the caption,
+                        so the row is two lines for everyone instead. */}
+                    {String(s.team ?? "")}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 18 : 14,
+                      color: look.muted,
+                      opacity: 0.75,
+                    }}
+                  >
+                    {String(s.season ?? "")}
                   </div>
                 </div>
               ))}
@@ -963,7 +980,8 @@ function GrailSaleCard({
   const shirt = d.shirt_colour as { hex: string; deep: string } | undefined;
   const palette = styleFor(style, brand, shirt);
 
-  const title = String(d.title ?? draft.headline ?? "");
+  // "... Away Shirt Cantona #7" was wrapping with "#7" alone on line two.
+  const title = noOrphan(String(d.title ?? draft.headline ?? ""));
   const price = String(d.price ?? "");
   // Season and club are already in the title; these add what it does not carry.
   const meta = [d.condition, d.size, d.printing].filter(Boolean).map(String);
