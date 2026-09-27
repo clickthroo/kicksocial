@@ -13,6 +13,18 @@
  */
 import type { PostDraft } from "../engine/types.ts";
 import { asCardStyle, DEFAULT_CARD_STYLE, type CardStyle } from "./styles.ts";
+import {
+  styleFor,
+  mix,
+  hexToRgb,
+  withAlpha,
+  PAPER,
+  PAPER_INK,
+  STUDIO,
+  STUDIO_INK,
+  STUDIO_MUTED,
+  type Style,
+} from "./card-style.ts";
 import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, type FormatKey } from "./formats.ts";
 import { axisDates, plotted, priceLineSvg, type ChartBox } from "./price-chart.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
@@ -272,13 +284,7 @@ function lockupHeight(format: FormatKey): number {
   return format !== "x" ? 172 + 8 + 24 : 128;
 }
 
-/** "#1c1f24" -> "28,31,36". Null for anything that is not a six-digit hex. */
-function hexToRgb(hex: string): string | null {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const n = Number.parseInt(m[1], 16);
-  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
-}
+
 
 
 /**
@@ -690,98 +696,6 @@ function RoundupCard({
  * ------------------------------------------------------------------------- */
 
 /** Near-black with a little warmth, so a maroon or navy shirt does not go flat. */
-const STUDIO = "#0b0c0e";
-const STUDIO_LIFT = "#1c1f24";
-const STUDIO_INK = "#f6f7f9";
-const STUDIO_MUTED = "#8b95a3";
-const PAPER = "#f2efe9";
-const PAPER_INK = "#14181d";
-const PAPER_MUTED = "#6f6b64";
-
-interface Style {
-  /** Top and bottom of the backdrop sweep. */
-  from: string;
-  to: string;
-  ink: string;
-  muted: string;
-  accent: string;
-  /** Border colour for the attribute chips and rules. */
-  hairline: string;
-  /** Share of the portrait frame the photo takes. */
-  stage: number;
-  /** Inset around the photo. */
-  inset: number;
-  /**
-   * How the photo is presented. This is what actually separates the styles -
-   * palette alone produced six cards that looked like the same card, because
-   * Kickio's photos carry their own pale background and that bright rectangle
-   * dominates whatever is behind it.
-   *
-   *   plate  - rounded white panel, inset on the field
-   *   round  - the same panel clipped to a circle
-   *   bare   - no panel; on a light field the photo's own background disappears
-   *   keyline- large, thin-bordered, poster-like
-   *   bleed  - fills the frame, type over a scrim
-   */
-  photo: "plate" | "round" | "bare" | "keyline" | "bleed";
-  /** Multiplier on the title size. */
-  titleScale: number;
-}
-
-function styleFor(key: CardStyle, brand: Brand, shirt?: { hex: string; deep: string }): Style {
-  const dark: Style = {
-    from: STUDIO_LIFT,
-    to: STUDIO,
-    ink: STUDIO_INK,
-    muted: STUDIO_MUTED,
-    accent: brand.accent,
-    hairline: "rgba(246,247,249,0.3)",
-    stage: 0.58,
-    inset: 1,
-    photo: "plate",
-    titleScale: 1,
-  };
-
-  switch (key) {
-    case "spotlight":
-      // Circular crop on near-black: the shirt reads as a lot under a light.
-      return { ...dark, from: "#15181c", to: "#030406", stage: 0.5, inset: 1.2, photo: "round" };
-    case "sweep":
-      // Backdrop taken from the shirt. The photo is smaller so the colour is
-      // actually visible rather than a border round a white rectangle.
-      return shirt
-        ? {
-            ...dark,
-            from: shirt.hex,
-            to: shirt.deep,
-            hairline: "rgba(255,255,255,0.42)",
-            stage: 0.46,
-            inset: 1.5,
-          }
-        : dark;
-    case "paper":
-      // The one case where the photo needs no panel: on warm off-white its own
-      // pale background blends instead of announcing itself.
-      return {
-        from: PAPER,
-        to: PAPER,
-        ink: PAPER_INK,
-        muted: PAPER_MUTED,
-        accent: brand.accentDeep,
-        hairline: "rgba(20,24,29,0.55)",
-        stage: 0.52,
-        inset: 1,
-        photo: "bare",
-        titleScale: 1,
-      };
-    case "editorial":
-      return { ...dark, from: "#0d0f12", to: "#08090b", stage: 1, inset: 1, photo: "bleed", titleScale: 1.2 };
-    case "frame":
-      return { ...dark, from: "#0f1115", to: "#090a0d", stage: 0.62, inset: 1.1, photo: "keyline", titleScale: 0.82 };
-    default:
-      return dark;
-  }
-}
 
 /**
  * Fallbacks only. The live values come from Settings -> Branding, so changing
@@ -825,14 +739,6 @@ interface GridLook {
   tracking: number;
 }
 
-/** Blend two hex colours. `t` is how much of `b` to take. */
-function mix(a: string, b: string, t: number): string {
-  const pa = hexToRgb(a)?.split(",").map(Number);
-  const pb = hexToRgb(b)?.split(",").map(Number);
-  if (!pa || !pb) return a;
-  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
-  return `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
-}
 
 function gridLook(key: CardStyle, brand: Brand): GridLook {
   const palette = styleFor(key, brand);
@@ -2058,8 +1964,8 @@ function PriceHistoryCard({
   brand: Brand;
   style?: CardStyle;
 }) {
-  const palette = styleFor(style, brand);
   const d = draft.source_data as Record<string, unknown>;
+  const palette = styleFor(style, brand, d.shirt_colour as { hex: string; deep: string } | undefined);
   const portrait = format !== "x";
 
   const points = Array.isArray(d.points)
@@ -2077,7 +1983,11 @@ function PriceHistoryCard({
   // The title green is the brand's, deepened against the cream: accentDeep neat
   // is a mid green that sits at about 3:1 on this surface, which is thin for
   // anything but the largest type on the card.
-  const titleInk = mix(palette.accent, palette.ink, 0.42);
+  const greened = mix(palette.accent, palette.ink, 0.42);
+  // Green where it reads, ink where it does not. On the tinted style the field
+  // is already green, so everything that would have been green goes to ink.
+  const live = palette.accentOnField ? greened : palette.ink;
+  const titleInk = palette.titleTone === "accent" && palette.accentOnField ? greened : palette.ink;
   const lineColour = titleInk;
 
   const pad = portrait ? 56 : 44;
@@ -2119,8 +2029,11 @@ function PriceHistoryCard({
   const line = priceLineSvg(marks, box, {
     colour: lineColour,
     surface: palette.to,
-    stroke: portrait ? 6 : 4.5,
-    dot: dotR,
+    stroke: (portrait ? 6 : 4.5) * palette.chart.stroke,
+    dot: dotR * (palette.chart.dots === "open" ? 0.85 : 1),
+    dots: palette.chart.dots,
+    fill: palette.chart.fill > 0 ? withAlpha(lineColour, palette.chart.fill) : null,
+    baseline: palette.chart.baseline ? palette.hairline : null,
   });
 
   const chart = (
@@ -2242,7 +2155,15 @@ function PriceHistoryCard({
           color: titleInk,
         }}
       >
-        {[String(d.title_lead ?? ""), String(d.title_main ?? "")].filter(Boolean).join(" · ")}
+        {(() => {
+          const set = [String(d.title_lead ?? ""), String(d.title_main ?? "")]
+            .filter(Boolean)
+            .join(" · ");
+          // Uppercased here rather than with textTransform: Satori supports
+          // the property, but doing it in the string means the measured width
+          // and the drawn width are the same thing.
+          return palette.titleCase === "upper" ? set.toUpperCase() : set;
+        })()}
       </div>
       <div
         style={{
@@ -2267,7 +2188,7 @@ function PriceHistoryCard({
             // line. A wrap here pushes the caveat off the bottom edge.
             fontSize: portrait ? 32 : 23,
             fontWeight: 700,
-            color: titleInk,
+            color: live,
             marginTop: portrait ? 14 : 10,
           }}
         >
@@ -2282,6 +2203,20 @@ function PriceHistoryCard({
         <div style={{ display: "flex", fontSize: portrait ? 26 : 21, color: palette.muted, marginTop: 10 }}>
           {footnote}
         </div>
+      ) : null}
+
+      {/* A rule closing the header, on the two styles built out of rules.
+          Cheap, and it is most of what makes a card read as a catalogue page
+          rather than a dark card with the colours swapped. */}
+      {palette.headRule ? (
+        <div
+          style={{
+            display: "flex",
+            height: 1,
+            backgroundColor: palette.hairline,
+            marginTop: portrait ? 26 : 18,
+          }}
+        />
       ) : null}
     </div>
   );

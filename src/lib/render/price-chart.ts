@@ -151,6 +151,16 @@ export interface LineStyle {
   surface: string;
   stroke: number;
   dot: number;
+  /**
+   * How the marks are drawn. Six card styles that differ only in background
+   * produced six cards nobody could tell apart, so the chart is one of the
+   * places they are allowed to actually differ.
+   */
+  dots?: "solid" | "open" | "none";
+  /** Wash under the line, as a colour. Null for a plain line. */
+  fill?: string | null;
+  /** A rule along the foot of the plot, for the styles built on rules. */
+  baseline?: string | null;
 }
 
 /**
@@ -168,20 +178,41 @@ export function priceLineSvg(points: readonly Point[], box: ChartBox, style: Lin
     .map(({ x, y }, i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`)
     .join(" ");
 
-  const dots = points
-    .map(({ x, y }, i) => {
-      const last = i === points.length - 1;
-      const r = last ? style.dot * 1.25 : style.dot;
-      return (
-        `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" ` +
-        `fill="${style.colour}" stroke="${style.surface}" stroke-width="${(style.stroke * 1.4).toFixed(1)}"/>`
-      );
-    })
-    .join("");
+  const kind = style.dots ?? "solid";
+  const dots =
+    kind === "none"
+      ? ""
+      : points
+          .map(({ x, y }, i) => {
+            const last = i === points.length - 1;
+            const r = last ? style.dot * 1.25 : style.dot;
+            // Open dots are the surface showing through a ring of the line
+            // colour, which reads as lighter without changing the palette.
+            const fill = kind === "open" ? style.surface : style.colour;
+            const ring = kind === "open" ? style.colour : style.surface;
+            return (
+              `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" ` +
+              `fill="${fill}" stroke="${ring}" stroke-width="${(style.stroke * 1.4).toFixed(1)}"/>`
+            );
+          })
+          .join("");
+
+  // Closed down to the foot of the plot, so the wash sits under the line
+  // rather than around it.
+  const wash = style.fill
+    ? `<path d="${path} L${points[points.length - 1]!.x.toFixed(1)} ${box.height} ` +
+      `L${points[0]!.x.toFixed(1)} ${box.height} Z" fill="${style.fill}" stroke="none"/>`
+    : "";
+
+  const rule = style.baseline
+    ? `<line x1="0" y1="${box.height - 0.5}" x2="${box.width}" y2="${box.height - 0.5}" ` +
+      `stroke="${style.baseline}" stroke-width="1"/>`
+    : "";
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${box.width}" height="${box.height}" ` +
     `viewBox="0 0 ${box.width} ${box.height}">` +
+    `${wash}${rule}` +
     `<path d="${path}" fill="none" stroke="${style.colour}" stroke-width="${style.stroke}" ` +
     `stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg>`;
 
