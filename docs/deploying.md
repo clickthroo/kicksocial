@@ -8,19 +8,58 @@
 Linked to `clickthroo/kicksocial` via Vercel's GitHub integration, so every push
 deploys. Next.js is auto-detected; no build settings needed.
 
-## 2. Protect the dashboard: do this before the first real run
+## 2. The dashboard login
 
-**The app has no authentication of its own.** Anyone with the URL can approve or
-reject drafts and read the source-data panel. Protection comes from Vercel:
+The app has its own sign-in. Everything is behind it except `/login` and the two
+trigger endpoints, `/api/cron` and `/api/run`, which carry a bearer token
+instead because Vercel's scheduler has no cookie.
 
-> Project → Settings → Deployment Protection → **Vercel Authentication: Enabled**
-> (applies to Production and Preview)
+### Set SESSION_SECRET first
 
-Only people logged into the Vercel account can then open the URL.
+`SESSION_SECRET` signs the session cookie, and it is **required**. With it unset
+every page returns 503 saying so, rather than letting anyone in. Set it in
+Vercel before the deploy that first carries the login, or the dashboard goes
+down between the two.
 
-This does **not** break the cron job. Vercel's scheduler calls `/api/cron`
-internally with `Authorization: Bearer $CRON_SECRET`, which bypasses deployment
-protection. The route checks that header itself and 401s without it.
+    openssl rand -base64 48
+
+Changing it later signs everybody out, which is also how you sign everybody out.
+
+### Who can sign in
+
+Accounts live in the engine database, in `admin_users`, not in Supabase Auth.
+This project has one kind of user, the app never acts as that user against
+either database, and the engine project had signups reachable with a
+publishable key. A table we control is smaller and the blast radius is one
+screen.
+
+Passwords are bcrypt and are never compared in application code. `verify_admin`
+does the comparison inside the database, so the hash never travels and the
+password is a bound parameter rather than part of a statement. That function
+also keeps the lockout: five wrong attempts locks an account for fifteen
+minutes, and a missing account still runs a hash so it cannot be timed apart
+from a wrong password.
+
+Add someone:
+
+```sql
+insert into admin_users (email, password_hash, display_name, must_change)
+values ('them@kickio.com',
+        extensions.crypt('a temporary password', extensions.gen_salt('bf', 12)),
+        'Their Name', true);
+```
+
+`must_change` makes the first sign-in stop and ask for a new password before it
+will hand out a session. Turn an account off with
+`update admin_users set disabled = true where email = '...'`, which is better
+than deleting the row because it keeps the last-login record.
+
+### Vercel Deployment Protection
+
+Still worth leaving on if you have it. Two locks on one door is not wasted, and
+it keeps preview deployments private. It does not break the cron job: Vercel
+calls `/api/cron` internally with `Authorization: Bearer $CRON_SECRET`, which
+bypasses deployment protection, and the route checks that header itself.
 
 ## 3. Environment variables
 

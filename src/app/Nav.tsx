@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { currentEmail, signOut } from "./login/actions.ts";
 
 /**
  * One nav for every screen. The ad-hoc floated links this replaces worked at
@@ -16,7 +17,11 @@ const DESTINATIONS = [
   { href: "/admin", label: "Settings" },
 ] as const;
 
-export function Nav({ current }: { current: string }) {
+export async function Nav({ current }: { current: string }) {
+  // Read here rather than threaded through every page: the nav is the only
+  // thing that needs it, and every page already renders the nav.
+  const email = await currentEmail();
+
   return (
     <nav className="nav">
       {DESTINATIONS.map((d) => (
@@ -29,6 +34,16 @@ export function Nav({ current }: { current: string }) {
           {d.label}
         </Link>
       ))}
+      {email && (
+        <form action={signOut} className="nav-out">
+          <span className="nav-who" title={email}>
+            {email}
+          </span>
+          <button className="nav-link nav-signout" type="submit">
+            Sign out
+          </button>
+        </form>
+      )}
     </nav>
   );
 }

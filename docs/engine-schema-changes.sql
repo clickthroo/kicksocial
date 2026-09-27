@@ -104,3 +104,24 @@ from unnest(array[
   'andy-cole','woodgate'
 ]) as k
 on conflict (recipe_key, subject_ref) do nothing;
+
+-- 2026-09-27: the dashboard login. Full DDL in the migration
+-- `admin_users_and_login`; recorded here because this file is the readable
+-- history of the engine's own schema.
+--
+-- Not Supabase Auth, deliberately: one kind of user, the app never acts as that
+-- user against either database, and the engine project had signups reachable
+-- with a publishable key. Passwords are bcrypt and are compared inside
+-- verify_admin() so the hash never leaves the server and the password is a
+-- bound parameter rather than part of a statement. That function also keeps the
+-- lockout counter, five attempts to a fifteen-minute lock.
+--
+-- create table admin_users (email pk, password_hash, display_name, disabled,
+--   failed_attempts, locked_until, must_change, created_at, last_login_at);
+-- create function verify_admin(p_email, p_password) returns jsonb;
+-- create function set_admin_password(p_email, p_password, p_must_change);
+--
+-- The first account, which must change its password on first sign-in:
+-- insert into admin_users (email, password_hash, display_name, must_change)
+-- values ('david@kickio.com', extensions.crypt('<temporary>',
+--         extensions.gen_salt('bf', 12)), 'David', true);
