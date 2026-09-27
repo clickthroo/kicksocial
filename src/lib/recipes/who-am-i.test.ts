@@ -12,6 +12,7 @@ import {
   teamsFor,
   ownNames,
   isOwnName,
+  isApproved,
   type ShirtRow,
 } from "./who-am-i.ts";
 import { CAREERS, CLUB_COUNTRY, MIN_LOAN_APPS, spellCounts, type Career } from "./careers.ts";
@@ -24,6 +25,11 @@ const shirt = (team: string, season: string, type = "Home", player: string | nul
   shirt_type: type,
   player_name: player,
   primary_image_url: "https://example/x.jpg",
+  // Approved unless a test is about approval. `isApproved` fails closed, so a
+  // fixture without this would be refused and prove nothing about the rule it
+  // was written for.
+  status: "active",
+  has_active_listing: false,
 });
 
 describe("matching a shirt to a spell", () => {
@@ -499,7 +505,8 @@ describe("the answer's own name never reaches the grid", () => {
 
   const shirt = (over: Partial<ShirtRow>): ShirtRow => ({
     id: "1", slug: null, team: "Portsmouth", season: "2009-10", shirt_type: "Home",
-    player_name: null, primary_image_url: "https://x/y.jpg", ...over,
+    player_name: null, primary_image_url: "https://x/y.jpg",
+    status: "active", has_active_listing: false, ...over,
   });
 
   test("ownNames covers every word of the display name", () => {
@@ -596,6 +603,7 @@ test("tiles run in the order of the shirts, not the order the spells started", (
   const row = (team: string, season: string): ShirtRow => ({
     id: team, slug: null, team, season, shirt_type: "Home",
     player_name: null, primary_image_url: "https://x/y.jpg",
+    status: "active", has_active_listing: false,
   });
   const covered = coverFor(career, new Map([
     ["Arsenal", [row("Arsenal", "2015-16")]],
@@ -603,4 +611,49 @@ test("tiles run in the order of the shirts, not the order the spells started", (
   ]));
   assert.deepEqual(covered.map((c) => c.team), ["Everton", "Arsenal"]);
   assert.deepEqual(covered.map((c) => c.season), ["2012-13", "2015-16"]);
+});
+
+describe("only shirts that have been through the site", () => {
+  const row = (over: Partial<ShirtRow>): ShirtRow => ({
+    id: "1", slug: null, team: "AC Milan", season: "2011-12", shirt_type: "Home",
+    player_name: null, primary_image_url: "https://x/y.jpg",
+    status: "active", has_active_listing: false, ...over,
+  });
+
+  test("approved, or on sale now, is allowed", () => {
+    assert.equal(isApproved(row({ status: "active", has_active_listing: false })), true);
+    assert.equal(isApproved(row({ status: "pending", has_active_listing: true })), true);
+    assert.equal(isApproved(row({ status: "ACTIVE ", has_active_listing: false })), true);
+  });
+
+  test("pending, rejected and archived are refused", () => {
+    for (const status of ["pending", "rejected", "archived"]) {
+      assert.equal(isApproved(row({ status, has_active_listing: false })), false, status);
+    }
+  });
+
+  test("a missing status is refused rather than assumed fine", () => {
+    // An allowlist that fails open is not an allowlist. A row that arrives
+    // without the column must not be treated as approved.
+    assert.equal(isApproved(row({ status: null, has_active_listing: null })), false);
+    assert.equal(isApproved({ status: undefined, has_active_listing: undefined }), false);
+  });
+
+  test("the real case: the only unnamed shirts at a club are pending", () => {
+    // Both unnamed AC Milan home shirts in the catalogue are pending, so the
+    // tile falls through to the approved teammate shirt instead of a row
+    // nobody has ever checked.
+    const spell = { team: "AC Milan", from: 2010, to: 2012 };
+    const shirts = [
+      row({ id: "pending-2010", season: "2010-11", status: "pending" }),
+      row({ id: "pending-2011", season: "2011-12", status: "pending" }),
+      row({ id: "approved", season: "2011-12", status: "active", player_name: "Ibrahimovic" }),
+    ];
+    assert.equal(bestShirtFor(shirts, spell)?.id, "approved");
+  });
+
+  test("a club with nothing approved is not covered", () => {
+    const spell = { team: "AC Milan", from: 2010, to: 2012 };
+    assert.equal(bestShirtFor([row({ status: "pending" })], spell), null);
+  });
 });

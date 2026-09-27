@@ -42,6 +42,30 @@ export interface ShirtRow {
   shirt_type: string | null;
   player_name: string | null;
   primary_image_url: string | null;
+  /** Kickio's own moderation state: active, pending, archived or rejected. */
+  status?: string | null;
+  /** True while the product has a listing on sale right now. */
+  has_active_listing?: boolean | null;
+}
+
+/**
+ * Has this product ever been through the site?
+ *
+ * `products` is the catalogue, and a row exists there long before anyone has
+ * looked at it: 904 of the 3,602 the engine can see are `pending`, which means
+ * submitted and not yet approved. Those are where the bad data lives. The AC
+ * Milan tile on the Boateng card drew from two unnamed "AC Milan Home Shirt"
+ * rows that are both pending, and the catalogue also holds a pending
+ * "2011-12 AC Milan Away Shirt Milito #22", which is an Inter shirt filed
+ * under Milan.
+ *
+ * An allowlist again, and for the same reason as `isMatchShirt`: `active` is
+ * approved and `has_active_listing` is on sale now. `pending`, `rejected` and
+ * `archived` are all refused, archived included, because "was live once and
+ * then withdrawn" is not something a post should reach for without being asked.
+ */
+export function isApproved(shirt: Pick<ShirtRow, "status" | "has_active_listing">): boolean {
+  return (shirt.status ?? "").trim().toLowerCase() === "active" || shirt.has_active_listing === true;
 }
 
 /**
@@ -171,6 +195,7 @@ export function bestShirtFor(
       shirtFitsSpell(s.season, spell) &&
       s.primary_image_url &&
       isMatchShirt(s.shirt_type) &&
+      isApproved(s) &&
       // A shirt with his name on it is not a fallback, it is the answer. If
       // this leaves a club with nothing, the club does not go on the grid.
       !isOwnName(s.player_name, own),
@@ -320,7 +345,8 @@ export interface QualifyingPlayer {
   shirts: string[];
 }
 
-const COLUMNS = "id,slug,team,season,shirt_type,player_name,primary_image_url";
+const COLUMNS =
+  "id,slug,team,season,shirt_type,player_name,primary_image_url,status,has_active_listing";
 
 /**
  * Every team whose shirts this career could use, the national side included.
@@ -345,6 +371,10 @@ async function shirtsForTeams(teams: readonly string[]): Promise<Map<string, Shi
       .in("team", batch)
       .not("primary_image_url", "is", null)
       .is("deleted_at", null)
+      // Narrowed here as well as in `isApproved`, so a page load does not carry
+      // a quarter of the catalogue across the wire to throw it away. The check
+      // in code is what makes it a rule; this is what makes it cheap.
+      .or("status.eq.active,has_active_listing.is.true")
       .order("id", { ascending: true })
       .range(from, to),
   );

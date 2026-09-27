@@ -361,3 +361,46 @@ the spell began. The two agree for a career of consecutive moves, which is why
 nothing moved when it changed. They part company for a loan taken inside a
 longer contract, where spell order would put a 2015 shirt before a 2012 one.
 The grid claims to read left to right in time, so it is ordered by the shirts.
+
+## 11. Only shirts that have been through the site
+
+`products` is the catalogue, and a row lands there long before anyone has
+looked at it. Of the 3,602 products the engine's role can see, **904 are
+`pending`**: submitted, not yet approved. Nothing was filtering them, so the
+picker was drawing on rows the site itself has never shown.
+
+That is where the bad data is. Both unnamed AC Milan home shirts in Boateng's
+era are pending, and the catalogue also holds a pending row called
+`2011-12 AC Milan Away Shirt Milito #22` - Diego Milito played for Inter, and
+Inter's 2011-12 away was white, so that is an Inter shirt filed under Milan.
+A pending row can be wrong about the club, the type, the season or the photo,
+because nothing has checked it.
+
+`isApproved` allows `status = 'active'` (approved) or `has_active_listing`
+(on sale right now). `pending`, `rejected` and `archived` are refused. Archived
+is refused deliberately: "was live once and then withdrawn" is not something a
+post should reach for without being asked.
+
+It fails closed. A row that arrives without the column is refused rather than
+assumed fine, which is what an allowlist has to do to be worth having.
+
+Applied in two places. The query narrows so a page load does not carry a
+quarter of the catalogue across the wire to discard it; `bestShirtFor` checks
+again, because that is what makes it a rule rather than an optimisation.
+
+### What it costs
+
+| | before | after |
+|---|---|---|
+| photographed match shirts | 3,326 | 2,497 |
+| teams with any | 402 | 327 |
+| qualifying careers | 21 | 9 |
+
+That is the largest single cut any rule here has made, and it is not the
+engine's ceiling: it is Kickio's moderation queue. 904 approvals stand between
+the current nine and roughly where the list was. Every one of those approvals
+puts shirts back on the shelf, and because the picker re-tests every career on
+every load, the careers come back on their own as it happens.
+
+The nine that survive: Balotelli, Ibrahimović, Crespo, Lukaku, Defoe, James,
+Cole, Nasri, Di María.
