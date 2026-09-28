@@ -4,7 +4,7 @@ import { useEffect, useOptimistic, useState, useTransition } from "react";
 import { approveDraft, rejectDraft, chooseStyle } from "./actions.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 import type { FormatKey } from "@/lib/render/templates.tsx";
-import { exportText, tags, xLength } from "@/lib/copy/export.ts";
+import { exportLength, exportText, overBy, tags, xLength } from "@/lib/copy/export.ts";
 import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
 import type { Freshness } from "@/lib/engine/freshness.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
@@ -344,24 +344,62 @@ export function DraftCard({
           <>
             <p>{draft.copy.instagram.caption}</p>
             <p className="hashtags">{tags(draft.copy.instagram.hashtags)}</p>
-            <span className="count">
-              {draft.copy.instagram.hashtags.length}/{PLATFORM_LIMITS.instagram.hashtags} hashtags
+            <span
+              className={`count${overBy(draft.copy, "instagram") > 0 ? " count over" : ""}`}
+            >
+              {exportLength(draft.copy, "instagram")}/{PLATFORM_LIMITS.instagram.chars}{" "}
+              characters with tags · {draft.copy.instagram.hashtags.length}/
+              {PLATFORM_LIMITS.instagram.hashtags} hashtags
             </span>
           </>
         )}
 
         {tab === "tiktok" && draft.copy.tiktok && (
           <>
-            <p>{draft.copy.tiktok.hook}</p>
-            <ol className="beats">
-              {draft.copy.tiktok.beats.map((b, i) => (
-                <li key={i}>{b}</li>
-              ))}
-            </ol>
-            <p>{draft.copy.tiktok.cta}</p>
+            {/* The caption first, because it is the post. The script below it
+                is for whoever cuts the video, and is never what gets pasted. */}
+            {draft.copy.tiktok.caption ? (
+              willCollapse(draft.copy.tiktok.caption, "tiktok") ? (
+                <p>
+                  {draft.copy.tiktok.caption.slice(0, PLATFORM_LIMITS.tiktok.lead)}
+                  <span className="collapsed">
+                    {draft.copy.tiktok.caption.slice(PLATFORM_LIMITS.tiktok.lead)}
+                  </span>
+                </p>
+              ) : (
+                <p>{draft.copy.tiktok.caption}</p>
+              )
+            ) : (
+              <p className="collapsed">
+                Written before captions existed on this card. The script below is what
+                the Copy button will give you.
+              </p>
+            )}
             {draft.copy.tiktok.hashtags?.length ? (
               <p className="hashtags">{tags(draft.copy.tiktok.hashtags)}</p>
             ) : null}
+            {draft.copy.tiktok.caption && (
+              <span
+                className={`count${overBy(draft.copy, "tiktok") > 0 ? " count over" : ""}`}
+              >
+                {exportLength(draft.copy, "tiktok")} characters with tags · aiming at{" "}
+                {PLATFORM_LIMITS.tiktok.target} ·{" "}
+                {willCollapse(draft.copy.tiktok.caption, "tiktok")
+                  ? `grey text is behind “more”`
+                  : "shows in full"}
+              </span>
+            )}
+
+            <details className="facts">
+              <summary>Video script</summary>
+              <p>{draft.copy.tiktok.hook}</p>
+              <ol className="beats">
+                {draft.copy.tiktok.beats.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ol>
+              <p>{draft.copy.tiktok.cta}</p>
+            </details>
           </>
         )}
       </div>

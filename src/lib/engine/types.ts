@@ -22,7 +22,22 @@ export interface Claim {
   basis?: string;
 }
 
+/**
+ * TikTok carries two different pieces of writing, which is why this is not
+ * shaped like the other two.
+ *
+ * `caption` is the post: the text that is pasted into TikTok alongside the
+ * card, and the only part a viewer reads. `hook`, `beats` and `cta` are the
+ * script for the video that card becomes, and they are on-screen text, not
+ * caption text. They used to be pasted as the caption for want of anywhere
+ * else to put them, which produced a caption made of six-word video beats.
+ *
+ * `caption` is optional only because drafts written before it existed do not
+ * have one. New copy always carries it; `exportText` falls back to the script
+ * for the old rows rather than pasting nothing.
+ */
 export interface TikTokScript {
+  caption?: string;
   hook: string;
   beats: string[];
   cta: string;

@@ -95,23 +95,42 @@ const COPY_SCHEMA = {
     tiktok: {
       type: "object",
       additionalProperties: false,
-      required: ["hook", "beats", "cta"],
+      required: ["caption", "hook", "beats", "cta", "hashtags"],
       properties: {
-        hook: { type: "string", description: "First two seconds." },
+        caption: {
+          type: "string",
+          description:
+            `The post itself - the text that goes in TikTok's caption box beside the ` +
+            `card. Aim for ${PLATFORM_LIMITS.tiktok.target} characters and stop when ` +
+            `the thought is finished; the ceiling is ${PLATFORM_LIMITS.tiktok.chars}, ` +
+            `but captions in the 150-300 band out-reach longer ones and nothing here ` +
+            `needs more. The first ${PLATFORM_LIMITS.tiktok.lead} characters are all ` +
+            `that show before TikTok collapses the rest behind "more", so open on the ` +
+            `one concrete fact that makes someone stop, complete inside that window. ` +
+            `A question earns comments; use one where it is honest. Ends with the CTA ` +
+            `and kickio.com. This is not the script: no beat numbering, no stage ` +
+            `directions, no "on screen:". Hashtags go in their own field and are ` +
+            `appended after it, so do not write any here.`,
+        },
+        hook: { type: "string", description: "First two seconds, on screen." },
         beats: {
           type: "array",
           items: { type: "string" },
           description:
-            "Between 3 and 5 on-screen text beats, roughly six words each.",
+            "Between 3 and 5 on-screen text beats, roughly six words each. These are " +
+            "the video's captions-on-screen, not the post caption.",
         },
-        cta: { type: "string", description: "Closing line, including kickio.com." },
+        cta: { type: "string", description: "Closing line on screen, including kickio.com." },
         hashtags: {
           type: "array",
           items: { type: "string" },
           description:
-            `${PLATFORM_LIMITS.tiktok.hashtags} hashtags for the caption, without the leading #. ` +
-            "TikTok's caption is short, so these carry the discovery - mix club and " +
-            "era tags with the broad football-shirt ones.",
+            `Exactly ${PLATFORM_LIMITS.tiktok.hashtags} hashtags, without the leading #. ` +
+            `Fewer than the other two on purpose: 3-5 relevant tags is what reaches on ` +
+            `TikTok, and a caption past about ten reads as spam and loses reach. So ` +
+            `these five have to be the five that matter - one broad football-shirt tag ` +
+            `a browser actually follows, the rest specific to this club, era or player. ` +
+            `They are appended to the caption and count toward its length.`,
         },
       },
     },

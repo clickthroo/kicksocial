@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { exportText, tags, xLength } from "./export.ts";
+import { bodyBudget, exportText, overBy, tags, xLength } from "./export.ts";
+import { PLATFORM_LIMITS } from "./limits.ts";
 import { ctaForDay, CTA_POOL, SOLD_CTA_POOL } from "./brand-voice.ts";
 import type { PlatformCopy } from "../engine/types.ts";
 
@@ -48,8 +49,24 @@ describe("what gets pasted into each network", () => {
     assert.match(exportText(copy, "instagram"), /kickio\.com\.\n\n#nufc #90sfootball$/);
   });
 
-  test("TikTok appends them after the CTA", () => {
-    assert.match(exportText(copy, "tiktok"), /More on kickio\.com\.\n#nufc #retrokit$/);
+  test("TikTok pastes the caption, not the video script", () => {
+    // The script's beats are on-screen text. Pasting them as the caption is
+    // what this used to do, and it read as a list of six-word fragments.
+    const withCaption: PlatformCopy = {
+      ...copy,
+      tiktok: { ...copy.tiktok!, caption: "The navy one nobody remembers. More on kickio.com." },
+    };
+    const out = exportText(withCaption, "tiktok");
+    assert.match(out, /^The navy one nobody remembers\. More on kickio\.com\.\n\n#nufc #retrokit$/);
+    assert.ok(!out.includes("1996-97 away shirt"), "a beat leaked into the caption");
+  });
+
+  test("a draft written before captions existed still pastes something", () => {
+    // Old rows have no caption. Falling back to the script is what their
+    // reviewer is used to seeing, and it beats an empty clipboard.
+    const out = exportText(copy, "tiktok");
+    assert.match(out, /^Sold: the navy Newcastle away\./);
+    assert.match(out, /#nufc #retrokit$/);
   });
 
   test("a platform with no copy yields nothing rather than throwing", () => {
@@ -78,5 +95,55 @@ describe("CTAs", () => {
     const next = new Date("2026-09-18T12:00:00Z");
     assert.notEqual(ctaForDay(day), ctaForDay(next));
     assert.ok(SOLD_CTA_POOL.includes(ctaForDay(day, SOLD_CTA_POOL)));
+  });
+});
+
+describe("the body's budget once the tags are allowed for", () => {
+  test("the tags and their separator both come out of the limit", () => {
+    // A caption written to the limit and then given its tags is a caption over
+    // the limit. The block is "#nufc #retrokit" (15) plus a blank line (2).
+    assert.equal(
+      bodyBudget("tiktok", ["nufc", "retrokit"]),
+      PLATFORM_LIMITS.tiktok.chars - 17,
+    );
+  });
+
+  test("X pays one character for the separator, not two", () => {
+    assert.equal(bodyBudget("x", ["nufc"]), PLATFORM_LIMITS.x.chars - 5 - 1);
+  });
+
+  test("no tags costs nothing, including no separator", () => {
+    assert.equal(bodyBudget("instagram", []), PLATFORM_LIMITS.instagram.chars);
+    assert.equal(bodyBudget("instagram", undefined), PLATFORM_LIMITS.instagram.chars);
+  });
+
+  test("a full TikTok set still leaves the target comfortably payable", () => {
+    // Five tags is the point of the count: the budget it leaves has to be
+    // bigger than what the writing is being asked for, or the two rules fight.
+    const five = ["nufc", "shearer", "90sfootball", "awaykit", "footballshirt"];
+    assert.ok(bodyBudget("tiktok", five) > PLATFORM_LIMITS.tiktok.target);
+  });
+});
+
+describe("over the ceiling", () => {
+  test("a post that fits reports nothing over", () => {
+    assert.equal(overBy(copy, "tiktok"), 0);
+    assert.equal(overBy(copy, "instagram"), 0);
+    assert.equal(overBy(copy, "x"), 0);
+  });
+
+  test("a caption that overruns reports by how much, counting its tags", () => {
+    const fat: PlatformCopy = {
+      tiktok: {
+        caption: "a".repeat(PLATFORM_LIMITS.tiktok.chars),
+        hook: "",
+        beats: [],
+        cta: "",
+        hashtags: ["nufc"],
+      },
+    };
+    // The caption alone is exactly at the ceiling, so everything the tags add
+    // is overrun: "#nufc" (5) plus the blank line (2).
+    assert.equal(overBy(fat, "tiktok"), 7);
   });
 });

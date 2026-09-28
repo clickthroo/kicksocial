@@ -610,4 +610,7 @@ famous one, and save the giveaway for last if you use it at all.
 End with the ask, in one line: an invitation to answer in the comments. No
 hashtag soup, no "RT if you know" - that is somebody else's format.
 
-No TikTok variant. Write X and Instagram only.`;
+TikTok wants this format more than either of the others: the caption is the
+question and nothing else. Set the puzzle, say how many clubs, ask for the
+answer in the comments, and give nothing away. Never name the player, and never
+hint at him in a hashtag.`;

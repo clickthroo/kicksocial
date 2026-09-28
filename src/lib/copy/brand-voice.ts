@@ -138,10 +138,20 @@ before X collapses the rest behind "Show more". So:
 truncated preview (roughly the first 125 characters), then 2-4 short paragraphs.
 Earn the read. Hashtags go in their own field, never in the caption body.
 
-**TikTok** - A script, not a caption. Give a hook line for the first two seconds,
-3-5 on-screen text beats that each land one idea, a closing CTA, and hashtags for
-the caption. Beats must be short enough to read on screen - roughly six words
-each.
+**TikTok** - Two pieces of writing, not one.
+
+The **caption** is the post: the text beside the card, and the only part a
+viewer reads. Aim at 300 characters and stop when the thought is done. The
+ceiling is 2,200, but captions in the 150-300 band reach further than long ones
+and nothing Kickio posts needs more. **The first 80 characters are all that
+show** before TikTok collapses the rest behind "more", so open on the one
+concrete fact that makes someone stop, and complete it inside that window. A
+question earns comments where it is an honest one to ask.
+
+The **script** is for the video the card becomes: a hook line for the first two
+seconds, 3-5 on-screen beats that each land one idea, and a closing CTA. Beats
+are read on screen, so roughly six words each. Never write the script into the
+caption - no beat numbering, no "on screen:".
 
 ## Hashtags
 
@@ -149,6 +159,13 @@ Each platform states its own count in the output schema. Fill it - the number is
 chosen per network, not a ceiling to stay under. On X they are appended after the
 post body, so they never eat into the opening that decides whether anyone reads
 it.
+
+The counts differ by a lot, and the reason matters. Instagram allows 30 and
+rewards using them. X is on Premium, so 15 cost the post nothing. TikTok gets
+five, and that is not a shortage: 3-5 relevant tags is what reaches there, and a
+caption carrying more than about ten reads as spam and is pushed less. So on
+TikTok the five have to earn their place - one broad tag a browser actually
+follows, the rest specific to this shirt.
 
 Build them in layers, most specific first, so the set reaches both the people
 looking for this exact shirt and the people browsing the category:
@@ -169,9 +186,10 @@ Rules that matter more than the count:
 
 ## Always name the site
 
-Every variant must contain **kickio.com** in the body text - the X post, the
-Instagram caption, and the TikTok CTA. Written plainly and lowercase, as part of
-the closing line. Not "Kickio" alone, and never a shortened or tracking link.
+Every variant must contain **kickio.com** in the text that actually gets posted -
+the X post, the Instagram caption, and the TikTok caption. The TikTok script's
+closing CTA carries it too, because that one is read off the screen rather than
+out of the caption. Written plainly and lowercase, as part of the closing line. Not "Kickio" alone, and never a shortened or tracking link.
 
 ## CTA
 

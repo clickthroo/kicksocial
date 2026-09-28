@@ -994,4 +994,7 @@ Hard rules:
 - Do not contradict \`caveat\`: it is printed on the card.
 - Do not count anything the card does not already say.
 
-No TikTok variant. Write X and Instagram only.`;
+On TikTok, the caption is the spread in one sentence - the shirt, the low and the
+high - and the card carries the six results. The caveat still governs it: never
+let two prices for the same shirt read as a valuation when the sizes and grades
+behind them differ.`;

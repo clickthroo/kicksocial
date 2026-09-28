@@ -106,7 +106,7 @@ existence.`,
     key: "price_trends",
     name: "Price Trends",
     cadence: "weekly",
-    platforms: ["x", "instagram"],
+    platforms: ["x", "instagram", "tiktok"],
     visualTemplate: "trend_chart",
     brief: `**Price Trends** - one genuine, like-for-like movement in the market.
 
@@ -122,7 +122,10 @@ Two hard rules:
   the number beyond one decimal place, and do not restate it as a different
   number elsewhere in the post.
 
-No TikTok variant - a chart is a weak video. Write X and Instagram only.`,
+On TikTok the chart is not the post - the movement is. Lead the caption with the
+figure and the subject in plain words ("England shirts are up 12% since June"),
+and let the card carry the line. Same two hard rules apply there: market data,
+not Kickio's sales, and the number exactly as given.`,
     run: (selection) =>
       runPriceTrends({ ...DEFAULT_PRICE_TRENDS_CONFIG, ...(selection as object) }),
   },
@@ -130,7 +133,7 @@ No TikTok variant - a chart is a weak video. Write X and Instagram only.`,
     key: "sold_this_week",
     name: "Sold This Week",
     cadence: "weekly",
-    platforms: ["x", "instagram"],
+    platforms: ["x", "instagram", "tiktok"],
     visualTemplate: "roundup_card",
     brief: `**Sold This Week** - a roundup of notable recent sales across the market.
 
@@ -151,14 +154,17 @@ hobby - it is NOT Kickio's own sales. Never write "sold on Kickio", "we sold", o
 anything implying this is Kickio's transaction volume. "The market" and "tracked
 sales" are the right framings.
 
-No TikTok variant. Write X and Instagram only.`,
+On TikTok, name one result in the caption rather than summarising the week - a
+single shirt and what it went for stops a scroller where "this week's results"
+does not. The counting ban and the market-wide framing apply there exactly as
+they do everywhere else.`,
     run: (selection) => runSoldThisWeek({ ...DEFAULT_SOLD_CONFIG, ...(selection as object) }),
   },
   {
     key: "market_index",
     name: "Market Index",
     cadence: "weekly",
-    platforms: ["x", "instagram"],
+    platforms: ["x", "instagram", "tiktok"],
     visualTemplate: "trend_chart",
     brief: MARKET_INDEX_BRIEF,
     run: (selection) =>
@@ -214,7 +220,7 @@ No TikTok variant. Write X and Instagram only.`,
     key: "collector_set_progress",
     name: "Collector Set Progress",
     cadence: "weekly",
-    platforms: ["x", "instagram"],
+    platforms: ["x", "instagram", "tiktok"],
     visualTemplate: "collector_grid",
     brief: COLLECTOR_SET_PROGRESS_BRIEF,
     run: (selection) =>
@@ -227,7 +233,7 @@ No TikTok variant. Write X and Instagram only.`,
     key: "collection_index",
     name: "Collection Index",
     cadence: "monthly",
-    platforms: ["x", "instagram"],
+    platforms: ["x", "instagram", "tiktok"],
     visualTemplate: "index_chart",
     brief: COLLECTION_INDEX_BRIEF,
     run: (selection) =>
