@@ -2601,13 +2601,9 @@ function WhoAmICard({
   const pad = portrait ? 56 : 44;
   const teammateNote = typeof d.teammate_note === "string" ? d.teammate_note : null;
 
+  const { width, height } = FORMATS[format];
   const cols = portrait ? 3 : 6;
   const gap = portrait ? 18 : 14;
-  const cellW = Math.floor(((portrait ? 1080 : 1200) - pad * 2 - gap * (cols - 1)) / cols);
-  // Sized so the two rows, the lockup, the title block and the ask all fit
-  // inside the frame. At 420 the ask was clipped off the bottom edge.
-  // The teammate line costs a row of type, so the tiles give it back.
-  const cellH = portrait ? (teammateNote ? 355 : 390) : teammateNote ? 272 : 300;
 
   const facts = [
     `${String(d.clubs_shown ?? shirts.length)} clubs`,
@@ -2619,6 +2615,61 @@ function WhoAmICard({
 
   const rows: string[][] = [];
   for (let i = 0; i < shirts.length; i += cols) rows.push(shirts.slice(i, i + cols));
+
+  // Named once and used by both the sums below and the JSX: Satori returns no
+  // text metrics, so a block's height has to be computed from what it is set
+  // in, and the two would otherwise drift apart.
+  const titleSize = portrait ? 96 : 66;
+  const factsSize = portrait ? 34 : 26;
+  const noteSize = portrait ? 27 : 21;
+  const askSize = portrait ? 30 : 22;
+  const factsGap = portrait ? 10 : 6;
+  const noteGap = portrait ? 8 : 5;
+  const LINE = 1.2;
+
+  const typeH =
+    titleSize * LINE +
+    (facts ? factsGap + factsSize * LINE : 0) +
+    (teammateNote ? noteGap + noteSize * LINE : 0);
+  const askH = askSize * LINE;
+  // Three gaps to reserve, because the column is laid out with space-between
+  // over four blocks. Reserving two would leave the third to be found
+  // somewhere, which is how the tiles ended up short of their own row.
+  const band = format === "tiktok" ? 110 : portrait ? 56 : 30;
+  const gridH =
+    height -
+    pad * 2 -
+    (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0) -
+    lockupHeight(format) -
+    typeH -
+    askH -
+    band * 3;
+
+  // SQUARE, AND SIZED BY BOTH AXES. The tile used to be cellW wide by a fixed
+  // 355 tall (390 without the teammate line), and the shirt was drawn into it
+  // with `contain` and no plate of its own - so the white a reader saw was the
+  // photograph's own background, and Kickio's photographs are not all the same
+  // shape. Six tiles came out six visibly different sizes, and none of them
+  // filled the height the row had reserved. The plate belongs to the card now,
+  // identical for every tile whatever shape the photo inside it is.
+  const cell = Math.max(
+    80,
+    Math.min(
+      Math.floor((width - pad * 2 - gap * (cols - 1)) / cols),
+      Math.floor((gridH - gap * (Math.max(1, rows.length) - 1)) / Math.max(1, rows.length)),
+    ),
+  );
+  // A hairline of black rather than a style colour: it has to read as an edge
+  // on the cream card and on the dark green one alike. Black at a low alpha,
+  // not a grey, so it darkens whatever it is over instead of fighting it: at
+  // 0.28 it came out #b7b7b7 against the white plate and read as a highlight
+  // rather than a line.
+  const keyline = portrait ? 2 : 1;
+  const keylineInk = "rgba(0,0,0,0.58)";
+  const plate = cell - keyline * 2;
+  // A little air inside the plate, so the shirt is not sitting on the keyline.
+  const inset = portrait ? 8 : 5;
+  const shot = plate - inset * 2;
 
   return (
     <Frame format={format} background={palette.to} ink={palette.ink}>
@@ -2645,7 +2696,7 @@ function WhoAmICard({
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 96 : 66,
+              fontSize: titleSize,
               fontWeight: 800,
               letterSpacing: -3,
               color: titleInk,
@@ -2657,10 +2708,10 @@ function WhoAmICard({
             <div
               style={{
                 display: "flex",
-                fontSize: portrait ? 34 : 26,
+                fontSize: factsSize,
                 fontWeight: 700,
                 color: palette.ink,
-                marginTop: portrait ? 10 : 6,
+                marginTop: factsGap,
               }}
             >
               {facts}
@@ -2673,9 +2724,9 @@ function WhoAmICard({
             <div
               style={{
                 display: "flex",
-                fontSize: portrait ? 27 : 21,
+                fontSize: noteSize,
                 color: palette.muted,
-                marginTop: portrait ? 8 : 5,
+                marginTop: noteGap,
               }}
             >
               {teammateNote}
@@ -2687,27 +2738,44 @@ function WhoAmICard({
             and it is a fair extra clue - the first tile is where he started. */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           {rows.map((row, r) => (
-            <div key={r} style={{ display: "flex", marginTop: r === 0 ? 0 : gap }}>
+            <div
+              key={r}
+              style={{ display: "flex", justifyContent: "center", marginTop: r === 0 ? 0 : gap }}
+            >
               {row.map((src, i) => (
-                <img
+                <div
                   key={i}
-                  src={src}
-                  alt=""
-                  width={cellW}
-                  height={cellH}
                   style={{
-                    width: cellW,
-                    height: cellH,
-                    objectFit: "contain",
+                    display: "flex",
+                    width: plate,
+                    height: plate,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "#ffffff",
+                    borderRadius: 6,
+                    border: `${keyline}px solid ${keylineInk}`,
                     marginRight: i < row.length - 1 ? gap : 0,
                   }}
-                />
+                >
+                  {/* Explicit width and height, always: Satori cannot lay out
+                      an image whose size it cannot determine, and a photo that
+                      failed to load has none. Without these one unreachable
+                      URL takes the whole card down instead of leaving a single
+                      plate empty, and an empty plate is still the right size. */}
+                  <img
+                    src={src}
+                    alt=""
+                    width={shot}
+                    height={shot}
+                    style={{ width: shot, height: shot, objectFit: "contain" }}
+                  />
+                </div>
               ))}
             </div>
           ))}
         </div>
 
-        <div style={{ display: "flex", fontSize: portrait ? 30 : 22, color: palette.muted }}>
+        <div style={{ display: "flex", fontSize: askSize, color: palette.muted }}>
           Six clubs, one career. Answer in the comments.
         </div>
       </div>
