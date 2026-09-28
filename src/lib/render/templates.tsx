@@ -1993,8 +1993,55 @@ function IndexCard({
   const series = Array.isArray(d.series)
     ? (d.series as Array<{ index: number }>).map((p) => Number(p.index)).filter(Number.isFinite)
     : [];
+
+  // Every size the layout maths below depends on, named once so the sums and
+  // the JSX cannot drift apart. Satori returns no text metrics, so a block's
+  // height has to be computed from what it is set in rather than measured.
+  const collectorSize = portrait ? 26 : 21;
+  const figureSize = Math.round((portrait ? 130 : 100) * look.titleScale);
+  const arrowSize = portrait ? 76 : 60;
+  const basketSize = portrait ? 27 : 22;
+  const scaleSize = portrait ? 20 : 17;
+  const sourceSize = portrait ? 23 : 19;
+  const disclaimerSize = portrait ? 20 : 17;
+  const LINE = 1.2;
+
+  const heroH =
+    collectorSize * LINE + 10 + Math.max(arrowSize, figureSize * LINE) + 4 + basketSize * LINE;
+  const footerH = sourceSize * LINE + 6 + disclaimerSize * LINE;
+  const scaleH = scaleSize * LINE + 6;
+  const headerH = lockupHeight(format);
+  // The gap between the figure and the line that shows it. They are one idea,
+  // so it is smaller than the band around the pair.
+  const heroToChart = portrait ? 34 : 20;
+
+  // Everything the chart and its breathing space have to share.
+  const room =
+    height -
+    pad * 2 -
+    (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0) -
+    headerH -
+    heroH -
+    heroToChart -
+    scaleH -
+    footerH;
+
+  // Air above the hero and below the chart: deliberate and equal, rather than
+  // whatever is left over. Capped at a share of what there is, so that a style
+  // with a larger title (`bold` sets titleScale to 1.22, which adds 26px to
+  // the figure on 16:9) eats the band before it eats the chart, and never the
+  // frame.
+  const band = Math.max(0, Math.min(format === "tiktok" ? 120 : portrait ? 84 : 26, Math.round(room * 0.2)));
+
   const chartW = width - pad * 2;
-  const chartH = portrait ? (format === "tiktok" ? 420 : 360) : 250;
+  // THE CHART TAKES THE SLACK. It used to be a fixed 360 (420 on 9:16, 250 on
+  // 16:9) under `space-between`, which failed in both directions: 4:5 had
+  // 350px left over and divided it into three dead bands, so the figure sat as
+  // far from its own line as it did from the masthead; 16:9 came out 51px
+  // OVER the column, so the chart ran under the sign-off and off the bottom
+  // edge. Sized from what is actually left, the way the grid cards size their
+  // cells, neither can happen.
+  const chartH = Math.max(90, Math.round(room - band * 2));
   const spark = sparklineDataUri(series, colour, chartW, chartH, look.to);
 
   return (
@@ -2003,7 +2050,6 @@ function IndexCard({
         style={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
           width,
           height,
           padding: pad,
@@ -2019,74 +2065,88 @@ function IndexCard({
           surface={look.to}
         />
 
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div
-            style={{
-              display: "flex",
-              fontSize: portrait ? 26 : 21,
-              color: look.muted,
-              letterSpacing: 1,
-            }}
-          >
-            {String(d.collector ?? "")}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", marginTop: 10 }}>
-            <img
-              src={arrowDataUri(rising, colour, portrait ? 76 : 60)}
-              alt=""
-              width={portrait ? 76 : 60}
-              height={portrait ? 76 : 60}
-              style={{ marginRight: 16 }}
-            />
+        {/* The figure and the line that shows it are one idea, so they are one
+            block with the slack around the pair rather than four siblings
+            under space-between with the slack between them. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <div
               style={{
                 display: "flex",
-                fontSize: Math.round((portrait ? 130 : 100) * look.titleScale),
-                fontWeight: 800,
-                color: colour,
-                letterSpacing: -4,
+                fontSize: collectorSize,
+                color: look.muted,
+                letterSpacing: 1,
               }}
             >
-              {rising ? "+" : "−"}
-              {Math.abs(pct).toFixed(1)}%
+              {String(d.collector ?? "")}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", marginTop: 10 }}>
+              <img
+                src={arrowDataUri(rising, colour, arrowSize)}
+                alt=""
+                width={arrowSize}
+                height={arrowSize}
+                style={{ marginRight: 16 }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: figureSize,
+                  fontWeight: 800,
+                  color: colour,
+                  letterSpacing: -4,
+                }}
+              >
+                {rising ? "+" : "−"}
+                {Math.abs(pct).toFixed(1)}%
+              </div>
+            </div>
+            <div style={{ display: "flex", fontSize: basketSize, color: look.muted, marginTop: 4 }}>
+              same {String(d.basket ?? "")} shirts · nothing bought or sold
             </div>
           </div>
-          <div style={{ display: "flex", fontSize: portrait ? 27 : 22, color: look.muted, marginTop: 4 }}>
-            same {String(d.basket ?? "")} shirts · nothing bought or sold
-          </div>
+
+          {spark ? (
+            <div style={{ display: "flex", flexDirection: "column", marginTop: heroToChart }}>
+              {/* Labelled, so the rebasing is visible rather than inferred. */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: scaleSize,
+                  color: look.muted,
+                  marginBottom: 6,
+                }}
+              >
+                <div style={{ display: "flex" }}>{String(d.from ?? "")} = 100</div>
+                <div style={{ display: "flex" }}>{String(d.to ?? "")}</div>
+              </div>
+              <img src={spark} alt="" width={chartW} height={chartH} />
+            </div>
+          ) : (
+            <div
+              style={{ display: "flex", fontSize: 24, color: look.muted, marginTop: heroToChart }}
+            >
+              Not enough recorded sales to draw the series
+            </div>
+          )}
         </div>
 
-        {spark ? (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {/* Labelled, so the rebasing is visible rather than inferred. */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: portrait ? 20 : 17,
-                color: look.muted,
-                marginBottom: 6,
-              }}
-            >
-              <div style={{ display: "flex" }}>{String(d.from ?? "")} = 100</div>
-              <div style={{ display: "flex" }}>{String(d.to ?? "")}</div>
-            </div>
-            <img src={spark} alt="" width={chartW} height={chartH} />
-          </div>
-        ) : (
-          <div style={{ display: "flex", fontSize: 24, color: look.muted }}>
-            Not enough recorded sales to draw the series
-          </div>
-        )}
-
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", fontSize: portrait ? 23 : 19, color: look.muted }}>
+          <div style={{ display: "flex", fontSize: sourceSize, color: look.muted }}>
             Indexed on recorded sales of the same shirts
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: portrait ? 20 : 17,
+              fontSize: disclaimerSize,
               color: look.muted,
               opacity: 0.72,
               marginTop: 6,
