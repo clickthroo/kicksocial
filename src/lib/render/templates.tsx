@@ -374,11 +374,18 @@ function TrendCard({
     : [];
   const montage = Array.isArray(d.images) ? (d.images as string[]) : [];
   const hasMontage = montage.length >= 3;
-  // The strip has to come from somewhere: the chart gives up the height. 16:9
-  // has far less to give than 4:5 - the first pass at these numbers pushed the
-  // provenance line off the bottom of the landscape card.
-  const thumb = portrait ? 220 : 98;
-  const sparkW = portrait ? 960 : 1080;
+  const pad = portrait ? 56 : 44;
+  const contentW = FORMATS[format].width - pad * 2;
+  const gap = 12;
+  // Shirts are portrait objects. Square tiles cropped the sleeves off them and
+  // left the row short of the column, so in 4:5 and 9:16 the strip spans the
+  // content width exactly and the tiles carry a portrait aspect. 16:9 has far
+  // less height to give: the tiles stay small there and the strip sits left,
+  // rather than pushing the provenance line off the bottom of the card.
+  const thumbW = portrait ? Math.floor((contentW - gap * 3) / 4) : 96;
+  const thumbH = Math.round(thumbW * 1.2);
+  // The strip has to come from somewhere: the chart gives up the height.
+  const sparkW = portrait ? contentW : 1080;
   const sparkH = hasMontage ? (portrait ? 190 : 104) : portrait ? 300 : 210;
   const spark = sparklineDataUri(series, colour, sparkW, sparkH, look.to);
 
@@ -388,91 +395,122 @@ function TrendCard({
         style={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: "space-between",
           width: "100%",
           height: "100%",
-          padding: portrait ? 56 : 44,
-          paddingBottom: format === "tiktok" ? 56 + TIKTOK_SAFE_BOTTOM : portrait ? 56 : 44,
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
           background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
         }}
       >
         <BrandLockup format={format} brand={brand} label="MARKET TREND" />
 
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div
-            style={{
-              display: "flex",
-              fontSize: portrait ? 44 : 34,
-              color: look.muted,
-              marginBottom: 8,
-            }}
-          >
-            {String(d.subject ?? d.label ?? "")}
-          </div>
-
-          {/* Direction carried three ways: arrow, sign, and colour. */}
-          <div style={{ display: "flex", alignItems: "center" }}>
-            <img
-              src={arrowDataUri(rising, colour, portrait ? 92 : 72)}
-              alt={rising ? "rising" : "falling"}
-              width={portrait ? 92 : 72}
-              height={portrait ? 92 : 72}
-              style={{ marginRight: 18 }}
-            />
+        {/*
+          One composed middle block, rather than four siblings under
+          space-between. There is no per-subject price series in Kickio (see
+          the note on `subjectSeries` in recipes/price-trends.ts), so the
+          sparkline never renders in production - and the outer space-between
+          was dividing the height it left behind into dead bands above and
+          below the shirt strip. The slack belongs to one block that centres
+          what it holds and sets its own spacing.
+        */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column" }}>
             <div
               style={{
                 display: "flex",
-                fontSize: Math.round((portrait ? 148 : 112) * look.titleScale),
-                fontWeight: 800,
-                color: colour,
-                letterSpacing: -4,
+                fontSize: portrait ? 44 : 34,
+                color: look.muted,
+                marginBottom: 8,
               }}
             >
-              {rising ? "+" : "−"}
-              {Math.abs(pct).toFixed(1)}%
+              {String(d.subject ?? d.label ?? "")}
+            </div>
+
+            {/* Direction carried three ways: arrow, sign, and colour. */}
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <img
+                src={arrowDataUri(rising, colour, portrait ? 92 : 72)}
+                alt={rising ? "rising" : "falling"}
+                width={portrait ? 92 : 72}
+                height={portrait ? 92 : 72}
+                style={{ marginRight: 18 }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: Math.round((portrait ? 148 : 112) * look.titleScale),
+                  fontWeight: 800,
+                  color: colour,
+                  letterSpacing: -4,
+                }}
+              >
+                {rising ? "+" : "−"}
+                {Math.abs(pct).toFixed(1)}%
+              </div>
+            </div>
+
+            <div style={{ display: "flex", fontSize: portrait ? 30 : 24, color: look.muted, marginTop: 6 }}>
+              over {String(d.change_window_days ?? 90)} days · like-for-like
             </div>
           </div>
 
-          <div style={{ display: "flex", fontSize: portrait ? 30 : 24, color: look.muted, marginTop: 6 }}>
-            over {String(d.change_window_days ?? 90)} days · like-for-like
-          </div>
+          {spark && (
+            <img
+              src={spark}
+              alt=""
+              width={sparkW}
+              height={sparkH}
+              style={{ width: sparkW, height: sparkH, marginTop: portrait ? 28 : 16 }}
+            />
+          )}
+
+          {hasMontage && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                marginTop: portrait ? 44 : 22,
+              }}
+            >
+              <div style={{ display: "flex" }}>
+                {montage.slice(0, 4).map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt=""
+                    width={thumbW}
+                    height={thumbH}
+                    style={{
+                      width: thumbW,
+                      height: thumbH,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      background: "#ffffff",
+                      marginRight: i < 3 ? gap : 0,
+                    }}
+                  />
+                ))}
+              </div>
+              {/* These are examples of the category, NOT the shirts behind the
+                  figure - which come from sales data the engine cannot read.
+                  Unlabelled beside a percentage they would read as the movers. */}
+              <div style={{ display: "flex", fontSize: 19, color: look.muted, marginTop: 10 }}>
+                {String(d.montage_basis ?? "")}
+              </div>
+            </div>
+          )}
         </div>
 
-        {spark && (
-          <img src={spark} alt="" width={sparkW} height={sparkH} style={{ width: sparkW, height: sparkH }} />
-        )}
-
-        {montage.length >= 3 && (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex" }}>
-              {montage.slice(0, 4).map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt=""
-                  width={thumb}
-                  height={thumb}
-                  style={{
-                    width: thumb,
-                    height: thumb,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                    background: "#ffffff",
-                    marginRight: i < 3 ? 10 : 0,
-                  }}
-                />
-              ))}
-            </div>
-            {/* These are examples of the category, NOT the shirts behind the
-                figure - which come from sales data the engine cannot read.
-                Unlabelled beside a percentage they would read as the movers. */}
-            <div style={{ display: "flex", fontSize: 19, color: look.muted, marginTop: 10 }}>
-              {String(d.montage_basis ?? "")}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* 16:9 has no slack for the middle block to absorb, so the sign-off
+            keeps its own clearance rather than sitting on the caption. */}
+        <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 0 : 22 }}>
           <div style={{ display: "flex", fontSize: 24, color: look.muted }}>
             Median {String(d.median_fair_price ?? "")} · {String(d.cohort_count ?? "")} comparable shirts ·{" "}
             {String(d.total_sales ?? "")} sales
@@ -2119,9 +2157,14 @@ function PriceHistoryCard({
   // padX is half a label plus a margin, so the first and last prices stay
   // inside the card; padY is a label's height, so a peak's price has somewhere
   // to go. Both are why the line does not start in the corner.
+  // 16:9 runs to the pixel: title (253) + chart (200 plot + 110 of dates and
+  // grades) + caveat came to exactly the 587 the column has, so the caveat sat
+  // hard on the bottom padding with nothing under it. The plot gives up the
+  // clearance; it is the one element here that loses nothing by being shorter,
+  // because every value it carries is also printed beside its dot.
   const box: ChartBox = portrait
     ? { width: 968, height: 300, padX: 84, padY: 64 }
-    : { width: 704, height: 200, padX: 62, padY: 44 };
+    : { width: 704, height: 164, padX: 62, padY: 40 };
 
   // Narrower than the gap between two points, or two prices on the same side
   // of a rising line overlap.
@@ -2396,7 +2439,16 @@ function PriceHistoryCard({
                 card's and given its own line height rather than being allowed
                 to sit on the grades above it. */}
             <div
-              style={{ display: "flex", fontSize: 17, lineHeight: 1.4, color: palette.muted }}
+              style={{
+                display: "flex",
+                fontSize: 17,
+                lineHeight: 1.4,
+                color: palette.muted,
+                // An explicit floor under the gap, not just whatever
+                // space-between has left: without it the caveat lands a dozen
+                // pixels under the grades and reads as another axis row.
+                marginTop: 14,
+              }}
             >
               {caveat}
             </div>
