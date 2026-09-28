@@ -206,6 +206,7 @@ function BrandLockup({
   label,
   muted = INK_MUTED,
   surface = SURFACE,
+  compact = false,
 }: {
   format: FormatKey;
   brand: Brand;
@@ -213,10 +214,18 @@ function BrandLockup({
   muted?: string;
   /** What the lockup is sitting on, so a white mark is never lost on it. */
   surface?: string;
+  /**
+   * Half-height, for the cards that lead with a photograph.
+   *
+   * The full lockup is 172px of a 1350px card. On an information-led card that
+   * is a masthead; above a product shot it is 13% of the frame taken off the
+   * thing people came to look at. Compact costs about 6% and still reads.
+   */
+  compact?: boolean;
 }) {
   const portrait = format !== "x";
-  const size = portrait ? 172 : 128;
-  const urlSize = portrait ? 24 : 20;
+  const size = compact ? (portrait ? 92 : 72) : portrait ? 172 : 128;
+  const urlSize = compact ? (portrait ? 20 : 17) : portrait ? 24 : 20;
 
   const url = (
     <div
@@ -943,6 +952,18 @@ function StudioField({
  * the point, because a Drop has to look as considered as a Sale and cloning
  * the component would have guaranteed the two drifted apart.
  */
+/**
+ * The masthead band on a photo-led card, as a fixed height.
+ *
+ * Fixed rather than natural, because the stage below it has to be told how
+ * tall it is and Satori gives no metrics back. A guessed reserve against a
+ * natural height was out by enough to push the sign-off off the bottom edge;
+ * pinning the band makes the subtraction exact instead of approximate. Sized
+ * for the taller case, a configured logo mark over the url, so the wordmark
+ * fallback gains air rather than the mark overflowing.
+ */
+const MASTHEAD_H = { portrait: 152, landscape: 112 };
+
 function GrailSaleCard({
   draft,
   format,
@@ -964,11 +985,22 @@ function GrailSaleCard({
   // only one.
   const available = mode !== "sold";
   const d = draft.source_data as Record<string, unknown>;
+  // The eyebrow names the post; the badge states what is true of this one item.
+  // Grail has no second fact to state - it is simply a shirt for sale - so it
+  // carries no badge rather than repeating its own eyebrow back at the reader.
+  const eyebrow =
+    mode === "sold"
+      ? "GRAIL SALE"
+      : mode === "grail"
+        ? "GRAIL OF THE DAY"
+        : mode === "value"
+          ? "VALUE PICK"
+          : "KICKIO DROP";
   const badge =
     mode === "sold"
       ? "SOLD"
       : mode === "grail"
-        ? "GRAIL OF THE DAY"
+        ? null
         : mode === "value"
           ? `${String(d.discount_pct ?? "")}% BELOW`
           : "AVAILABLE NOW";
@@ -986,11 +1018,49 @@ function GrailSaleCard({
   // Season and club are already in the title; these add what it does not carry.
   const meta = [d.condition, d.size, d.printing].filter(Boolean).map(String);
 
-  const stageHeight = portrait ? Math.round(height * palette.stage) : height;
-  const stageWidth = portrait ? width : Math.round(width * 0.48);
   const pad = Math.round((portrait ? 56 : 46) * palette.inset);
   // Bleed fills its stage; everything else sits inside the inset.
   const bleed = palette.photo === "bleed";
+
+  // Every card in the set now opens with the same thing: the lockup on the
+  // left, the post type on the right. These four used to carry the mark at the
+  // foot instead, so a feed of Kickio posts read as two designers rather than
+  // one.
+  const mastheadH = portrait ? MASTHEAD_H.portrait : MASTHEAD_H.landscape;
+  const masthead = (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        height: mastheadH,
+        padding: `0 ${pad}px`,
+        // Spans whatever it is dropped into. In a column it already would; in
+        // the row the bleed style wraps it in, it would otherwise shrink to
+        // its contents and the lockup's space-between would have nothing to
+        // spread across.
+        flexGrow: 1,
+      }}
+    >
+      <BrandLockup
+        format={format}
+        brand={brand}
+        label={eyebrow}
+        muted={palette.muted}
+        surface={palette.to}
+        compact
+      />
+    </div>
+  );
+  // Only the portrait, non-bleed case puts it above the photograph, so only
+  // that case has to give the photograph less room. `editorial` bleeds to the
+  // top edge by design and keeps it; landscape has the photo beside the type,
+  // so the masthead opens the column it belongs to.
+  const mastheadOverStage = portrait && !bleed;
+  const stageHeight = portrait
+    ? Math.round(height * palette.stage) - (mastheadOverStage ? mastheadH : 0)
+    : height;
+  const stageWidth = portrait ? width : Math.round(width * 0.48);
   const photoW = bleed ? stageWidth : stageWidth - pad * 2;
   const photoH = bleed ? stageHeight : stageHeight - pad * 2;
 
@@ -1007,6 +1077,13 @@ function GrailSaleCard({
           position: "relative",
         }}
       >
+        {mastheadOverStage && masthead}
+
+        {/* The bleed style paints the photograph edge to edge and sets the
+            type over it, so the masthead is pinned to the top rather than
+            given a band of its own. Placed before the photo in the DOM it
+            would be painted under it: Satori paints in document order, so it
+            goes after the scrim, further down. */}
 
         <div
           style={{
@@ -1071,18 +1148,39 @@ function GrailSaleCard({
           />
         )}
 
+        {bleed && (
+          <div style={{ display: "flex", position: "absolute", top: 0, left: 0, width }}>
+            {masthead}
+          </div>
+        )}
+
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             justifyContent: bleed ? "flex-end" : portrait ? "flex-end" : "space-between",
             width: bleed ? width : portrait ? width : width - stageWidth,
-            height: bleed ? height : portrait ? height - stageHeight : height,
+            // The masthead band is a third row in portrait, so the column that
+            // fills the rest has to subtract it as well as the stage. Without
+            // that this box was a band too tall, and since it bottom-aligns its
+            // contents, the overflow went off the bottom edge and took the
+            // sign-off with it.
+            height: bleed
+              ? height
+              : portrait
+                ? height - stageHeight - (mastheadOverStage ? mastheadH : 0)
+                : height,
             padding: pad,
             color: palette.ink,
             ...(bleed ? { position: "absolute", top: 0, left: 0 } : {}),
           }}
         >
+          {/* Landscape keeps the photo beside the type, so the masthead opens
+              the column it belongs to. The bleed style is handled separately:
+              its column bottom-aligns everything over a full-frame photograph,
+              so a masthead placed here would sit just above the title rather
+              than at the top of the card. */}
+          {!mastheadOverStage && !bleed && masthead}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div
               style={{
@@ -1092,7 +1190,13 @@ function GrailSaleCard({
                 marginBottom: portrait ? 24 : 18,
               }}
             >
-              <SoldBadge scale={portrait ? 1 : 0.85} accent={palette.accent} label={badge} />
+              {badge ? (
+                <SoldBadge scale={portrait ? 1 : 0.85} accent={palette.accent} label={badge} />
+              ) : (
+                // Keeps the date and "Offers considered" on the right where
+                // they belong when there is no badge to push them there.
+                <div style={{ display: "flex" }} />
+              )}
               {/* A Sale is dated; a Drop says whether the seller will haggle,
                   which is the more useful thing to know about one you can buy. */}
               {available ? (
@@ -1192,7 +1296,10 @@ function GrailSaleCard({
                 borderTop: `1px solid ${palette.hairline}`,
               }}
             >
-              <BrandBadge size={portrait ? 112 : 88} brand={brand} surface={palette.to} />
+              {/* The mark moved to the masthead, so the foot is a sign-off
+                  rather than a second logo. The condition and size are already
+                  set under the title, so nothing goes on the left. */}
+              <div style={{ display: "flex" }} />
               <div
                 style={{
                   display: "flex",
@@ -1284,7 +1391,7 @@ function ArchiveCard({
         <BrandLockup
           format={format}
           brand={brand}
-          label="ON KICKIO"
+          label="CLUB ARCHIVE"
           muted={look.muted}
           surface={look.to}
         />
@@ -1428,7 +1535,7 @@ function CollectionCard({
         <BrandLockup
           format={format}
           brand={brand}
-          label="THE LIST"
+          label="GRAIL LIST"
           muted={look.muted}
           surface={look.to}
         />
@@ -1741,7 +1848,7 @@ function CollectorCard({
         <BrandLockup
           format={format}
           brand={brand}
-          label="COLLECTOR"
+          label="COLLECTOR SPOTLIGHT"
           muted={look.muted}
           surface={look.to}
         />
