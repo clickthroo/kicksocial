@@ -18,6 +18,42 @@ const base = {
 };
 
 export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
+  most_wanted_card: {
+    ...base,
+    id: "sample-most-wanted",
+    recipe_key: "most_wanted",
+    subject_ref: "real madrid|2014-15",
+    headline: "Most Wanted: Real Madrid 2014-15",
+    generation: { visual_template: "most_wanted_card" },
+    source_data: {
+      window_days: 90,
+      subject: "Real Madrid 2014-15",
+      top_team: "Real Madrid",
+      top_season: "2014-15",
+      top_sales: 49,
+      top_listed: 2,
+      top_pressure: "25",
+      top_median_price: "\u00a3116",
+      basis:
+        "Tracked market sales in the last 90 days for each shirt still listed on Kickio. " +
+        "Home, away and third shirts only.",
+      featured: [
+        { rank: 1, team: "Real Madrid", season: "2014-15", sales: 49, listed: 2, pressure: "25", median_price: "\u00a3116" },
+        { rank: 2, team: "Manchester United", season: "2008-09", sales: 45, listed: 2, pressure: "23", median_price: "\u00a3121" },
+        { rank: 3, team: "Real Madrid", season: "2018-19", sales: 34, listed: 2, pressure: "17", median_price: "\u00a376" },
+        { rank: 4, team: "Liverpool", season: "2006-07", sales: 29, listed: 2, pressure: "15", median_price: "\u00a3139" },
+        { rank: 5, team: "Liverpool", season: "1995-96", sales: 38, listed: 3, pressure: "13", median_price: "\u00a3176" },
+      ],
+      qualifying_subjects: 251,
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/BRAA069V/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/GERH1221VL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/BRAA06098912/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/GERH1216EXL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/USAA94335323/0.jpg",
+      ],
+    },
+  },
   grail_card: {
     ...base,
     id: "sample-grail",

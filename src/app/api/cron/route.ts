@@ -21,9 +21,12 @@ function recipesForToday(date: Date): string[] {
   if (day === 4) keys.push("market_index");
   if (day === 4) keys.push("value_pick");   // Thursday
   if (day === 5) keys.push("sold_this_week"); // Friday
-  // Saturday. Usually skips - Featured Collection only posts when the list has
-  // actually moved - so it is cheap to ask every week.
-  if (day === 6) keys.push("featured_collection");
+  // Saturday. Featured Collection usually skips - it only posts when the list
+  // has actually moved - which left the day carrying nothing but the daily
+  // Grail most weeks. Most Wanted sits behind it because it nearly always has
+  // something to say and it sends people to shirts that are still in stock,
+  // which is the right note for a Saturday.
+  if (day === 6) keys.push("featured_collection", "most_wanted");
   // Sunday. Collector Spotlight leads because it needs nobody to have finished
   // anything; the progress post is the rarer, better one when it does fire.
   if (day === 0) keys.push("collector_spotlight", "collector_set_progress");

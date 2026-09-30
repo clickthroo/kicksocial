@@ -47,6 +47,11 @@ import {
   DEFAULT_LEGEND_SHELF_CONFIG,
   LEGEND_SHELF_BRIEF,
 } from "./legend-shelf.ts";
+import {
+  runMostWanted,
+  DEFAULT_MOST_WANTED_CONFIG,
+  MOST_WANTED_BRIEF,
+} from "./most-wanted.ts";
 
 export interface Recipe {
   key: string;
@@ -261,6 +266,16 @@ they do everywhere else.`,
     brief: LEGEND_SHELF_BRIEF,
     run: (selection) =>
       runLegendShelf({ ...DEFAULT_LEGEND_SHELF_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "most_wanted",
+    name: "Most Wanted",
+    cadence: "weekly",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "most_wanted_card",
+    brief: MOST_WANTED_BRIEF,
+    run: (selection) =>
+      runMostWanted({ ...DEFAULT_MOST_WANTED_CONFIG, ...(selection as object) }),
   },
 ];
 

@@ -2783,6 +2783,238 @@ function WhoAmICard({
   );
 }
 
+
+/**
+ * Most Wanted - a ranked countdown, and the gap between what sells and what is
+ * left on the shelf.
+ *
+ * THE NUMBER IS THE PICTURE. The card leads on the rate, not the rank: "24
+ * sales for every one listed" is the thing a collector stops for, and the
+ * position in the list is only how it is ordered. So the hero carries the
+ * figure at title size and the tiles beneath carry theirs small, rather than a
+ * numbered list with the interesting part in a caption.
+ *
+ * `listed` is on every tile on purpose. A most-wanted post that does not say
+ * how few are left is a post about popularity, and popularity is what the raw
+ * sales ranking measured before this recipe stopped using it.
+ */
+function MostWantedCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+  const pad = portrait ? 56 : 44;
+
+  const featured = Array.isArray(d.featured)
+    ? (d.featured as Array<Record<string, unknown>>).slice(0, 5)
+    : [];
+  // Index-aligned with `featured` by contract - the recipe only features a
+  // subject it has a photo for, precisely so this holds. If it ever does not, a
+  // tile draws without its picture rather than borrowing the next shirt's.
+  const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
+
+  const hero = featured[0];
+  const rest = featured.slice(1);
+
+  const heroSize = portrait ? 440 : 210;
+  const tileHeight = portrait ? 190 : 118;
+  const tileImageWidth = portrait ? 180 : 210;
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="MOST WANTED"
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flexGrow: 1,
+            justifyContent: "center",
+            gap: portrait ? 30 : 18,
+          }}
+        >
+          {hero && (
+            <div style={{ display: "flex", alignItems: "center", gap: portrait ? 34 : 26 }}>
+              <div
+                style={{
+                  display: "flex",
+                  width: heroSize,
+                  height: heroSize,
+                  flexShrink: 0,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: look.cellFill,
+                  borderRadius: look.radius,
+                  ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+                }}
+              >
+                {photos[0] && (
+                  <img
+                    src={photos[0]}
+                    width={heroSize}
+                    height={heroSize}
+                    style={{ objectFit: "contain", borderRadius: look.radius }}
+                  />
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 42 : 31,
+                    fontWeight: 700,
+                    lineHeight: 1.12,
+                  }}
+                >
+                  {[hero.team, hero.season].filter(Boolean).join(" ")}
+                </div>
+
+                {/* The rate, at title size, because it is the story. */}
+                <div style={{ display: "flex", alignItems: "baseline", marginTop: portrait ? 16 : 10 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: Math.round((portrait ? 110 : 80) * look.titleScale),
+                      fontWeight: 800,
+                      letterSpacing: -3,
+                      color: look.accent,
+                    }}
+                  >
+                    {String(hero.pressure ?? "")}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 30 : 22,
+                      color: look.muted,
+                      marginLeft: 12,
+                    }}
+                  >
+                    sales per shirt listed
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 27 : 20,
+                    color: look.muted,
+                    marginTop: portrait ? 10 : 6,
+                  }}
+                >
+                  {String(hero.sales ?? "")} tracked sales · {String(hero.listed ?? "")} on Kickio now
+                </div>
+              </div>
+            </div>
+          )}
+
+          {rest.length > 0 && (
+            <div style={{ display: "flex", gap: look.gap + 6 }}>
+              {rest.map((s, i) => (
+                <div
+                  key={i}
+                  style={{ display: "flex", flexDirection: "column", flexGrow: 1, flexBasis: 0 }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      width: "100%",
+                      height: tileHeight,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: look.cellFill,
+                      borderRadius: look.radius,
+                      ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+                    }}
+                  >
+                    {photos[i + 1] && (
+                      <img
+                        src={photos[i + 1]}
+                        width={tileImageWidth}
+                        height={tileHeight}
+                        style={{ objectFit: "contain", borderRadius: look.radius }}
+                      />
+                    )}
+                  </div>
+                  {/* Club then season on separate lines. Joined on one they
+                      wrapped mid-season and cost the year. */}
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 22 : 16,
+                      fontWeight: 700,
+                      marginTop: 12,
+                    }}
+                  >
+                    {String(s.team ?? "")}
+                  </div>
+                  <div
+                    style={{ display: "flex", fontSize: portrait ? 18 : 14, color: look.muted, marginTop: 2 }}
+                  >
+                    {String(s.season ?? "")}
+                  </div>
+                  <div
+                    style={{ display: "flex", fontSize: portrait ? 18 : 14, color: look.accent, marginTop: 4 }}
+                  >
+                    {String(s.pressure ?? "")}× · {String(s.listed ?? "")} left
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", fontSize: portrait ? 23 : 19, color: look.muted }}>
+            Tracked sales over {String(d.window_days ?? 90)} days per shirt listed · home, away and
+            third only
+          </div>
+          {/* Provenance, on every card built on this table: the sales are the
+              market's, the shirts for sale are Kickio's. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 20 : 17,
+              color: look.muted,
+              opacity: 0.72,
+              marginTop: 6,
+            }}
+          >
+            Market-wide sales data tracked by Kickio · kickio.com
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -2878,6 +3110,15 @@ export function templateFor(
     case "grail_sale_card":
       return (
         <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "most_wanted_card":
+      return (
+        <MostWantedCard
           draft={draft}
           format={format}
           brand={brand}

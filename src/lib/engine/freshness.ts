@@ -44,6 +44,11 @@ export const PERISHES: Record<string, PerishKind> = {
   club_archive: "listing",
   collector_spotlight: "listing",
   collector_set_progress: "listing",
+  // The sales half is a 90-day window and ages slowly, but the card prints
+  // "2 on Kickio now" and that is a live count of listings. One of them
+  // selling makes the number on the card wrong, and the number is the post.
+  // The faster-perishing half decides.
+  most_wanted: "listing",
   sold_this_week: "window",
   // Every point on the card is a completed sale, so none of it can stop being
   // true - but the card labels one of them "Latest", and the next recorded sale
