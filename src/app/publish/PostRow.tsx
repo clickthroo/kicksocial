@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { markPosted, unmarkPosted } from "./actions.ts";
+import { markPosted, postDraftToX, unmarkPosted } from "./actions.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
 import type { PublishEntry } from "@/lib/publish.ts";
 import { exportText } from "@/lib/copy/export.ts";
@@ -17,10 +17,13 @@ function PlatformRow({
   draft,
   platform,
   entry,
+  canPostToX,
 }: {
   draft: PostDraft;
   platform: Platform;
   entry: PublishEntry | undefined;
+  /** False unless this deployment holds X credentials. */
+  canPostToX: boolean;
 }) {
   const [url, setUrl] = useState(entry?.external_url ?? "");
   const [showUrl, setShowUrl] = useState(false);
@@ -30,6 +33,9 @@ function PlatformRow({
 
   const posted = !!entry;
   const format = platform === "x" ? "x" : "ig";
+  // Offered only where it can actually work: X, not yet posted, and
+  // credentials present. Everywhere else the manual flow is the flow.
+  const apiPost = platform === "x" && canPostToX && !posted;
 
   const copy = async () => {
     try {
@@ -39,6 +45,21 @@ function PlatformRow({
     } catch {
       setCopied(false);
     }
+  };
+
+  const [sending, setSending] = useState(false);
+  const send = () => {
+    setError(null);
+    setSending(true);
+    startTransition(async () => {
+      try {
+        await postDraftToX(draft.id);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setSending(false);
+      }
+    });
   };
 
   const toggle = () => {
@@ -95,12 +116,33 @@ function PlatformRow({
 
       {error && <div className="banner">{error}</div>}
 
+      {apiPost && (
+        <>
+          <button className="btn approve pub-mark" onClick={send} disabled={isPending}>
+            {sending ? "Posting to X…" : "Post to X now"}
+          </button>
+          {/* Said plainly, because the button spends money and is not
+              reversible by this tool: deleting a post is something only X can
+              do, from X. */}
+          <p className="section-note">
+            Uploads the 16:9 card and posts the text above, as Kickio. It cannot be
+            undone from here.
+          </p>
+        </>
+      )}
+
       <button
-        className={`btn ${posted ? "" : "approve"} pub-mark`}
+        className={`btn ${posted || apiPost ? "" : "approve"} pub-mark`}
         onClick={toggle}
         disabled={isPending}
       >
-        {isPending ? "Saving…" : posted ? "Undo" : `Mark posted to ${LABELS[platform]}`}
+        {isPending && !sending
+          ? "Saving…"
+          : posted
+            ? "Undo"
+            : apiPost
+              ? "I posted it myself"
+              : `Mark posted to ${LABELS[platform]}`}
       </button>
     </div>
   );
@@ -110,10 +152,12 @@ export function PostRow({
   draft,
   platforms,
   entries,
+  canPostToX = false,
 }: {
   draft: PostDraft;
   platforms: Platform[];
   entries: PublishEntry[];
+  canPostToX?: boolean;
 }) {
   const byPlatform = new Map(entries.map((e) => [e.platform, e]));
   const done = platforms.filter((p) => byPlatform.has(p)).length;
@@ -129,7 +173,13 @@ export function PostRow({
       </div>
 
       {platforms.map((p) => (
-        <PlatformRow key={p} draft={draft} platform={p} entry={byPlatform.get(p)} />
+        <PlatformRow
+          key={p}
+          draft={draft}
+          platform={p}
+          entry={byPlatform.get(p)}
+          canPostToX={canPostToX}
+        />
       ))}
     </article>
   );

@@ -175,3 +175,26 @@ alter default privileges in schema public revoke all on functions from anon, aut
 alter default privileges for role postgres in schema public revoke all on tables    from anon, authenticated;
 alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
 alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
+
+-- 2026-09-30: posting to X from the dashboard. Full DDL in the migration
+-- `platform_tokens`; recorded here because this file is the readable history
+-- of the engine's own schema.
+--
+-- A TABLE AND NOT AN ENVIRONMENT VARIABLE. X rotates the refresh token on
+-- every use: each refresh returns a new one and invalidates the old. A token
+-- kept only in an env var would work exactly once and then leave the
+-- integration permanently broken with no way back except re-authorising by
+-- hand. X_REFRESH_TOKEN seeds the first row; the row is the source of truth
+-- afterwards and the variable is ignored.
+--
+-- These rows ARE credentials, so RLS matters more here than on any other
+-- table: enabled, no policies, service role only, same as the rest.
+--
+-- create table platform_tokens (platform pk, refresh_token, access_token,
+--   access_expires_at, updated_at);
+-- alter table platform_tokens enable row level security;
+--
+-- publish_log needed nothing new. `method` was always there for this: it reads
+-- 'export' for a post someone pasted and 'x_api' for one the button sent, and
+-- the partial unique index (draft_id, platform) where status = 'succeeded'
+-- already allows the failed rows the publisher now writes.

@@ -1,6 +1,7 @@
 import { Nav } from "../Nav.tsx";
 import Link from "next/link";
 import { approvedDrafts, publishedPlatforms, recentPublishes, platformsOf } from "@/lib/publish.ts";
+import { isConfigured as xConfigured } from "@/lib/publishers/x.ts";
 import { PostRow } from "./PostRow.tsx";
 import type { PostDraft } from "@/lib/engine/types.ts";
 import type { PublishEntry, LogRow } from "@/lib/publish.ts";
@@ -38,6 +39,10 @@ export default async function PublishPage() {
     return platforms.some((p) => !done.has(p));
   });
 
+  // Read once per page rather than per row: it is an environment check, and
+  // asking it thirty times says the same thing thirty times.
+  const canPostToX = xConfigured();
+
   const sevenDays = Date.now() - 7 * 86_400_000;
   const lastWeek = log.filter((r) => new Date(r.published_at).getTime() > sevenDays).length;
 
@@ -68,8 +73,11 @@ export default async function PublishPage() {
         <>
           <h2 className="section">Ready to post</h2>
           <p className="section-note">
-            Approving clears a post; it does not send it. Nothing leaves this tool on its
-            own, so the log is only true if you confirm what you actually posted.
+            Approving clears a post; it does not send it. Nothing leaves this tool on a
+            schedule or on its own.{" "}
+            {canPostToX
+              ? "X can be posted from here with one tap; everywhere else, the log is only true if you confirm what you actually posted."
+              : "The log is only true if you confirm what you actually posted."}
           </p>
           {outstanding.map((draft) => (
             <PostRow
@@ -77,6 +85,7 @@ export default async function PublishPage() {
               draft={draft}
               platforms={platformsOf(draft)}
               entries={logged.get(draft.id) ?? []}
+              canPostToX={canPostToX}
             />
           ))}
         </>

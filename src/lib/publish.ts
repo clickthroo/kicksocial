@@ -105,10 +105,19 @@ async function reconcileDraftStatus(draftId: string): Promise<void> {
   if (updateError) throw new Error(`Updating draft status failed: ${updateError.message}`);
 }
 
+/**
+ * How a post went out. `export` is a person pasting it; the rest name the API
+ * that sent it. Recorded because "did we post the Arsenal one?" and "did the
+ * robot post the Arsenal one?" are different questions, and only the second
+ * one tells you where to look when it goes wrong.
+ */
+export type PublishMethod = "export" | "x_api";
+
 export async function recordPublish(
   draftId: string,
   platform: Platform,
   externalUrl?: string,
+  method: PublishMethod = "export",
 ): Promise<void> {
   const url = externalUrl?.trim();
   const { error } = await engine()
@@ -117,7 +126,7 @@ export async function recordPublish(
       {
         draft_id: draftId,
         platform,
-        method: "export",
+        method,
         status: "succeeded",
         external_url: url && url.length > 0 ? url : null,
         published_at: new Date().toISOString(),
@@ -174,4 +183,53 @@ export async function recentPublishes(limit = 40): Promise<LogRow[]> {
 
   if (error) throw new Error(`Loading the publish log failed: ${error.message}`);
   return (data ?? []) as unknown as LogRow[];
+}
+
+/**
+ * Has this draft already gone out on this platform?
+ *
+ * The guard before an API post. `recordPublish` upserts, so a double tap
+ * cannot write two log rows - but it would happily send two posts before
+ * either was recorded. This is checked first, and it is the only thing
+ * standing between an impatient second click and a duplicate on the timeline
+ * that costs money to have made.
+ */
+export async function alreadyPublished(draftId: string, platform: Platform): Promise<boolean> {
+  const { data, error } = await engine()
+    .from("publish_log")
+    .select("id")
+    .eq("draft_id", draftId)
+    .eq("platform", platform)
+    .eq("status", "succeeded")
+    .limit(1);
+  if (error) throw new Error(`Checking the publish log failed: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * A post that was attempted and did not go out.
+ *
+ * Recorded rather than only thrown, because a failure nobody can see later is
+ * a failure that gets retried blindly. These rows are deliberately NOT
+ * `succeeded`, so they never count toward a draft being published and never
+ * satisfy `alreadyPublished`.
+ */
+export async function recordFailure(
+  draftId: string,
+  platform: Platform,
+  method: PublishMethod,
+  message: string,
+): Promise<void> {
+  const { error } = await engine().from("publish_log").insert({
+    draft_id: draftId,
+    platform,
+    method,
+    status: "failed",
+    // Bounded: an API can return a page of HTML on a bad day and the log is
+    // for reading, not for storing someone else's error page.
+    error: message.slice(0, 1000),
+    published_at: new Date().toISOString(),
+  });
+  // A failure to record a failure must not replace the real error.
+  if (error) console.error(`Recording the failed post failed: ${error.message}`);
 }
