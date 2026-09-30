@@ -139,16 +139,39 @@ on conflict (recipe_key, subject_ref) do nothing;
 -- ("rls_enabled_no_policy") for all seven tables; that notice is expected and
 -- is not the same finding as the CRITICAL one this fixes.
 --
--- THE GRANTS ARE THE REAL ROOT CAUSE AND ARE STILL OPEN. Every table in this
--- schema grants anon SELECT, INSERT and DELETE - the Supabase default. RLS is
--- therefore the only thing standing between the project's publishable key and
--- the data, on all seven. That held everywhere it was switched on and failed on
--- the one table where it was not. Revoking the grants would make a repeat of
--- this mistake harmless rather than critical:
+-- THE GRANTS WERE THE REAL ROOT CAUSE. Every table in this schema granted anon
+-- and authenticated the full set - SELECT, INSERT, UPDATE, DELETE, TRUNCATE -
+-- because that is the Supabase default. RLS was therefore the only thing
+-- standing between the project's publishable key and the data, on all seven
+-- tables. It held everywhere it was switched on and failed on the one table
+-- where it was not, which is what turned a forgotten line into a CRITICAL.
 --
---   revoke all on all tables in schema public from anon, authenticated;
---   alter default privileges in schema public revoke all on tables from anon, authenticated;
+-- Nothing but the server ever reaches this database, and the server holds the
+-- service role key, so those grants bought nothing and cost exactly one
+-- outage-shaped mistake. Revoked below. The `alter default privileges` lines
+-- are the ones that matter in a year's time: they mean the NEXT table someone
+-- creates is closed to anon whether or not they remember the RLS line.
 --
--- Not run yet: it is a wider change to a live database than the advisory asked
--- for, and it wants a deliberate decision rather than being folded into a fix.
+-- Verified after the change, rather than assumed:
+--   - a new table created with RLS deliberately left off - the exact mistake
+--     repeated - came out with anon SELECT false and anon DELETE false, and
+--     service_role SELECT true. The failure mode is now harmless.
+--   - service_role still reads all seven tables (51 drafts, 16 recipes, 22
+--     first-seen, 1 admin, 1 brand, 105 runs, 0 publishes) and still holds
+--     EXECUTE on verify_admin and set_admin_password, so the login is intact.
+--   - anon and authenticated hold zero table grants in this schema.
 alter table public.subject_first_seen enable row level security;
+
+revoke all on all tables    in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke all on all functions in schema public from anon, authenticated;
+
+alter default privileges in schema public revoke all on tables    from anon, authenticated;
+alter default privileges in schema public revoke all on sequences from anon, authenticated;
+alter default privileges in schema public revoke all on functions from anon, authenticated;
+-- Repeated for the role that actually creates the tables: default privileges
+-- are recorded per creating role, so the unqualified form above covers only
+-- the role running it.
+alter default privileges for role postgres in schema public revoke all on tables    from anon, authenticated;
+alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
+alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
