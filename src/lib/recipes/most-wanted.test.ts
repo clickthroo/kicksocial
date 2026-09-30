@@ -174,11 +174,12 @@ describe("the six month cooldown is long enough to matter and short enough to su
     assert.equal(DEFAULT_MOST_WANTED_CONFIG.cooldownDays, 180);
   });
 
-  test("a weekly recipe needs about 26 subjects to fill it, and 251 qualify", () => {
-    // Measured against live Kickio data on 2026-09-30. If this ratio ever gets
-    // tight the recipe starts skipping, so the headroom is worth recording.
+  test("a weekly recipe needs about 26 subjects to fill it, and 128 qualify", () => {
+    // Measured against live Kickio data on 2026-09-30, counting only shirts
+    // with an active listing behind them. Counting approved product records
+    // instead gave 251, which was the bug: half of those cannot be bought.
     const weeksInWindow = Math.ceil(DEFAULT_MOST_WANTED_CONFIG.cooldownDays / 7);
     assert.ok(weeksInWindow <= 26);
-    assert.ok(251 > weeksInWindow * 5, "measured headroom has collapsed, re-check the thresholds");
+    assert.ok(128 > weeksInWindow * 4, "measured headroom has collapsed, re-check the thresholds");
   });
 });

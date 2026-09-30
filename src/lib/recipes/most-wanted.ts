@@ -22,11 +22,14 @@
  *
  * SO: SALES AGAINST WHAT IS LEFT ON THE SHELF
  *
- * A shirt that sold 49 times in 90 days with 2 listed today is being cleared
- * far faster than one that sold 52 times with 17 listed. That ratio is what a
+ * A shirt that sold 56 times in 90 days with 3 for sale today is being cleared
+ * far faster than one that sold 52 times with 17 for sale. That ratio is what a
  * collector means by "wanted": people keep buying it and you still cannot get
- * one. It puts Real Madrid 2014-15, Manchester United 2008-09 and Liverpool
- * 1995-96 at the top instead of whatever was cheapest in 2010.
+ * one.
+ *
+ * "For sale" is load-bearing and is not the same as "on the catalogue" - see
+ * the products read below, which is where the first version of this recipe got
+ * it wrong.
  *
  * The number is stated on the card as what it is - sales per shirt currently
  * listed - and never as a count of people. Nobody is claimed to want anything.
@@ -197,13 +200,24 @@ export async function runMostWanted(
       .range(from, to),
   );
 
-  // Everything on the shelf, paged for the same reason.
+  // Everything you can actually BUY, paged for the same reason.
+  //
+  // `has_active_listing`, not `status = 'active'`. Those are different things
+  // and the difference is the whole denominator: `status` means the product
+  // RECORD was approved, and 2,628 rows carry it, while only 1,315 have a
+  // listing behind them. Counting the former had the card printing "2 on
+  // Kickio now" for Real Madrid 2014-15, whose two approved records are a Bale
+  // home shirt and a Modric third shirt with `listings_count: 0` - nothing
+  // anyone could buy. A Most Wanted post is a shop window; sending a reader to
+  // an empty one is the exact overclaim this recipe refuses everywhere else.
+  // Same distinction, same reason, as `isApproved` in who-am-i.ts.
   const products = await pageAll<ProductRow>("Most Wanted listings read", (from, to) =>
     kickio()
       .from("products")
       .select("id,team,season,primary_image_url,images")
       .is("deleted_at", null)
       .eq("status", "active")
+      .eq("has_active_listing", true)
       .not("team", "is", null)
       .not("season", "is", null)
       .range(from, to),
@@ -239,7 +253,7 @@ export async function runMostWanted(
 
   // Six months. The leaderboard barely moves week to week, so without this the
   // same three clubs would be Most Wanted every time and the post would stop
-  // being news. Measured: 251 subjects qualify, against the 26 a weekly recipe
+  // being news. Measured: 128 subjects qualify, against the 26 a weekly recipe
   // needs to fill the window, so the cooldown costs nothing in coverage.
   const seen = await recentlyFeatured("most_wanted", config.cooldownDays);
   const eligible = ranked.filter((s) => !seen.has(subjectRef(s.team, s.season)));
@@ -284,7 +298,8 @@ export async function runMostWanted(
         `${top.team} ${top.season} shirts sold ${top.sales} times in ${config.windowDays} days ` +
         `with ${top.listed} listed on Kickio now`,
       value: top.sales,
-      source: "sales_history (approved, match shirts only) against products.status = 'active'",
+      source:
+        "sales_history (approved, match shirts only) against products with an active listing",
       basis:
         `${pressureLabel(top.pressure)} tracked sales for each one currently listed. ` +
         "Market-wide sales data, not Kickio's own sales.",
