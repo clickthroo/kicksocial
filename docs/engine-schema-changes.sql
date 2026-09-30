@@ -125,3 +125,30 @@ on conflict (recipe_key, subject_ref) do nothing;
 -- insert into admin_users (email, password_hash, display_name, must_change)
 -- values ('david@kickio.com', extensions.crypt('<temporary>',
 --         extensions.gen_salt('bf', 12)), 'David', true);
+
+-- 2026-09-30: RLS on subject_first_seen. Supabase's advisor caught this as a
+-- CRITICAL: the table was created above without it while every other table in
+-- this database has it, so it was the one table in the project the anon key
+-- could read, insert into and delete from.
+--
+-- WHY "ENABLE" AND NO POLICIES IS THE RIGHT ANSWER HERE, not an unfinished job.
+-- Nothing ever reaches this database except the server, holding the service
+-- role key, and service_role bypasses RLS. So RLS with zero policies is exactly
+-- the intended posture: deny everything to anon and authenticated, and let the
+-- server through. Supabase's linter still reports it at INFO level
+-- ("rls_enabled_no_policy") for all seven tables; that notice is expected and
+-- is not the same finding as the CRITICAL one this fixes.
+--
+-- THE GRANTS ARE THE REAL ROOT CAUSE AND ARE STILL OPEN. Every table in this
+-- schema grants anon SELECT, INSERT and DELETE - the Supabase default. RLS is
+-- therefore the only thing standing between the project's publishable key and
+-- the data, on all seven. That held everywhere it was switched on and failed on
+-- the one table where it was not. Revoking the grants would make a repeat of
+-- this mistake harmless rather than critical:
+--
+--   revoke all on all tables in schema public from anon, authenticated;
+--   alter default privileges in schema public revoke all on tables from anon, authenticated;
+--
+-- Not run yet: it is a wider change to a live database than the advisory asked
+-- for, and it wants a deliberate decision rather than being folded into a fix.
+alter table public.subject_first_seen enable row level security;
