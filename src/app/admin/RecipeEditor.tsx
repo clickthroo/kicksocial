@@ -457,6 +457,26 @@ export function RecipeEditor({
       <div className="row">
         <span className="field-label">Copy brief</span>
         <p className="hint">Sent to Claude with the brand voice and the verified facts.</p>
+        {/* WHICH BRIEF IS ACTUALLY IN FORCE, said out loud.
+            `run-recipe` takes this field when it has text in it and the brief
+            compiled into the recipe when it does not, and until now nothing
+            said so anywhere. That is how four recipes spent weeks telling
+            Claude "No TikTok variant" from this box while the code said the
+            opposite: the stored text wins silently, and a reader of either one
+            has no way to know the other exists. */}
+        {brief.trim() === "" ? (
+          <p className="hint">
+            <strong>Empty, so the brief written into the code is being used.</strong> That is
+            a working state, not a broken one. Put text here only to override it, and
+            remember that it then wins for good: changing the code will not change what
+            goes to Claude until this box is empty again.
+          </p>
+        ) : (
+          <p className="hint">
+            <strong>This text overrides the brief written into the code.</strong> Empty the
+            box to go back to it.
+          </p>
+        )}
         <textarea rows={8} value={brief} onChange={(e) => setBrief(e.target.value)} />
       </div>
 

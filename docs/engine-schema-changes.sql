@@ -198,3 +198,25 @@ alter default privileges for role postgres in schema public revoke all on functi
 -- 'export' for a post someone pasted and 'x_api' for one the button sent, and
 -- the partial unique index (draft_id, platform) where status = 'succeeded'
 -- already allows the failed rows the publisher now writes.
+
+-- 2026-10-02: the Most Wanted recipe row, and a note on which brief wins.
+--
+-- insert into recipes (key, name, enabled, cadence, platforms, visual_template,
+--   cooldown_days, prompt_template) values ('most_wanted', 'Most Wanted', true,
+--   'weekly', array['x','instagram','tiktok'], 'most_wanted_card', 180, ...);
+--
+-- WHICH BRIEF IS IN FORCE. `run-recipe.ts:89` reads
+-- `config?.prompt_template?.trim() || recipe.brief`, so a row with text in that
+-- column overrides the brief compiled into the recipe, and a blank one falls
+-- back to the code. Nothing used to say so in either place, which is how four
+-- recipes carried "No TikTok variant" in this column for weeks while the code
+-- said the opposite. The admin editor now states which one is winning.
+--
+-- `most_wanted` is the one row deliberately left blank, so it runs on
+-- MOST_WANTED_BRIEF in code. Not a preference: every write to this column over
+-- a couple of hundred characters timed out through the Supabase MCP connection
+-- on 2026-09-30 and again on 2026-10-02, six attempts, including one that left
+-- a placeholder mid-brief and had to be cleared. Blank is the safe resting
+-- state because the code brief is complete and correct. Paste it in from
+-- `MOST_WANTED_BRIEF` via Settings when the connection behaves, or leave it:
+-- both are correct, and the editor now says which is which.
