@@ -3022,6 +3022,304 @@ function MostWantedCard({
   );
 }
 
+
+/**
+ * Battle of the Shirts - two shirts, a VS, and a question.
+ *
+ * THE LOUDEST CARD IN THE SET, ON PURPOSE. Every other template here is
+ * restrained because it is carrying a number that has to be believed. This one
+ * is carrying a question, and a question nobody notices gets no replies. So it
+ * gets the diagonal split, the full-height shirts and the badge in the middle,
+ * which is the visual language of every matchday graphic a football account
+ * has ever posted.
+ *
+ * It stays on brand by keeping the furniture: the same masthead, the same
+ * eyebrow, the same style palette as the rest. What changes is the composition,
+ * not the identity.
+ *
+ * A AND B, NOT LEFT AND RIGHT. The reply has to be one character. Naming the
+ * corners on the card is what lets the copy say "A or B?" and makes voting
+ * cost nothing, which is the whole mechanism - there is no poll, the comments
+ * ARE the poll.
+ *
+ * NO SCORE, EVER. Kickio holds no vote count: the votes are replies on a
+ * network this engine cannot read. There is deliberately nowhere on this card
+ * for a tally, so a future change cannot quietly start printing one.
+ */
+function BattleCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+
+  const a = (d.a ?? {}) as Record<string, unknown>;
+  const b = (d.b ?? {}) as Record<string, unknown>;
+  const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
+
+  const headerH = lockupHeight(format);
+  const askH = portrait ? 116 : 84;
+  const gap = portrait ? 16 : 20;
+  const panelW = Math.floor((width - pad * 2 - gap) / 2);
+
+  // TWO FULL PANELS, NOT TWO PHOTOGRAPHS ON A DARK CARD.
+  //
+  // Kickio's product shots are cut out on their own pale backgrounds and
+  // nothing here can change that. The first version put each one in a white
+  // box on the dark field, and the boxes read as the design: two big slabs of
+  // white with a small shirt floating in each. So the white is made
+  // deliberate instead - a panel per corner, sized to the photograph's own
+  // proportions, with the caption laid over the foot of it. The shirt fills
+  // its half and the plate stops being visible as a plate.
+  //
+  // 1.18 rather than square: catalogue shots are a little taller than wide,
+  // so this is close to the shape the photograph actually fills and leaves
+  // the least dead white.
+  const idealPanelH = Math.round(panelW * 1.18);
+  const stageMax = height - pad * 2 - (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0) - headerH - askH;
+  // The hero line only earns its room in a tall frame. On 16:9 there is none
+  // to spare and the eyebrow plus the ask bar already say what this is.
+  const heroH = portrait ? Math.max(0, stageMax - idealPanelH - 28) : 0;
+  const panelH = Math.min(idealPanelH, stageMax - heroH - (portrait ? 28 : 0));
+  const capH = portrait ? 92 : 68;
+  const badge = portrait ? 140 : 104;
+
+  // A COLUMN, NOT AN OVERLAY. The caption was absolutely positioned at the
+  // foot of the panel, and Satori laid it out below the panel instead - the
+  // string `borderRadius` shorthand is not supported and takes the rest of the
+  // rule with it. A plain column needs no absolute positioning and cannot fail
+  // that way: photo box, then caption strip, both inside the one panel.
+  const corner = (
+    side: Record<string, unknown>,
+    photo: string | undefined,
+    letter: string,
+  ) => (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: panelW,
+        height: panelH,
+        borderRadius: look.radius,
+        background: "#ffffff",
+        ...(look.cellBorder ? { border: `1px solid ${look.cellBorder}` } : {}),
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          width: panelW,
+          height: panelH - capH,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {photo && (
+          <img
+            src={photo}
+            width={panelW}
+            height={panelH - capH}
+            /* `contain`: this is a beauty contest. Cropping the sleeves off a
+               shirt to fill a panel loses the thing being voted on. */
+            style={{ width: panelW, height: panelH - capH, objectFit: "contain" }}
+          />
+        )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          width: panelW,
+          height: capH,
+          alignItems: "center",
+          paddingLeft: portrait ? 20 : 14,
+          background: look.to,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            width: portrait ? 56 : 42,
+            height: portrait ? 56 : 42,
+            flexShrink: 0,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: portrait ? 28 : 21,
+            background: look.accent,
+            color: look.to,
+            fontSize: portrait ? 32 : 24,
+            fontWeight: 800,
+            marginRight: portrait ? 14 : 10,
+          }}
+        >
+          {letter}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 29 : 21,
+              fontWeight: 700,
+              color: look.ink,
+            }}
+          >
+            {String(side.team ?? "")}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 22 : 16,
+              color: look.muted,
+              marginTop: 2,
+            }}
+          >
+            {[side.season, side.kit].filter(Boolean).join(" · ")}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width,
+          height,
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 62%, ${look.to} 100%)`,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="BATTLE OF THE SHIRTS"
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        {/* The hero line. A question nobody notices gets no replies, and the
+            eyebrow alone was not loud enough to stop a thumb. */}
+        {heroH > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              height: heroH,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontSize: Math.round(Math.min(heroH * 0.52, 132) * look.titleScale),
+                fontWeight: 800,
+                letterSpacing: -4,
+                lineHeight: 1,
+                color: look.ink,
+              }}
+            >
+              Which one?
+            </div>
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            position: "relative",
+            width: width - pad * 2,
+            height: panelH,
+            marginTop: portrait ? 28 : 0,
+            justifyContent: "space-between",
+          }}
+        >
+          {corner(a, photos[0], "A")}
+          {corner(b, photos[1], "B")}
+
+          {/* Over the seam between the two panels. Absolute and last in the
+              DOM: Satori paints in document order and honours z-index only
+              partially, so placed earlier it would be painted underneath. */}
+          <div
+            style={{
+              display: "flex",
+              position: "absolute",
+              left: Math.round((width - pad * 2 - badge) / 2),
+              top: Math.round((panelH - capH) / 2 - badge / 2),
+              width: badge,
+              height: badge,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: badge / 2,
+              background: look.accent,
+              color: look.to,
+              fontSize: portrait ? 54 : 40,
+              fontWeight: 800,
+              letterSpacing: -2,
+              border: `${portrait ? 8 : 6}px solid ${look.to}`,
+            }}
+          >
+            VS
+          </div>
+        </div>
+
+        {/* The ask, as a bar rather than a line, because it is the only
+            instruction on the card and the entire mechanism: there is no poll,
+            the replies are the poll. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            height: askH,
+            marginTop: portrait ? 24 : 16,
+            paddingLeft: portrait ? 28 : 22,
+            paddingRight: portrait ? 28 : 22,
+            borderRadius: look.radius,
+            background: look.accent,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 42 : 31,
+              fontWeight: 800,
+              color: look.to,
+              letterSpacing: -1,
+            }}
+          >
+            Reply A or B
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 22 : 17,
+              color: look.to,
+              opacity: 0.8,
+              marginTop: 4,
+            }}
+          >
+            {String(d.framing ?? "Settle it in the comments")} · kickio.com
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -3117,6 +3415,15 @@ export function templateFor(
     case "grail_sale_card":
       return (
         <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "battle_card":
+      return (
+        <BattleCard
           draft={draft}
           format={format}
           brand={brand}

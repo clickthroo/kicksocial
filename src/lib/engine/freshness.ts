@@ -59,6 +59,11 @@ export const PERISHES: Record<string, PerishKind> = {
   collection_index: "window",
   // Posted by hand from /sold, about a sale that has already completed.
   grail_sale: "none",
+  // A question about two shirts. Neither shirt can stop being what it is, and
+  // the post never claimed either was for sale - so nothing on this card can
+  // go out of date. The one thing that ages is the argument, and that is the
+  // admin's call about timing, not a staleness the queue should police.
+  battle: "none",
   // A career that ended years ago does not go out of date, and the shirts are
   // the catalogue's rather than one seller's. Nothing here can stop being true.
   who_am_i: "none",
