@@ -2825,9 +2825,15 @@ function MostWantedCard({
   const hero = featured[0];
   const rest = featured.slice(1);
 
-  const heroSize = portrait ? 440 : 210;
+  const heroSize = portrait ? 400 : 210;
   const tileHeight = portrait ? 190 : 118;
   const tileImageWidth = portrait ? 180 : 210;
+  // AN EXPLICIT WIDTH, NOT flexGrow. Satori gives a growing column its
+  // content's width first, so "Manchester United 1996-97 Home" ran straight
+  // off the right edge and the kit - the part that makes the subject one
+  // shirt rather than three - was the bit that got cut. Same trap, same fix,
+  // as the price history card's type column.
+  const heroTextWidth = (portrait ? 1080 : 1200) - pad * 2 - heroSize - (portrait ? 34 : 26);
 
   return (
     <Frame format={format} background={look.to} ink={look.ink}>
@@ -2884,16 +2890,16 @@ function MostWantedCard({
                 )}
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", flexGrow: 1 }}>
+              <div style={{ display: "flex", flexDirection: "column", width: heroTextWidth }}>
                 <div
                   style={{
                     display: "flex",
-                    fontSize: portrait ? 42 : 31,
+                    fontSize: portrait ? 40 : 31,
                     fontWeight: 700,
                     lineHeight: 1.12,
                   }}
                 >
-                  {[hero.team, hero.season].filter(Boolean).join(" ")}
+                  {[hero.team, hero.season, hero.kit].filter(Boolean).join(" ")}
                 </div>
 
                 {/* The rate, at title size, because it is the story. */}
@@ -2917,7 +2923,7 @@ function MostWantedCard({
                       marginLeft: 12,
                     }}
                   >
-                    sales per shirt listed
+                    sales per one for sale
                   </div>
                 </div>
 
@@ -2929,7 +2935,8 @@ function MostWantedCard({
                     marginTop: portrait ? 10 : 6,
                   }}
                 >
-                  {String(hero.sales ?? "")} tracked sales · {String(hero.listed ?? "")} on Kickio now
+                  {String(hero.sales ?? "")} tracked sales · {String(hero.listed ?? "")} for sale on
+                  Kickio
                 </div>
               </div>
             </div>
@@ -2978,12 +2985,12 @@ function MostWantedCard({
                   <div
                     style={{ display: "flex", fontSize: portrait ? 18 : 14, color: look.muted, marginTop: 2 }}
                   >
-                    {String(s.season ?? "")}
+                    {[s.season, s.kit].filter(Boolean).join(" · ")}
                   </div>
                   <div
                     style={{ display: "flex", fontSize: portrait ? 18 : 14, color: look.accent, marginTop: 4 }}
                   >
-                    {String(s.pressure ?? "")}× · {String(s.listed ?? "")} left
+                    {String(s.pressure ?? "")}× · {String(s.listed ?? "")} for sale
                   </div>
                 </div>
               ))}
@@ -2993,8 +3000,8 @@ function MostWantedCard({
 
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", fontSize: portrait ? 23 : 19, color: look.muted }}>
-            Tracked sales over {String(d.window_days ?? 90)} days per shirt listed · home, away and
-            third only
+            Tracked sales over {String(d.window_days ?? 90)} days for each one of the same shirt
+            for sale · club, season and kit all match
           </div>
           {/* Provenance, on every card built on this table: the sales are the
               market's, the shirts for sale are Kickio's. */}
