@@ -16,7 +16,12 @@ export const maxDuration = 300;
 function recipesForToday(date: Date): string[] {
   const keys = ["grail_of_the_day"];
   const day = date.getUTCDay(); // 0 Sun .. 6 Sat
-  if (day === 2) keys.push("price_trends");   // Tuesday
+  // Tuesday. Legend Shelf has been enabled and working since September but was
+  // never added here, so the only posts it ever made were ones somebody ran by
+  // hand - one draft in its life. It goes behind Price Trends because Tuesday
+  // was the lightest day and because a shelf of legends' shirts is the right
+  // counterweight to a chart.
+  if (day === 2) keys.push("price_trends", "legend_shelf");
   if (day === 3) keys.push("club_archive");   // Wednesday
   if (day === 4) keys.push("market_index");
   if (day === 4) keys.push("value_pick");   // Thursday
