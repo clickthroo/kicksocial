@@ -59,6 +59,11 @@ export const PERISHES: Record<string, PerishKind> = {
   collection_index: "window",
   // Posted by hand from /sold, about a sale that has already completed.
   grail_sale: "none",
+  // The card prints "From £189", read off the live listings. One sale and the
+  // number is wrong, which is the same shelf life as any other post carrying a
+  // price off a listing - the photograph may be forty years old but the price
+  // beside it is today's.
+  kickio_classics: "listing",
   // A question about two shirts. Neither shirt can stop being what it is, and
   // the post never claimed either was for sale - so nothing on this card can
   // go out of date. The one thing that ages is the argument, and that is the

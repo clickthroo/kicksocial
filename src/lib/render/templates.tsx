@@ -3320,6 +3320,182 @@ function BattleCard({
   );
 }
 
+
+/**
+ * Kickio Classics - a photograph, with the shirt's details laid on quietly.
+ *
+ * THE PHOTOGRAPH IS THE POST, which inverts how every other card here works.
+ * The rest of the set is a composition the shirt sits inside. This one is an
+ * image somebody licensed, and the engine's furniture is a guest on it: a
+ * masthead at the top, a few lines at the foot, and a scrim that exists only
+ * so those lines stay readable. Nothing crosses the middle.
+ *
+ * WHY A SCRIM AND NOT A PANEL. An archive photograph can be any exposure, so
+ * type laid straight on it is legible against a stand and invisible against a
+ * floodlight. A panel would solve that and cover a third of the picture. The
+ * gradient darkens only what it has to and leaves the rest of the frame alone.
+ *
+ * Satori has no filters and no blend modes, so the scrim is a plain linear
+ * gradient drawn over the image, after it in the DOM because painting is in
+ * document order.
+ */
+function ClassicCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+  const photo = Array.isArray(d.images) ? (d.images as unknown[]).map(String)[0] : undefined;
+
+  const bottomPad = format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad;
+  // Deep enough to carry four short lines of type and the credit, and no
+  // deeper. On 9:16 the safe area already covers the lower quarter, so the
+  // scrim only has to reach the top of it.
+  const scrimH = Math.round(height * (portrait ? 0.42 : 0.5));
+
+  const line = [d.team, d.season, d.kit].filter(Boolean).join(" · ");
+  const maker = [d.manufacturer, d.player].filter(Boolean).join(" · ");
+
+  return (
+    <Frame format={format} background="#0b0c0e" ink="#ffffff">
+      {photo ? (
+        <img
+          src={photo}
+          width={width}
+          height={height}
+          /* `cover`, unlike every other card here. An archive photograph has
+             no white background to protect and letterboxing one would waste
+             the only thing on the card. */
+          style={{ position: "absolute", left: 0, top: 0, width, height, objectFit: "cover" }}
+        />
+      ) : (
+        <MissingPhoto width={width} height={height} />
+      )}
+
+      {/* After the photograph, because Satori paints in document order and
+          honours z-index only partially. */}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          width,
+          height: scrimH,
+          background:
+            "linear-gradient(to bottom, rgba(8,9,11,0) 0%, rgba(8,9,11,0.55) 42%, " +
+            "rgba(8,9,11,0.88) 100%)",
+        }}
+      />
+
+      {/* A second, much shallower scrim at the top, so the masthead survives a
+          bright sky without darkening the picture anywhere it is not needed. */}
+      <div
+        style={{
+          display: "flex",
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width,
+          height: Math.round(height * 0.18),
+          background: "linear-gradient(to bottom, rgba(8,9,11,0.62) 0%, rgba(8,9,11,0) 100%)",
+        }}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width,
+          height,
+          padding: pad,
+          paddingBottom: bottomPad,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="KICKIO CLASSICS"
+          muted="rgba(255,255,255,0.72)"
+          surface="#0b0c0e"
+          compact
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 46 : 34,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: -1,
+              lineHeight: 1.1,
+            }}
+          >
+            {line}
+          </div>
+
+          {maker && (
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 26 : 20,
+                color: "rgba(255,255,255,0.72)",
+                marginTop: 8,
+              }}
+            >
+              {maker}
+            </div>
+          )}
+
+          {/* The price, set as a starting price and no louder than the rest.
+              A classic under a famous photograph sells itself; a price banner
+              across it does not. Size and condition are deliberately absent -
+              this post is about the shirt, not one seller's copy of it. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 34 : 25,
+              fontWeight: 700,
+              color: look.accent,
+              marginTop: portrait ? 16 : 10,
+            }}
+          >
+            From {String(d.price ?? "")}
+          </div>
+
+          {/* The credit. Small, but never optional: the image is licensed and
+              the licence is why this post can exist. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: portrait ? 17 : 14,
+              color: "rgba(255,255,255,0.55)",
+              marginTop: portrait ? 18 : 12,
+            }}
+          >
+            {String(d.photo_credit ?? "")} · kickio.com
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 export function templateFor(
   draft: PostDraft,
   format: FormatKey,
@@ -3415,6 +3591,15 @@ export function templateFor(
     case "grail_sale_card":
       return (
         <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "classic_card":
+      return (
+        <ClassicCard
           draft={draft}
           format={format}
           brand={brand}
