@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { postClassic } from "./actions.ts";
 import { looksLikeImage, type ClassicShirt } from "@/lib/recipes/classics.ts";
 import {
@@ -9,6 +9,7 @@ import {
   photoTerms,
   type EraPlayer,
 } from "@/lib/recipes/era-players.ts";
+import { uploadPhoto } from "@/lib/upload/browser.ts";
 
 /**
  * One qualifying shirt, and the photograph that turns it into a post.
@@ -29,6 +30,26 @@ export function ClassicPicker({
   const [result, setResult] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const choose = async (file: File | null | undefined) => {
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const stored = await uploadPhoto(file, "kickio-classics");
+      setPhotoUrl(stored.url);
+    } catch (err) {
+      setUploadError((err as Error).message);
+    } finally {
+      setUploading(false);
+      // Cleared so choosing the same file again still fires a change event,
+      // which it does not otherwise - the commonest way a retry looks broken.
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
 
   // Checked as you type rather than on submit, because the usual mistake is
   // pasting the address of the page an image sits on, and finding that out
@@ -189,11 +210,42 @@ export function ClassicPicker({
           </div>
 
           <div className="row">
-            <span className="field-label">Photograph URL</span>
+            <span className="field-label">The photograph</span>
             <p className="hint">
-              A direct link to the image file, ending .jpg, .png or .webp. One Kickio owns
-              or has licensed.
+              Upload the image, or paste a direct link to one. Either way it has to be an
+              image Kickio owns or has licensed: where the file came from changes nothing
+              about who owns it.
             </p>
+
+            <div className="upload">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? "Uploading…" : "Choose a photo"}
+              </button>
+              {/* `accept` rather than a capture hint: the picture is nearly
+                  always one already saved to the device from a licensing site,
+                  not one taken on the spot. */}
+              <input
+                ref={fileInput}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => void choose(e.target.files?.[0])}
+              />
+              <span className="upload-note">
+                A photo off a phone is converted and resized here before it is sent.
+              </span>
+            </div>
+            {uploadError && <p className="hint upload-failed">{uploadError}</p>}
+
+            {/* Kept visible after an upload rather than hidden: it is where the
+                stored address appears, which is how someone sees the upload
+                worked, and it is how a wrong one gets cleared. */}
+            <span className="upload-or">or paste a link</span>
             <input
               type="url"
               className="pub-url"

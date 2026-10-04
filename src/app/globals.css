@@ -583,6 +583,19 @@ ol.queue .link:hover { color: var(--danger); }
 .players-also a:hover { text-decoration: underline; }
 
 
+/* --- uploading a photograph ------------------------------------------- */
+.upload { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; margin-bottom: 8px; }
+.upload .btn { font-size: 13px; padding: 9px 15px; border-radius: 8px; flex: 0 0 auto; }
+.upload-note { font-size: 11px; color: var(--muted); line-height: 1.4; flex: 1 1 160px; }
+.hint.upload-failed { color: var(--danger); }
+/* The seam between the two ways of giving the card a picture. Small, because
+   uploading is the one most people want and the link is the fallback. */
+.upload-or {
+  display: block; font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 5px;
+}
+
+
 /* --- picking a career for Who Am I? --- */
 /* Six at a glance, because whether the grid looks good is most of whether the
    puzzle works - a name on its own tells a reviewer nothing. */
