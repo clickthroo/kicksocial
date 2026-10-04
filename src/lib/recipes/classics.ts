@@ -39,6 +39,15 @@ import { formatPrice } from "../kickio/pricing.ts";
 import { kickioUrl } from "./grail-of-the-day.ts";
 import { isMatchShirt } from "./who-am-i.ts";
 import { kitLabel } from "./most-wanted.ts";
+import { pageIn } from "../kickio/page.ts";
+import {
+  careerPlayers,
+  mergePlayers,
+  printedName,
+  type EraPlayer,
+  type PrintedShirt,
+  ERA_YEARS,
+} from "./era-players.ts";
 
 export const CLASSICS_KEY = "kickio_classics";
 
@@ -125,6 +134,74 @@ function toClassic(row: ProductRow): ClassicShirt | null {
   };
 }
 
+interface NamedRow {
+  team: string | null;
+  season: string | null;
+  player_name: string | null;
+}
+
+/**
+ * Every name Kickio has ever had printed on a shirt from these clubs, before
+ * the millennium.
+ *
+ * One read for the whole page rather than one per shirt: the shelf currently
+ * runs to 85 clubs across 206 team-and-season combinations, and a query each
+ * would be 206 round trips to build a list of suggestions.
+ *
+ * `season.lt.2002` is a text comparison, which is exactly right here - every
+ * season in the column starts with its first year, so anything sorting below
+ * "2002" is a nineties season, a 2000-01 or a 2001-02. That is the widest the
+ * era window can reach from a pre-2000 shirt.
+ *
+ * The status filter is the same allowlist Who Am I uses: `pending` rows are
+ * submitted and unreviewed, and they are where the mis-filed shirts live - the
+ * catalogue holds a pending "AC Milan Away Shirt Milito #22", which is an
+ * Inter shirt. A name read off that row would send someone looking for a
+ * photograph that cannot exist.
+ */
+async function printedNames(teams: readonly string[]): Promise<Map<string, PrintedShirt[]>> {
+  if (teams.length === 0) return new Map();
+
+  const rows = await pageIn<NamedRow, string>("Loading printed names", teams, (batch, from, to) =>
+    kickio()
+      .from("products")
+      .select("team,season,player_name")
+      .in("team", batch)
+      .is("deleted_at", null)
+      .not("player_name", "is", null)
+      .not("season", "is", null)
+      .lt("season", "2002")
+      .or("status.eq.active,has_active_listing.is.true")
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+
+  const byTeam = new Map<string, PrintedShirt[]>();
+  for (const row of rows) {
+    if (!row.team) continue;
+    const name = printedName(row.player_name, row.team);
+    if (!name) continue;
+    const held = byTeam.get(row.team);
+    const entry: PrintedShirt = { name, season: row.season };
+    if (held) held.push(entry);
+    else byTeam.set(row.team, [entry]);
+  }
+  return byTeam;
+}
+
+/** Printed names from within the era window of this shirt's season. */
+function namesNearSeason(
+  printed: readonly PrintedShirt[],
+  season: string | null,
+): PrintedShirt[] {
+  const year = seasonStartYear(season);
+  if (year === null) return [];
+  return printed.filter((p) => {
+    const theirs = seasonStartYear(p.season);
+    return theirs !== null && Math.abs(theirs - year) <= ERA_YEARS;
+  });
+}
+
 /**
  * Every shirt that could carry this post, dearest first.
  *
@@ -132,9 +209,15 @@ function toClassic(row: ProductRow): ClassicShirt | null {
  * headline fact on the card. Shirts already covered within the cooldown are
  * marked rather than removed, so the picker can show that the obvious choice
  * has been used recently instead of silently hiding it.
+ *
+ * Each row also carries the players the picker can offer as a starting point
+ * for the photograph hunt. They are attached here rather than in `toClassic`
+ * because they need a second read of the catalogue, and because the card never
+ * sees them: this is help for the person choosing an image, not data in the
+ * post.
  */
 export async function classicShirts(cooldownDays = 120): Promise<
-  Array<ClassicShirt & { postedRecently: boolean }>
+  Array<ClassicShirt & { postedRecently: boolean; players: EraPlayer[] }>
 > {
   const { data, error } = await kickio()
     .from("products")
@@ -153,8 +236,21 @@ export async function classicShirts(cooldownDays = 120): Promise<
     .map(toClassic)
     .filter((s): s is ClassicShirt => s !== null);
 
-  const seen = await recentlyFeatured(CLASSICS_KEY, cooldownDays);
-  return shirts.map((s) => ({ ...s, postedRecently: seen.has(s.productId) }));
+  const teams = [...new Set(shirts.map((s) => s.team).filter((t): t is string => !!t))];
+  const [seen, printed] = await Promise.all([
+    recentlyFeatured(CLASSICS_KEY, cooldownDays),
+    printedNames(teams),
+  ]);
+
+  return shirts.map((s) => ({
+    ...s,
+    postedRecently: seen.has(s.productId),
+    players: mergePlayers(
+      s.team ? careerPlayers(s.team, s.season) : [],
+      s.team ? namesNearSeason(printed.get(s.team) ?? [], s.season) : [],
+      s.season,
+    ),
+  }));
 }
 
 async function loadClassic(productId: string): Promise<ClassicShirt | null> {

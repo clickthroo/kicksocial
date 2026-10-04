@@ -3,6 +3,12 @@
 import { useState, useTransition } from "react";
 import { postClassic } from "./actions.ts";
 import { looksLikeImage, type ClassicShirt } from "@/lib/recipes/classics.ts";
+import {
+  gettySearchUrl,
+  imageSearchUrl,
+  photoTerms,
+  type EraPlayer,
+} from "@/lib/recipes/era-players.ts";
 
 /**
  * One qualifying shirt, and the photograph that turns it into a post.
@@ -14,7 +20,7 @@ import { looksLikeImage, type ClassicShirt } from "@/lib/recipes/classics.ts";
 export function ClassicPicker({
   shirt,
 }: {
-  shirt: ClassicShirt & { postedRecently: boolean };
+  shirt: ClassicShirt & { postedRecently: boolean; players: EraPlayer[] };
 }) {
   const [open, setOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -84,6 +90,104 @@ export function ClassicPicker({
 
       {open && (
         <>
+          <div className="row">
+            <span className="field-label">Who to look for</span>
+            <p className="hint">
+              Players we can show were at {shirt.team ?? "this club"} around{" "}
+              {shirt.season ?? "then"}. A name opens an image search for that player in
+              this kit, and fills in the field below. It is a starting point, not a squad
+              list: check the photograph shows this shirt before you use it.
+            </p>
+
+            {shirt.players.length > 0 ? (
+              <ul className="players">
+                {shirt.players.map((player) => (
+                  <li key={player.name}>
+                    <a
+                      href={imageSearchUrl(
+                        photoTerms({
+                          player: player.name,
+                          team: shirt.team,
+                          season: shirt.season,
+                          kit: shirt.kit,
+                        }),
+                      )}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      onClick={() => setPhotoPlayer(player.name)}
+                    >
+                      {player.name}
+                    </a>
+                    <a
+                      className="getty"
+                      href={gettySearchUrl(
+                        photoTerms({
+                          player: player.name,
+                          team: shirt.team,
+                          season: shirt.season,
+                        }),
+                      )}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title="The same search at Getty, where the licensed version is"
+                    >
+                      Getty
+                    </a>
+                    {/* Said out loud, because the two halves of this list are
+                        not equally checked. A career on file is dated to the
+                        season; a name off a shirt is a name somebody printed on
+                        a shirt from around then, which is weaker.
+
+                        A name off a DIFFERENT season is weaker again, and it is
+                        marked: the catalogue offers Bergkamp for a 1993-94
+                        Arsenal shirt off a 1995-96 one, and he did not sign
+                        until 1995. The engine cannot know that. Showing which
+                        season the name came from is what lets a person see it. */}
+                    {player.source === "catalogue" && (
+                      <span
+                        className={`whence${
+                          player.season && player.season !== shirt.season ? " off" : ""
+                        }`}
+                      >
+                        printed on {player.season ? `a ${player.season} ` : "a "}shirt
+                        {player.season && player.season !== shirt.season
+                          ? ", not this season"
+                          : ""}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="hint">
+                No players on file for this club and season. The kit search below is the
+                place to start.
+              </p>
+            )}
+
+            <div className="players-also">
+              <span>Or the kit on its own:</span>
+              <a
+                href={imageSearchUrl(
+                  photoTerms({ team: shirt.team, season: shirt.season, kit: shirt.kit }),
+                )}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Google Images
+              </a>
+              <a
+                href={gettySearchUrl(
+                  photoTerms({ team: shirt.team, season: shirt.season, kit: shirt.kit }),
+                )}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                Getty
+              </a>
+            </div>
+          </div>
+
           <div className="row">
             <span className="field-label">Photograph URL</span>
             <p className="hint">

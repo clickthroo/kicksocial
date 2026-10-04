@@ -547,6 +547,42 @@ ol.queue .link:hover { color: var(--danger); }
 }
 
 
+/* --- the photograph hunt on a Kickio Classics row ---------------------- */
+/* A list rather than a row of chips. These are names being read, and a name is
+   read left to right: wrapped into pills they become buttons, and the first
+   instinct with a row of buttons is to press one rather than to read the list
+   and choose. */
+.players {
+  list-style: none; margin: 2px 0 10px; padding: 0;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.players li {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 4px 0; font-size: 14px; line-height: 1.4;
+}
+.players li > a:first-child {
+  color: var(--text); font-weight: 600; text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+.players li > a:first-child:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.players a.getty { font-size: 11px; color: var(--muted); text-decoration: none; }
+.players a.getty:hover { color: var(--accent); text-decoration: underline; }
+/* Where a name came from, which is the difference between a dated career and a
+   name somebody typed on a listing. */
+.players .whence { font-size: 11px; color: var(--muted); }
+/* A name taken from a shirt of a different season. Not an error - often it is
+   the right player anyway - but the one case where following the suggestion
+   produces a photograph of the wrong kit, so it is not left quiet. */
+.players .whence.off { color: var(--warn); }
+
+.players-also {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--muted); margin-bottom: 9px;
+}
+.players-also a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.players-also a:hover { text-decoration: underline; }
+
+
 /* --- picking a career for Who Am I? --- */
 /* Six at a glance, because whether the grid looks good is most of whether the
    puzzle works - a name on its own tells a reviewer nothing. */
