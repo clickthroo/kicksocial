@@ -15,6 +15,7 @@ const DESTINATIONS = [
   { href: "/who-am-i", label: "Who Am I?" },
   { href: "/battle", label: "Battle" },
   { href: "/classics", label: "Classics" },
+  { href: "/photoprod", label: "PhotoProd" },
   { href: "/runs", label: "Runs" },
   { href: "/admin", label: "Settings" },
 ] as const;

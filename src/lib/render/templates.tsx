@@ -3426,10 +3426,14 @@ function ClassicCard({
           paddingBottom: bottomPad,
         }}
       >
+        {/* Read off the draft rather than hardcoded, because two recipes draw
+            this card: Kickio Classics, and PhotoProd for any shirt with a
+            photograph. An empty string means no sub-label at all, which is
+            different from an absent one meaning "use the default". */}
         <BrandLockup
           format={format}
           brand={brand}
-          label="KICKIO CLASSICS"
+          label={typeof d.card_label === "string" ? d.card_label || undefined : "KICKIO CLASSICS"}
           muted="rgba(255,255,255,0.72)"
           surface="#0b0c0e"
           compact
@@ -3465,18 +3469,24 @@ function ClassicCard({
           {/* The price, set as a starting price and no louder than the rest.
               A classic under a famous photograph sells itself; a price banner
               across it does not. Size and condition are deliberately absent -
-              this post is about the shirt, not one seller's copy of it. */}
-          <div
-            style={{
-              display: "flex",
-              fontSize: portrait ? 34 : 25,
-              fontWeight: 700,
-              color: look.accent,
-              marginTop: portrait ? 16 : 10,
-            }}
-          >
-            From {String(d.price ?? "")}
-          </div>
+              this post is about the shirt, not one seller's copy of it.
+
+              Omitted entirely when there is no live listing, rather than drawn
+              empty. A shirt with nothing for sale printed "From " with a blank
+              after it, which reads as a card that failed halfway. */}
+          {typeof d.price === "string" && d.price.trim() !== "" && (
+            <div
+              style={{
+                display: "flex",
+                fontSize: portrait ? 34 : 25,
+                fontWeight: 700,
+                color: look.accent,
+                marginTop: portrait ? 16 : 10,
+              }}
+            >
+              From {d.price}
+            </div>
+          )}
 
           {/* The credit. Small, but never optional: the image is licensed and
               the licence is why this post can exist. */}

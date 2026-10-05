@@ -64,6 +64,11 @@ export const PERISHES: Record<string, PerishKind> = {
   // price off a listing - the photograph may be forty years old but the price
   // beside it is today's.
   kickio_classics: "listing",
+  // The same card as Classics and the same shelf life, for the same reason:
+  // the price beside the photograph is read off a live listing. A PhotoProd
+  // post about a shirt with nothing for sale carries no price at all, but the
+  // cautious reading covers both rather than splitting the recipe in two.
+  photo_prod: "listing",
   // A question about two shirts. Neither shirt can stop being what it is, and
   // the post never claimed either was for sale - so nothing on this card can
   // go out of date. The one thing that ages is the argument, and that is the
