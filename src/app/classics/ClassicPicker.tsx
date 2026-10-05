@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { postClassic } from "./actions.ts";
-import { looksLikeImage, type ClassicShirt } from "@/lib/recipes/classics.ts";
+import { looksLikeImage, type ClassicShirt, type ClassicUse } from "@/lib/recipes/classics.ts";
 import {
   gettySearchUrl,
   imageSearchUrl,
@@ -10,6 +10,49 @@ import {
   type EraPlayer,
 } from "@/lib/recipes/era-players.ts";
 import { uploadPhoto } from "@/lib/upload/browser.ts";
+
+function whenLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/**
+ * What happened last time this shirt was used.
+ *
+ * The four states are genuinely different decisions and the list used to
+ * collapse them into one line that said "posted recently" for all of them.
+ * Published means it went out: every platform the draft carried copy for is
+ * confirmed in the publish log. Cleared means a person approved it and it is
+ * sitting on the Publish page waiting to be posted, which is a reason to go
+ * and finish that rather than write a second one. In the queue means nobody
+ * has read it yet. Rejected means somebody looked and said no, and the shirt
+ * is free again - the cooldown holds it for a while so the same reject does
+ * not come straight back, but it is not "used".
+ */
+function UseBadge({ use, recent }: { use: ClassicUse; recent: boolean }) {
+  const [tone, text] =
+    use.published
+      ? ["published", `Published ${whenLabel(use.at)}`]
+      : use.status === "approved"
+        ? ["cleared", `Cleared to post ${whenLabel(use.at)}`]
+        : use.status === "rejected"
+          ? ["rejected", `Rejected ${whenLabel(use.at)}`]
+          : use.status === "expired"
+            ? ["rejected", `Expired out of the queue ${whenLabel(use.at)}`]
+            : ["queued", `In the queue since ${whenLabel(use.at)}`];
+
+  return (
+    <div className="pick-meta">
+      <span className={`use-badge ${tone}`}>{text}</span>
+      {recent && !use.published && use.status !== "approved" && (
+        <span className="use-note">still inside the cooldown</span>
+      )}
+    </div>
+  );
+}
 
 /**
  * One qualifying shirt, and the photograph that turns it into a post.
@@ -21,7 +64,11 @@ import { uploadPhoto } from "@/lib/upload/browser.ts";
 export function ClassicPicker({
   shirt,
 }: {
-  shirt: ClassicShirt & { postedRecently: boolean; players: EraPlayer[] };
+  shirt: ClassicShirt & {
+    postedRecently: boolean;
+    use: ClassicUse | null;
+    players: EraPlayer[];
+  };
 }) {
   const [open, setOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState("");
@@ -99,9 +146,7 @@ export function ClassicPicker({
             {[shirt.season, shirt.team, shirt.kit].filter(Boolean).join(" · ")}
             {shirt.manufacturer ? ` · ${shirt.manufacturer}` : ""}
           </div>
-          {shirt.postedRecently && (
-            <div className="pick-meta">Posted recently, so it is probably not the one</div>
-          )}
+          {shirt.use && <UseBadge use={shirt.use} recent={shirt.postedRecently} />}
         </div>
 
         <button className="btn pick-btn" type="button" onClick={() => setOpen((v) => !v)}>

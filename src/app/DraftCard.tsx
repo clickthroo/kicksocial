@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useOptimistic, useState, useTransition } from "react";
-import { approveDraft, rejectDraft, chooseStyle } from "./actions.ts";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { approveDraft, rejectDraft, chooseStyle, replacePhoto } from "./actions.ts";
+import { uploadPhoto } from "@/lib/upload/browser.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 import type { FormatKey } from "@/lib/render/templates.tsx";
 import { exportLength, exportText, overBy, tags, xLength } from "@/lib/copy/export.ts";
@@ -106,6 +107,40 @@ export function DraftCard({
   const [copiedAlt, setCopiedAlt] = useState(false);
   const [saving, setSaving] = useState<FormatKey | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // The draft's own pictures, held in state because they can be changed here
+  // and the card has to redraw without a round trip through the server render.
+  const [images, setImages] = useState<string[]>(() =>
+    Array.isArray(draft.source_data.images)
+      ? (draft.source_data.images as unknown[]).filter((u): u is string => typeof u === "string")
+      : [],
+  );
+  const [swapping, setSwapping] = useState<number | "append" | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  // Which slot the file dialog was opened for. A ref rather than state because
+  // the change event fires long after the click and must not read a value that
+  // a re-render has moved on from.
+  const photoSlot = useRef<number | "append">("append");
+
+  const choosePhoto = async (file: File | null | undefined) => {
+    if (!file) return;
+    const slot = photoSlot.current;
+    setPhotoError(null);
+    setSwapping(slot);
+    try {
+      const stored = await uploadPhoto(file, draft.recipe_key);
+      setImages(await replacePhoto(draft.id, stored.url, slot));
+      // Busts the render cache: the URL is unchanged but the card behind it
+      // is not, and without this the preview shows the old photo.
+      setSavedAt(Date.now());
+    } catch (err) {
+      setPhotoError((err as Error).message);
+    } finally {
+      setSwapping(null);
+      if (photoInput.current) photoInput.current.value = "";
+    }
+  };
 
   const savedStyle = asCardStyle((draft.generation as { style?: unknown })?.style);
   // What is on screen, which may not be what is saved yet.
@@ -279,6 +314,86 @@ export function DraftCard({
               ? styleError
               : (CARD_STYLES.find((s) => s.key === preview)?.blurb ?? "")}
           </p>
+        </div>
+      </details>
+
+      {/* Every post type passes through this queue, including the ones cron
+          writes that have no form anywhere to put this on. So the photo swap
+          lives here, beside the rendered card that shows you it is needed. */}
+      <details className="facts">
+        <summary>
+          {images.length === 1 ? "Photo" : `Photos: ${images.length}`}
+        </summary>
+        <div className="photos">
+          <p className="styles-note">
+            The pictures this card draws, in the order it draws them. Replacing one
+            changes this draft only, never the listing on Kickio.
+          </p>
+          <div className="photo-strip">
+            {images.map((url, i) => (
+              <div className="photo-slot" key={`${i}-${url}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" loading="lazy" />
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={swapping !== null}
+                  onClick={() => {
+                    photoSlot.current = i;
+                    photoInput.current?.click();
+                  }}
+                >
+                  {swapping === i ? "Uploading…" : "Replace"}
+                </button>
+              </div>
+            ))}
+            <div className="photo-slot add">
+              <button
+                type="button"
+                className="btn"
+                disabled={swapping !== null}
+                onClick={() => {
+                  photoSlot.current = "append";
+                  photoInput.current?.click();
+                }}
+              >
+                {swapping === "append"
+                  ? "Uploading…"
+                  : images.length === 0
+                    ? "Add a photo"
+                    : "Add another"}
+              </button>
+            </div>
+          </div>
+          <input
+            ref={photoInput}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => void choosePhoto(e.target.files?.[0])}
+          />
+          {photoError && <p className="styles-note photo-failed">{photoError}</p>}
+
+          {/* Kickio Classics prints the credit on the card, and the credit
+              belongs to the photograph rather than to the draft. Swapping the
+              picture here and leaving the line alone publishes somebody else's
+              attribution over somebody's work, which is worse than no credit.
+              Nothing in the queue can edit it, so the honest move is to say so
+              and send them back to rebuild the post. */}
+          {typeof draft.source_data.photo_credit === "string" && (
+            <p className="styles-note photo-credit-warning">
+              This card prints the credit &ldquo;{String(draft.source_data.photo_credit)}
+              &rdquo;. That belongs to the photograph that was here, not to a new one, and
+              it cannot be edited from the queue. If you swap the picture, reject this
+              draft and build it again with the right credit.
+            </p>
+          )}
+          {images.length === 0 && !photoError && (
+            <p className="styles-note">
+              This draft carries no pictures. Some cards are built from a chart rather
+              than a photograph, so that may be correct.
+            </p>
+          )}
         </div>
       </details>
 

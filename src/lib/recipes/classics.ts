@@ -33,8 +33,8 @@
  * middle of it does not.
  */
 import { kickio } from "../kickio/client.ts";
-import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
-import { recentlyFeatured } from "./cooldown.ts";
+import { engine } from "../engine/client.ts";
+import type { Claim, DraftStatus, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { formatPrice } from "../kickio/pricing.ts";
 import { kickioUrl } from "./grail-of-the-day.ts";
 import { isMatchShirt } from "./who-am-i.ts";
@@ -134,6 +134,53 @@ function toClassic(row: ProductRow): ClassicShirt | null {
   };
 }
 
+/**
+ * What became of the last post about this shirt.
+ *
+ * "Has it been used?" is not the same question as "is it on cooldown", and the
+ * picker was only answering the second. A draft written and rejected, one
+ * still waiting in the queue, and one that actually went out on three
+ * platforms all read as "posted recently", which is the one of the three that
+ * is true of none of them.
+ *
+ * `status` is the draft's own, and `published` is the one that matters:
+ * `post_drafts.status` only becomes "published" once every platform the draft
+ * carries copy for has been confirmed in the publish log, so it means the post
+ * went out rather than that somebody approved it.
+ */
+export interface ClassicUse {
+  status: DraftStatus;
+  /** When the draft was written, not when it went out. */
+  at: string;
+  published: boolean;
+}
+
+/** The newest draft for each shirt this recipe has ever been run on. */
+export async function classicHistory(): Promise<Map<string, ClassicUse>> {
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .select("subject_ref,status,created_at")
+    .eq("recipe_key", CLASSICS_KEY)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(`Loading Classics history failed: ${error.message}`);
+
+  const seen = new Map<string, ClassicUse>();
+  for (const row of (data ?? []) as Array<{
+    subject_ref: string;
+    status: DraftStatus;
+    created_at: string;
+  }>) {
+    // Ascending, so the last write per subject is the newest one.
+    seen.set(row.subject_ref, {
+      status: row.status,
+      at: row.created_at,
+      published: row.status === "published",
+    });
+  }
+  return seen;
+}
+
 interface NamedRow {
   team: string | null;
   season: string | null;
@@ -217,7 +264,7 @@ function namesNearSeason(
  * post.
  */
 export async function classicShirts(cooldownDays = 120): Promise<
-  Array<ClassicShirt & { postedRecently: boolean; players: EraPlayer[] }>
+  Array<ClassicShirt & { postedRecently: boolean; use: ClassicUse | null; players: EraPlayer[] }>
 > {
   const { data, error } = await kickio()
     .from("products")
@@ -237,20 +284,24 @@ export async function classicShirts(cooldownDays = 120): Promise<
     .filter((s): s is ClassicShirt => s !== null);
 
   const teams = [...new Set(shirts.map((s) => s.team).filter((t): t is string => !!t))];
-  const [seen, printed] = await Promise.all([
-    recentlyFeatured(CLASSICS_KEY, cooldownDays),
-    printedNames(teams),
-  ]);
+  const [history, printed] = await Promise.all([classicHistory(), printedNames(teams)]);
+  const cooldownBefore = Date.now() - cooldownDays * 86_400_000;
 
-  return shirts.map((s) => ({
-    ...s,
-    postedRecently: seen.has(s.productId),
-    players: mergePlayers(
-      s.team ? careerPlayers(s.team, s.season) : [],
-      s.team ? namesNearSeason(printed.get(s.team) ?? [], s.season) : [],
-      s.season,
-    ),
-  }));
+  return shirts.map((s) => {
+    const use = history.get(s.productId) ?? null;
+    return {
+      ...s,
+      use,
+      // Derived from the same row rather than counted separately, so the badge
+      // on the card and the "probably not the one" note can never disagree.
+      postedRecently: use !== null && Date.parse(use.at) >= cooldownBefore,
+      players: mergePlayers(
+        s.team ? careerPlayers(s.team, s.season) : [],
+        s.team ? namesNearSeason(printed.get(s.team) ?? [], s.season) : [],
+        s.season,
+      ),
+    };
+  });
 }
 
 async function loadClassic(productId: string): Promise<ClassicShirt | null> {

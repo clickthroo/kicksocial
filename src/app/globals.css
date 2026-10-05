@@ -583,6 +583,53 @@ ol.queue .link:hover { color: var(--danger); }
 .players-also a:hover { text-decoration: underline; }
 
 
+/* --- what became of a shirt last time it was used ---------------------- */
+.use-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  border: 1px solid var(--border); color: var(--muted);
+}
+/* Published is the one state that means the work is done, so it is the one
+   state that gets the accent. The others are all "something is outstanding". */
+.use-badge.published { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.use-badge.cleared { color: var(--warn); border-color: var(--warn); }
+.use-badge.queued { color: var(--muted); }
+.use-badge.rejected { color: var(--muted); opacity: 0.75; }
+.use-note { font-size: 11px; color: var(--muted); margin-left: 7px; }
+
+/* --- filtering a long list -------------------------------------------- */
+.filters { display: flex; gap: 7px; flex-wrap: wrap; margin: 0 16px 13px; }
+.filter {
+  font-size: 12px; font-weight: 600; text-decoration: none;
+  color: var(--muted); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 6px 12px;
+}
+.filter:hover { color: var(--text); }
+.filter.on { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
+.filter .count { opacity: 0.7; font-weight: 500; margin-left: 2px; }
+
+
+/* --- swapping a photograph on a draft ---------------------------------- */
+.photos { padding: 0 14px 12px; }
+.photo-strip { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 4px; }
+.photo-slot { display: flex; flex-direction: column; gap: 5px; width: 92px; }
+.photo-slot img {
+  width: 92px; height: 92px; object-fit: contain;
+  background: #ffffff; border-radius: 8px; border: 1px solid var(--border);
+}
+.photo-slot .btn { font-size: 11px; padding: 6px 8px; border-radius: 7px; width: 100%; }
+/* The add button has no thumbnail above it, so it drops to the bottom of the
+   row on its own and lines up with the other buttons rather than floating. */
+.photo-slot.add { justify-content: flex-end; }
+.styles-note.photo-failed { color: var(--danger); }
+/* Not an error: the swap works. It is a consequence of the swap that the queue
+   cannot fix, which is a different thing and reads as a warning. */
+.styles-note.photo-credit-warning {
+  color: var(--warn); border-left: 2px solid var(--warn);
+  padding-left: 9px; margin-top: 9px;
+}
+
+
 /* --- uploading a photograph ------------------------------------------- */
 .upload { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; margin-bottom: 8px; }
 .upload .btn { font-size: 13px; padding: 9px 15px; border-radius: 8px; flex: 0 0 auto; }

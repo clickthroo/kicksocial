@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Nav } from "../Nav.tsx";
 import { ClassicPicker } from "./ClassicPicker.tsx";
 import { classicShirts, MIN_PRICE_CENTS, CLASSIC_BEFORE_YEAR } from "@/lib/recipes/classics.ts";
@@ -7,7 +8,33 @@ export const dynamic = "force-dynamic";
 // Generating copy waits on Claude; the default limit cuts it off mid-write.
 export const maxDuration = 300;
 
-export default async function ClassicsPage() {
+/**
+ * Which shirts the list is showing.
+ *
+ * The shelf runs to a couple of hundred shirts, and the question somebody
+ * actually arrives with is one of three: what have we not used, what have we
+ * published, or show me everything. A filter in the URL rather than in state,
+ * so a view can be linked to and a reload does not lose it.
+ */
+type Show = "all" | "unused" | "published";
+
+const SHOWS: Array<{ key: Show; label: string }> = [
+  { key: "unused", label: "Not used yet" },
+  { key: "published", label: "Published" },
+  { key: "all", label: "All" },
+];
+
+function asShow(value: string | string[] | undefined): Show {
+  return value === "unused" || value === "published" ? value : "all";
+}
+
+export default async function ClassicsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const show = asShow((await searchParams).show);
+
   let shirts: Awaited<ReturnType<typeof classicShirts>> = [];
   let loadError: string | null = null;
 
@@ -17,7 +44,17 @@ export default async function ClassicsPage() {
     loadError = (err as Error).message;
   }
 
-  const fresh = shirts.filter((s) => !s.postedRecently).length;
+  const counts = {
+    all: shirts.length,
+    unused: shirts.filter((s) => !s.use).length,
+    published: shirts.filter((s) => s.use?.published).length,
+  };
+
+  const shown = shirts.filter((s) =>
+    show === "unused" ? !s.use : show === "published" ? s.use?.published : true,
+  );
+
+  const fresh = counts.unused;
 
   return (
     <div className="wrap">
@@ -27,7 +64,7 @@ export default async function ClassicsPage() {
           {loadError
             ? "Could not load the shelf"
             : `${shirts.length} qualifying shirt${shirts.length === 1 ? "" : "s"}` +
-              (fresh < shirts.length ? ` · ${fresh} not posted recently` : "")}
+              (fresh < shirts.length ? ` · ${fresh} never used · ${counts.published} published` : "")}
         </div>
         <Nav current="/classics" />
       </header>
@@ -51,6 +88,35 @@ export default async function ClassicsPage() {
         licensed, and put the required credit in the field provided: it goes on the card.
       </div>
 
+      {!loadError && shirts.length > 0 && (
+        <nav className="filters">
+          {SHOWS.map(({ key, label }) => (
+            <Link
+              key={key}
+              className={`filter${show === key ? " on" : ""}`}
+              href={key === "all" ? "/classics" : `/classics?show=${key}`}
+              // The page is force-dynamic and the counts come off the engine's
+              // own tables, so there is nothing to prefetch that will still be
+              // true by the time it is clicked.
+              prefetch={false}
+            >
+              {label} <span className="count">{counts[key]}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {!loadError && shirts.length > 0 && shown.length === 0 && (
+        <div className="empty">
+          <h2>Nothing here yet</h2>
+          <p>
+            {show === "published"
+              ? "No Classics post has been published yet. One shows up here once every platform it carries copy for is confirmed on the Publish page."
+              : "Every qualifying shirt has been used at least once."}
+          </p>
+        </div>
+      )}
+
       {!loadError && shirts.length === 0 && (
         <div className="empty">
           <h2>Nothing qualifies</h2>
@@ -61,7 +127,7 @@ export default async function ClassicsPage() {
         </div>
       )}
 
-      {shirts.map((shirt) => (
+      {shown.map((shirt) => (
         <ClassicPicker key={shirt.productId} shirt={shirt} />
       ))}
     </div>

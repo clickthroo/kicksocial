@@ -6,6 +6,7 @@
  * should be explainable without digging through logs.
  */
 import { engine } from "./engine/client.ts";
+import { imagesOf, nextImages } from "./engine/draft-photos.ts";
 import { isDuplicateSubject, duplicateSubjectReason } from "./engine/duplicate.ts";
 import { generateCopy } from "./copy/generate.ts";
 import { SOLD_CTA_POOL } from "./copy/brand-voice.ts";
@@ -340,6 +341,53 @@ export async function setDraftStyle(id: string, style: CardStyle): Promise<void>
     .update({ generation: { ...generation, style } })
     .eq("id", id);
   if (updateError) throw new Error(`Saving the style failed: ${updateError.message}`);
+}
+
+/**
+ * Swap a photograph on a draft that has already been written.
+ *
+ * Every post type draws its pictures from Kickio's catalogue, and most of the
+ * time that is right. Sometimes it is not: the only shot of a 1986 shirt is a
+ * crooked phone photo on a carpet, a grid tile is a cutout with the sleeve
+ * missing, a shirt has no photograph at all. Until now the only remedy was to
+ * reject the draft and hope the next run picked a different listing, which for
+ * a shirt with one photograph it never would.
+ *
+ * It lives here rather than on the five builder forms because the builders do
+ * not cover the field. Most drafts are written by cron - price trends, most
+ * wanted, legend shelf, sold this week - and have no form at all. The queue is
+ * the one place every post type passes through, and it is also the place where
+ * the problem becomes visible, because the rendered card is right there.
+ *
+ * The images are re-read here rather than taken from the caller, so a stale
+ * browser tab cannot post back a list that undoes something else's change.
+ * `index` out of range is refused rather than appended: a replace that quietly
+ * becomes an add is how a six-tile grid ends up with seven.
+ */
+export async function setDraftPhoto(
+  id: string,
+  url: string,
+  index: number | "append",
+): Promise<string[]> {
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .select("source_data")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Loading draft failed: ${error.message}`);
+  if (!data) throw new Error("Draft not found");
+
+  const sourceData = ((data as { source_data: Record<string, unknown> }).source_data ??
+    {}) as Record<string, unknown>;
+  const next = nextImages(imagesOf(sourceData), url, index);
+
+  const { error: updateError } = await engine()
+    .from("post_drafts")
+    .update({ source_data: { ...sourceData, images: next } })
+    .eq("id", id);
+  if (updateError) throw new Error(`Saving the photo failed: ${updateError.message}`);
+
+  return next;
 }
 
 export async function setDraftStatus(
