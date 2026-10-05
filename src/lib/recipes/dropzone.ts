@@ -21,20 +21,35 @@
  * a complaint waiting to happen, so the buyer fee is applied exactly as the
  * Drops recipe applies it.
  *
- * WHAT I COULD NOT MEASURE. The sales post was built against a measured count
- * of photo-backed sales per day, which is how its six-shirt floor was known to
- * be reachable on 13 days in 15. The database was not reachable when this was
- * written, so there is no equivalent figure for how many listings Kickio gains
- * in a day. If Dropzone turns out to skip most mornings, the fix is one of two
- * one-line changes - widen `windowDays` to 2, or drop `featureCount` to 4 and
- * take the grid with it - and the skip reason on /runs carries the count needed
- * to decide which.
+ * THE WINDOW WIDENS, AND THE MEASUREMENT IS WHY.
+ *
+ * This was built as "yesterday" and measured afterwards. Over the 14 days to
+ * 2026-10-05, listings created per day that are still live, photo-backed and
+ * distinct ran: 4, 2, 2, 70, 9, 0, 1, 1 - and the other six days had no new
+ * listings at all. One of those figures (the 70) is a bulk import of 623 rows
+ * rather than a day's trading. So a strictly-yesterday Dropzone could fill a
+ * six-tile grid on two mornings out of fourteen and would skip the other
+ * twelve.
+ *
+ * So the window starts at yesterday and reaches further back, a day at a time,
+ * until it finds six. On a day when six arrived it is exactly the post that was
+ * asked for; on the other six mornings in seven it is a post rather than
+ * silence. The card says which it was: "New in yesterday" or "New in over the
+ * last five days".
+ *
+ * A WIDENING WINDOW REPEATS ITSELF UNLESS SOMETHING STOPS IT. With a five-day
+ * reach, Monday and Tuesday see almost the same five days and would show almost
+ * the same six shirts. So the recipe reads its own back catalogue and refuses a
+ * shirt it has already featured. That makes the skip meaningful too: no post
+ * means nothing new has arrived since the last one, which is the truth and is
+ * better said by silence than by yesterday's shirts again.
  */
 import { kickio } from "../kickio/client.ts";
+import { engine } from "../engine/client.ts";
 import type { Claim, RecipeCandidate, RecipeResult } from "../engine/types.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
 import { cleanValue } from "../kickio/values.ts";
-import { pageIn } from "../kickio/page.ts";
+import { pageAll, pageIn } from "../kickio/page.ts";
 import { imageUrls, kickioUrl } from "./grail-of-the-day.ts";
 import { kitLabel } from "./most-wanted.ts";
 import { previousDay, detailLine, type DayWindow } from "./yesterday-sales.ts";
@@ -44,19 +59,33 @@ export const DROPZONE_KEY = "dropzone";
 export interface DropzoneConfig {
   /** The grid is 3x2. The form of the post, not a threshold to tune. */
   featureCount: number;
-  /** How many days back the window reaches. One, as asked: yesterday. */
+  /** Where the window starts: yesterday, as asked. */
   windowDays: number;
+  /**
+   * How far back it may reach when a day is thin.
+   *
+   * Two weeks. Past that "just landed" stops being true, and a post promoting a
+   * shirt as new that has been sitting there a month is the kind of small lie
+   * that costs more than the post is worth.
+   */
+  maxWindowDays: number;
   /** Below this a "drop" is not worth promoting. */
   minPriceCents: number;
+  /** How long a shirt stays out of Dropzone after it has been in one. */
+  cooldownDays: number;
 }
 
 export const DEFAULT_DROPZONE_CONFIG: DropzoneConfig = {
   featureCount: 6,
   windowDays: 1,
+  maxWindowDays: 14,
   // Deliberately low. The post is "the dearest six that arrived", and on a quiet
   // day the sixth will not be dear. A floor that empties the grid defeats the
   // post; one that admits a £15 shirt only costs it the bottom-right tile.
   minPriceCents: 1_500,
+  // Comfortably longer than the widest window, so a shirt cannot come back
+  // round while it is still inside the reach of the next post.
+  cooldownDays: 30,
 };
 
 interface ListingRow {
@@ -133,87 +162,200 @@ export function onePerProduct<T extends { product_id: string | null }>(listings:
   });
 }
 
+/**
+ * How the card describes the stretch it covered.
+ *
+ * Said in the post rather than left implied, because "just landed" over five
+ * days and "just landed" over one are different claims and a reader who checks
+ * will find out which. Exported for its own test: it is the one place the post
+ * tells the truth about its own window.
+ */
+export function windowLabel(days: number): string {
+  if (days <= 1) return "New in yesterday";
+  if (days === 2) return "New in over the last two days";
+  return `New in over the last ${days} days`;
+}
+
+/**
+ * Shirts Dropzone has already promoted, read off its own back catalogue.
+ *
+ * Without this the widening window repeats itself: a five-day reach means
+ * Monday and Tuesday see almost the same five days of listings and would show
+ * almost the same six shirts. Reading the drafts rather than keeping a separate
+ * table means the memory cannot drift from what actually went out.
+ *
+ * `subject_ref` is the set rather than one product, so the ids are read out of
+ * `source_data.featured` where the recipe put them.
+ */
+export async function recentlyShown(days: number): Promise<Set<string>> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .select("source_data")
+    .eq("recipe_key", DROPZONE_KEY)
+    .gte("created_at", since);
+
+  if (error) throw new Error(`Dropzone history lookup failed: ${error.message}`);
+
+  const seen = new Set<string>();
+  for (const row of (data ?? []) as Array<{ source_data: Record<string, unknown> | null }>) {
+    const featured = row.source_data?.featured;
+    if (!Array.isArray(featured)) continue;
+    for (const entry of featured) {
+      const id = (entry as { product_id?: unknown })?.product_id;
+      if (typeof id === "string") seen.add(id);
+    }
+  }
+  return seen;
+}
+
+/**
+ * The narrowest window back from yesterday that holds enough shirts.
+ *
+ * Narrowest rather than widest, because the post is about what is new: given a
+ * day that produced six on its own, reaching back a fortnight would bury them
+ * under a backlog. Returns the day count, or null when even the widest reach
+ * cannot fill the grid - which is the honest "nothing new" case.
+ *
+ * Pure, and separated from the query, because this is the rule the whole
+ * redesign turns on and it deserves a test rather than a network call.
+ */
+export function narrowestWindow<T extends { created_at: string }>(
+  candidates: readonly T[],
+  endMs: number,
+  want: number,
+  minDays: number,
+  maxDays: number,
+): number | null {
+  for (let days = Math.max(1, minDays); days <= maxDays; days++) {
+    const from = endMs - days * 86_400_000;
+    const inside = candidates.filter((c) => Date.parse(c.created_at) >= from).length;
+    if (inside >= want) return days;
+  }
+  return null;
+}
+
 export async function runDropzone(
   config: DropzoneConfig = DEFAULT_DROPZONE_CONFIG,
   now: Date = new Date(),
 ): Promise<RecipeResult> {
   const day: DayWindow = previousDay(now);
-  const start =
-    config.windowDays > 1
-      ? new Date(Date.parse(day.start) - (config.windowDays - 1) * 86_400_000).toISOString()
-      : day.start;
+  const endMs = Date.parse(day.end);
+  const widest = new Date(endMs - config.maxWindowDays * 86_400_000).toISOString();
 
-  const { data, error } = await kickio()
-    .from("listings")
-    .select(LISTING_COLUMNS)
-    .gte("created_at", start)
-    .lt("created_at", day.end)
-    .is("deleted_at", null)
-    .is("removed_at", null)
-    .eq("status", "active")
-    .gte("price_cents", config.minPriceCents)
-    .order("price_cents", { ascending: false })
-    .limit(200);
+  // The widest reach is read once and narrowed in code. Paged rather than
+  // limited: one bulk import put 623 listings on a single day, and a `limit`
+  // over a fortnight would silently drop the cheap end of it, which is exactly
+  // the part that decides whether a narrow window is full enough.
+  const all = await pageAll<ListingRow>("Loading Dropzone listings", (from, to) =>
+    kickio()
+      .from("listings")
+      .select(LISTING_COLUMNS)
+      .gte("created_at", widest)
+      .lt("created_at", day.end)
+      .is("deleted_at", null)
+      .is("removed_at", null)
+      .eq("status", "active")
+      .gte("price_cents", config.minPriceCents)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
 
-  if (error) return { ok: false, reason: `Kickio query failed: ${error.message}` };
-
-  const all = (data ?? []) as unknown as ListingRow[];
   // Filtered in code as well as in the query: the query narrows what crosses
-  // the wire, and this is what makes it a rule. Stock and the gone-counter
-  // cannot be expressed as cleanly in PostgREST, and they are the two that
-  // change between a listing being created and this post going out.
+  // the wire, and this is what makes it a rule. Stock and the gone-counter are
+  // the two that change between a listing being created and this post going
+  // out, and they are the two that cannot be expressed as cleanly in PostgREST.
   const live = all.filter(isLive);
 
   if (live.length === 0) {
     return {
       ok: false,
       reason:
-        `Nothing was listed on ${day.label} at ${formatPrice(config.minPriceCents)} or more ` +
-        `that is still live this morning`,
+        `Nothing listed in the ${config.maxWindowDays} days to ${day.label} at ` +
+        `${formatPrice(config.minPriceCents)} or more is still live`,
       diagnostics: { day: day.key, rowsReturned: all.length, stillLive: 0 },
     };
   }
 
-  const deduped = onePerProduct(live);
-  const productIds = [...new Set(deduped.map((l) => l.product_id!))];
+  const productIds = [...new Set(live.map((l) => l.product_id!))];
 
-  const products = await pageIn<
-    {
-      id: string;
-      slug: string | null;
-      name: string | null;
-      team: string | null;
-      season: string | null;
-      shirt_type: string | null;
-      primary_image_url: string | null;
-    },
-    string
-  >("Loading Dropzone products", productIds, (batch, from, to) =>
-    kickio()
-      .from("products")
-      .select("id,slug,name,team,season,shirt_type,primary_image_url")
-      .in("id", batch)
-      .is("deleted_at", null)
-      .order("id", { ascending: true })
-      .range(from, to),
-  );
+  const [products, shown] = await Promise.all([
+    pageIn<
+      {
+        id: string;
+        slug: string | null;
+        name: string | null;
+        team: string | null;
+        season: string | null;
+        shirt_type: string | null;
+        primary_image_url: string | null;
+      },
+      string
+    >("Loading Dropzone products", productIds, (batch, from, to) =>
+      kickio()
+        .from("products")
+        .select("id,slug,name,team,season,shirt_type,primary_image_url")
+        .in("id", batch)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    ),
+    recentlyShown(config.cooldownDays),
+  ]);
 
   const productFor = new Map(products.map((p) => [p.id, p]));
 
+  // Everything that could go on a card: live, photo-backed, one per product,
+  // and not already promoted. Dearest first, so the window search below counts
+  // the ones that would actually be shown.
+  const seenProduct = new Set<string>();
+  const candidates = live
+    .slice()
+    .sort((a, b) => (b.price_cents ?? 0) - (a.price_cents ?? 0))
+    .filter((listing) => {
+      const id = listing.product_id!;
+      if (seenProduct.has(id) || shown.has(id)) return false;
+      const product = productFor.get(id);
+      if (!product || imageUrls([product.primary_image_url]).length === 0) return false;
+      seenProduct.add(id);
+      return true;
+    });
+
+  const days = narrowestWindow(
+    candidates,
+    endMs,
+    config.featureCount,
+    config.windowDays,
+    config.maxWindowDays,
+  );
+
+  if (days === null) {
+    return {
+      ok: false,
+      reason:
+        `Only ${candidates.length} new shirts in the ${config.maxWindowDays} days to ` +
+        `${day.label} are live, photographed and not already promoted ` +
+        `(need ${config.featureCount}). Nothing new enough to post.`,
+      diagnostics: {
+        day: day.key,
+        rowsReturned: all.length,
+        stillLive: live.length,
+        alreadyShown: shown.size,
+        postable: candidates.length,
+      },
+    };
+  }
+
+  const from = endMs - days * 86_400_000;
+  const chosen = candidates
+    .filter((c) => Date.parse(c.created_at) >= from)
+    .slice(0, config.featureCount);
+
   const fee = await buyerFeeSettings();
 
-  // Only listings whose product has a photograph, because the grid reads
-  // `images` by index: a gap would slide every picture onto the next shirt and
-  // print a real price under the wrong one.
-  const featured: DropShirt[] = [];
-  for (const listing of deduped) {
-    if (featured.length >= config.featureCount) break;
-    const product = productFor.get(listing.product_id!);
-    if (!product) continue;
-    const photo = imageUrls([product.primary_image_url])[0];
-    if (!photo) continue;
-
-    featured.push({
+  const featured: DropShirt[] = chosen.map((listing) => {
+    const product = productFor.get(listing.product_id!)!;
+    return {
       listingId: listing.id,
       productId: product.id,
       title:
@@ -223,42 +365,23 @@ export async function runDropzone(
       team: product.team,
       season: product.season,
       kit: kitLabel(product.shirt_type),
-      price: formatPrice(
-        buyerPriceCents(listing.price_cents!, fee),
-        listing.currency ?? "GBP",
-      ),
+      price: formatPrice(buyerPriceCents(listing.price_cents!, fee), listing.currency ?? "GBP"),
       priceCents: buyerPriceCents(listing.price_cents!, fee),
       condition: cleanValue(listing.condition),
       size: cleanValue(listing.size),
       productUrl: kickioUrl(product.slug),
-      imageUrl: photo,
-    });
-  }
-
-  if (featured.length < config.featureCount) {
-    return {
-      ok: false,
-      reason:
-        `Only ${featured.length} of ${live.length} shirts listed on ${day.label} have a ` +
-        `photograph and are still live (need ${config.featureCount} to fill the grid). ` +
-        `A short row reads as a broken card.`,
-      diagnostics: {
-        day: day.key,
-        rowsReturned: all.length,
-        stillLive: live.length,
-        distinctProducts: deduped.length,
-        withPhoto: featured.length,
-      },
+      imageUrl: imageUrls([product.primary_image_url])[0]!,
     };
-  }
+  });
 
   const dearest = featured[0]!;
+  const label = windowLabel(days);
 
   const claims: Claim[] = [
     {
-      statement: `${live.length} shirts listed on Kickio on ${day.label} are still on sale`,
-      value: live.length,
-      source: "listings.created_at within the day, filtered to live",
+      statement: `${featured.length} shirts listed on Kickio in this window are on sale now`,
+      value: featured.length,
+      source: `listings.created_at within ${days} day${days === 1 ? "" : "s"} to ${day.key}`,
       basis:
         "Kickio's own listings table, not market data. Active, not deleted or withdrawn, " +
         "in stock, and found at source by the stock checker.",
@@ -268,20 +391,32 @@ export async function runDropzone(
       value: dearest.priceCents / 100,
       source: `listings.price_cents (listing ${dearest.listingId}) plus the buyer fee`,
       basis:
-        "The price a buyer pays, not the seller's figure. The dearest of yesterday's " +
-        "arrivals THAT HAS A PHOTOGRAPH, so not necessarily the dearest overall.",
+        "The price a buyer pays, not the seller's figure. The dearest arrival in this " +
+        "window THAT HAS A PHOTOGRAPH and has not been promoted before.",
     },
   ];
 
   return {
     ok: true,
     candidate: {
-      subjectRef: day.key,
-      headline: `Dropzone: ${day.label}, ${featured.length} new in from ${dearest.price}`,
+      // The SET, not the day. With a window that widens, two consecutive
+      // mornings can cover overlapping stretches, and a date would let the same
+      // six shirts post twice under two different subjects. The ids sorted and
+      // joined mean an identical set can only ever be posted once.
+      subjectRef: featured
+        .map((s) => s.productId)
+        .sort()
+        .join("|"),
+      headline: `Dropzone: ${featured.length} new in from ${dearest.price} (${label.toLowerCase()})`,
       sourceData: {
         day: day.key,
-        day_label: day.label,
+        window_days: days,
+        // What the card prints under the title. It says how wide the window
+        // actually was rather than implying one day every time.
+        day_label: label,
         featured: featured.map((shirt) => ({
+          // Kept so the next run can refuse a shirt this one promoted.
+          product_id: shirt.productId,
           title: shirt.title,
           team: shirt.team,
           season: shirt.season,
@@ -292,10 +427,9 @@ export async function runDropzone(
           detail: detailLine(shirt.condition, shirt.size),
           kickio_url: shirt.productUrl,
         })),
-        listed_that_day: live.length,
+        postable: candidates.length,
         shown: featured.length,
-        // The one line the copy should build its call to action around, and the
-        // one claim this post may make that the sales post may not.
+        // The one claim this post may make that the sales post may not.
         on_kickio: true,
         top_url: dearest.productUrl,
         // The three strings that make `sales_grid_card` this post rather than
@@ -337,13 +471,23 @@ fast", no "before someone else does". Nothing in the data says how quickly a
 shirt sells, and urgency nobody can stand behind is the fastest way to stop
 being believed.
 
+HOW FAR BACK THE POST REACHES, WHICH IS NOT ALWAYS A DAY
+
+\`day_label\` is the window the engine actually used: "New in yesterday" on a
+busy day, "New in over the last five days" when yesterday was quiet. Follow it.
+If it says five days, do not write "listed yesterday" - the card beside your
+words says otherwise, and a reader who clicks through will see the dates.
+"Just in", "new to the site" and "recent arrivals" are safe in every case.
+
 THE SIX ARE THE SIX WE CAN SHOW
 
-A listing with no photograph cannot go on the card, so never write "the six
-most expensive shirts listed yesterday" or "the day's top arrivals". "Six of
-yesterday's arrivals" and "among what came in yesterday" are right.
+A listing with no photograph cannot go on the card, and a shirt already
+promoted in a recent Dropzone is held back so the post does not repeat itself.
+So never write "the six most expensive shirts listed yesterday" or "the day's
+top arrivals". "Six of the latest arrivals" and "among what has just come in"
+are right.
 
-Never count anything beyond the six on the card. No "47 listed yesterday", no
+Never count anything beyond the six on the card. No "47 listed this week", no
 totals, no comparison with the day before.
 
 PRICES, CONDITION AND SIZE

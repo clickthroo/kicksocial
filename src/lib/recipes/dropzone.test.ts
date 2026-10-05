@@ -5,7 +5,9 @@ import {
   DROPZONE_BRIEF,
   DROPZONE_KEY,
   isLive,
+  narrowestWindow,
   onePerProduct,
+  windowLabel,
 } from "./dropzone.ts";
 import { freshness, hasExpired, perishKind } from "../engine/freshness.ts";
 import { stripEmDashes } from "../copy/dashes.ts";
@@ -107,8 +109,23 @@ describe("the shape of the post", () => {
     assert.equal(DEFAULT_DROPZONE_CONFIG.featureCount, 6);
   });
 
-  test("the window is one day, as asked", () => {
+  test("the window starts at one day, as asked", () => {
     assert.equal(DEFAULT_DROPZONE_CONFIG.windowDays, 1);
+  });
+
+  test("it may reach back, but not so far that 'just landed' stops being true", () => {
+    // Measured over the 14 days to 2026-10-05, new listings that are still
+    // live, photographed and distinct ran 4, 2, 2, 70, 9, 0, 1, 1 with six
+    // days producing nothing at all. A strict one-day window fills the grid on
+    // two mornings in fourteen.
+    assert.ok(DEFAULT_DROPZONE_CONFIG.maxWindowDays >= 7);
+    assert.ok(DEFAULT_DROPZONE_CONFIG.maxWindowDays <= 21);
+  });
+
+  test("the cooldown outlasts the widest window", () => {
+    // Otherwise a shirt held back today is back in range tomorrow, and the
+    // post repeats itself with the window doing the repeating.
+    assert.ok(DEFAULT_DROPZONE_CONFIG.cooldownDays > DEFAULT_DROPZONE_CONFIG.maxWindowDays);
   });
 
   test("the price floor is low enough not to be what empties the grid", () => {
@@ -168,5 +185,69 @@ describe("the brief", () => {
 
   test("it has no em dashes", () => {
     assert.equal(stripEmDashes(DROPZONE_BRIEF), DROPZONE_BRIEF);
+  });
+});
+
+describe("how far back it reaches", () => {
+  const END = Date.parse("2026-10-06T00:00:00Z");
+  const madeDaysAgo = (n: number) => ({ created_at: new Date(END - n * 86_400_000 + 3_600_000).toISOString() });
+
+  test("a day that produced six on its own stays at one day", () => {
+    // Narrowest, not widest: given a full day, reaching back a fortnight would
+    // bury yesterday's arrivals under a backlog.
+    const six = Array.from({ length: 6 }, () => madeDaysAgo(1));
+    assert.equal(narrowestWindow(six, END, 6, 1, 14), 1);
+  });
+
+  test("a thin day reaches back until it has six", () => {
+    const candidates = [
+      ...Array.from({ length: 2 }, () => madeDaysAgo(1)),
+      ...Array.from({ length: 2 }, () => madeDaysAgo(2)),
+      ...Array.from({ length: 2 }, () => madeDaysAgo(4)),
+    ];
+    // Two days gives four, so it has to reach to four days to find the last two.
+    assert.equal(narrowestWindow(candidates, END, 6, 1, 14), 4);
+  });
+
+  test("it stops rather than reaching past the limit", () => {
+    // Null is the honest "nothing new" case, and it is what makes a skip mean
+    // something: no post means nothing has arrived since the last one.
+    const candidates = Array.from({ length: 5 }, () => madeDaysAgo(1));
+    assert.equal(narrowestWindow(candidates, END, 6, 1, 14), null);
+  });
+
+  test("a shirt older than the limit never counts", () => {
+    const candidates = [
+      ...Array.from({ length: 5 }, () => madeDaysAgo(1)),
+      madeDaysAgo(40),
+    ];
+    assert.equal(narrowestWindow(candidates, END, 6, 1, 14), null);
+  });
+
+  test("nothing at all yields null, not a window of one", () => {
+    assert.equal(narrowestWindow([], END, 6, 1, 14), null);
+  });
+});
+
+describe("the card says how wide the window was", () => {
+  test("one day is yesterday", () => {
+    assert.equal(windowLabel(1), "New in yesterday");
+  });
+
+  test("two reads as words, not a numeral", () => {
+    assert.equal(windowLabel(2), "New in over the last two days");
+  });
+
+  test("beyond that it names the number", () => {
+    assert.equal(windowLabel(5), "New in over the last 5 days");
+    assert.equal(windowLabel(14), "New in over the last 14 days");
+  });
+
+  test("it never claims a single day when it reached further", () => {
+    // The post that says "listed yesterday" over a five-day window is the one
+    // mistake this whole redesign could introduce, and the label is the guard.
+    for (const days of [2, 3, 7, 14]) {
+      assert.ok(!windowLabel(days).includes("yesterday"), String(days));
+    }
   });
 });
