@@ -3339,6 +3339,207 @@ function BattleCard({
  * gradient drawn over the image, after it in the DOM because painting is in
  * document order.
  */
+/**
+ * Yesterday's Sales Highlights - six shirts, each with what it went for.
+ *
+ * Three columns in BOTH shapes, unlike Who Am I which goes six across on 16:9.
+ * Every tile here carries three lines of type under it, and six captions across
+ * 1200px leaves each one about 190px wide, which is not enough for "£553" plus
+ * a condition plus a size without wrapping into a mess Satori gives no metrics
+ * to measure. Three columns and two rows holds in both frames.
+ *
+ * The plate is owned by the card rather than by the photograph, the same fix
+ * the Who Am I grid needed: Kickio's product shots are cut out on white and are
+ * not all the same shape, so without a plate of its own each tile took the size
+ * of its own picture and six tiles came out six different sizes.
+ */
+function SalesGridCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const look = gridLook(style, brand);
+  const d = draft.source_data as Record<string, unknown>;
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+
+  const featured = Array.isArray(d.featured)
+    ? (d.featured as Array<Record<string, unknown>>).slice(0, 6)
+    : [];
+  // Index-aligned with `featured`. The recipe features only sales it has a
+  // photograph for precisely so this holds: a gap would slide every photo onto
+  // the next shirt and print a real price under the wrong picture.
+  const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
+
+  const cols = 3;
+  const rows: number[][] = [];
+  for (let i = 0; i < featured.length; i += cols) {
+    rows.push(featured.slice(i, i + cols).map((_, j) => i + j));
+  }
+
+  const gap = portrait ? 18 : 14;
+  const titleSize = portrait ? 62 : 40;
+  const dateSize = portrait ? 30 : 22;
+  const askSize = portrait ? 28 : 20;
+  const priceSize = portrait ? 34 : 24;
+  const detailSize = portrait ? 20 : 15;
+  const nameSize = portrait ? 21 : 16;
+  const LINE = 1.2;
+
+  // Satori returns no text metrics, so the caption block's height is computed
+  // from what it is set in. Three lines plus the gaps above them.
+  const captionH = nameSize * LINE + priceSize * LINE + detailSize * LINE + 14;
+  const band = format === "tiktok" ? 92 : portrait ? 44 : 24;
+  const typeH = titleSize * LINE + 8 + dateSize * LINE;
+
+  const gridH =
+    height -
+    pad * 2 -
+    (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0) -
+    lockupHeight(format) -
+    typeH -
+    askSize * LINE -
+    band * 3;
+
+  const cellW = Math.floor((width - pad * 2 - gap * (cols - 1)) / cols);
+  const plateMax = Math.floor((gridH - gap * (rows.length - 1)) / Math.max(1, rows.length)) - captionH;
+  const plate = Math.max(90, Math.min(cellW, plateMax));
+  const keyline = portrait ? 2 : 1;
+  const inset = portrait ? 8 : 5;
+  const shot = plate - keyline * 2 - inset * 2;
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label="YESTERDAY'S SALES"
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: titleSize,
+              fontWeight: 800,
+              letterSpacing: -1,
+              lineHeight: 1.1,
+              color: look.ink,
+            }}
+          >
+            What shirts went for
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: dateSize,
+              color: look.muted,
+              marginTop: 8,
+            }}
+          >
+            {String(d.day_label ?? "")}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap }}>
+          {rows.map((row, r) => (
+            <div key={r} style={{ display: "flex", gap }}>
+              {row.map((index) => {
+                const sale = featured[index]!;
+                const photo = photos[index];
+                return (
+                  <div
+                    key={index}
+                    style={{ display: "flex", flexDirection: "column", width: cellW }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: plate,
+                        height: plate,
+                        background: look.cellFill,
+                        borderRadius: look.radius,
+                        border: `${keyline}px solid rgba(0,0,0,0.58)`,
+                      }}
+                    >
+                      {photo ? (
+                        <img src={photo} width={shot} height={shot} style={{ objectFit: "contain" }} />
+                      ) : (
+                        <div style={{ display: "flex", width: shot, height: shot }} />
+                      )}
+                    </div>
+
+                    {/* The price is the loudest thing in the tile. It is the
+                        reason the post works: somebody with the same shirt in a
+                        drawer reads the number before they read the name. */}
+                    <div
+                      style={{
+                        display: "flex",
+                        fontSize: priceSize,
+                        fontWeight: 800,
+                        color: look.accent,
+                        marginTop: 10,
+                      }}
+                    >
+                      {String(sale.price ?? "")}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        fontSize: nameSize,
+                        color: look.ink,
+                        marginTop: 2,
+                      }}
+                    >
+                      {[sale.season, sale.team].filter(Boolean).join(" ").slice(0, 28)}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        fontSize: detailSize,
+                        color: look.muted,
+                        marginTop: 2,
+                      }}
+                    >
+                      {String(sale.detail ?? "")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", fontSize: askSize, color: look.muted }}>
+          Got one like these? List it on kickio.com
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
 function ClassicCard({
   draft,
   format,
@@ -3601,6 +3802,15 @@ export function templateFor(
     case "grail_sale_card":
       return (
         <GrailSaleCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "sales_grid_card":
+      return (
+        <SalesGridCard
           draft={draft}
           format={format}
           brand={brand}

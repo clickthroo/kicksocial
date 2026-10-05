@@ -52,6 +52,11 @@ import {
   DEFAULT_MOST_WANTED_CONFIG,
   MOST_WANTED_BRIEF,
 } from "./most-wanted.ts";
+import {
+  runYesterdaySales,
+  DEFAULT_YESTERDAY_SALES_CONFIG,
+  YESTERDAY_SALES_BRIEF,
+} from "./yesterday-sales.ts";
 
 export interface Recipe {
   key: string;
@@ -164,6 +169,16 @@ single shirt and what it went for stops a scroller where "this week's results"
 does not. The counting ban and the market-wide framing apply there exactly as
 they do everywhere else.`,
     run: (selection) => runSoldThisWeek({ ...DEFAULT_SOLD_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "yesterday_sales",
+    name: "Yesterday's Sales Highlights",
+    cadence: "daily",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "sales_grid_card",
+    brief: YESTERDAY_SALES_BRIEF,
+    run: (selection) =>
+      runYesterdaySales({ ...DEFAULT_YESTERDAY_SALES_CONFIG, ...(selection as object) }),
   },
   {
     key: "market_index",

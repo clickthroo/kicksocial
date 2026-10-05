@@ -18,7 +18,7 @@
  * and the recipe modules behind `RECIPES` each open a Kickio connection.
  */
 
-export type PerishKind = "listing" | "window" | "none";
+export type PerishKind = "listing" | "window" | "day" | "none";
 
 export type FreshnessState = "fresh" | "ageing" | "stale";
 
@@ -50,6 +50,10 @@ export const PERISHES: Record<string, PerishKind> = {
   // The faster-perishing half decides.
   most_wanted: "listing",
   sold_this_week: "window",
+  // The one post whose title is a date. "Yesterday" is wrong by lunchtime
+  // tomorrow, and no amount of good copy survives being a day out, so it ages
+  // faster than anything else here and leaves on its own inside two days.
+  yesterday_sales: "day",
   // Every point on the card is a completed sale, so none of it can stop being
   // true - but the card labels one of them "Latest", and the next recorded sale
   // makes that word wrong. It ages like a roundup, not like a listing.
@@ -104,6 +108,10 @@ const LIMITS: Record<
 > = {
   listing: { ageing: 24, stale: 72, expires: 144 },
   window: { ageing: 72, stale: 168, expires: 336 },
+  // A post that says "yesterday" is true for one day and false after it. Worth
+  // a look within the morning, wrong by the end of the next day, and gone
+  // before it can be posted two days late.
+  day: { ageing: 8, stale: 24, expires: 48 },
 };
 
 const NOTES: Record<Exclude<PerishKind, "none">, string> = {
@@ -113,6 +121,9 @@ const NOTES: Record<Exclude<PerishKind, "none">, string> = {
   window:
     "This post describes a stretch of time that has moved on. Read it back and " +
     "check it still says something true today.",
+  day:
+    "This post is about one particular day and names it. Posted now it is not " +
+    "late, it is wrong - the date on the card is no longer yesterday.",
 };
 
 export function ageLabel(ms: number): string {

@@ -14,7 +14,10 @@ export const maxDuration = 300;
  * different days rather than stacking on one.
  */
 function recipesForToday(date: Date): string[] {
-  const keys = ["grail_of_the_day"];
+  // Daily, both of them. Yesterday's Sales is the one recipe here whose window
+  // is a single named day, so it either runs the morning after or it does not
+  // run at all - there is no catching up with it later.
+  const keys = ["grail_of_the_day", "yesterday_sales"];
   const day = date.getUTCDay(); // 0 Sun .. 6 Sat
   // Tuesday. Legend Shelf has been enabled and working since September but was
   // never added here, so the only posts it ever made were ones somebody ran by
