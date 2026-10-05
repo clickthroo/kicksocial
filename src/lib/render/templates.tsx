@@ -3340,7 +3340,14 @@ function BattleCard({
  * document order.
  */
 /**
- * Yesterday's Sales Highlights - six shirts, each with what it went for.
+ * Six shirts in a 3x2 grid, each with a price and a line of detail.
+ *
+ * Drawn by two recipes that are the same post pointed in opposite directions:
+ * Yesterday's Sales Highlights (what six shirts went for across the market) and
+ * Dropzone (what six shirts listed on Kickio yesterday cost). The grid, the
+ * price and the detail line are identical; only the three strings differ, so
+ * those are read off the draft rather than written twice. A second template
+ * drawing the same thing would drift from this one inside a month.
  *
  * Three columns in BOTH shapes, unlike Who Am I which goes six across on 16:9.
  * Every tile here carries three lines of type under it, and six captions across
@@ -3431,7 +3438,7 @@ function SalesGridCard({
         <BrandLockup
           format={format}
           brand={brand}
-          label="YESTERDAY'S SALES"
+          label={typeof d.card_label === "string" ? d.card_label || undefined : "YESTERDAY'S SALES"}
           muted={look.muted}
           surface={look.to}
         />
@@ -3447,7 +3454,7 @@ function SalesGridCard({
               color: look.ink,
             }}
           >
-            What shirts went for
+            {typeof d.card_title === "string" && d.card_title ? d.card_title : "What shirts went for"}
           </div>
           <div
             style={{
@@ -3533,7 +3540,9 @@ function SalesGridCard({
         </div>
 
         <div style={{ display: "flex", fontSize: askSize, color: look.muted }}>
-          Got one like these? List it on kickio.com
+          {typeof d.card_footer === "string" && d.card_footer
+            ? d.card_footer
+            : "Got one like these? List it on kickio.com"}
         </div>
       </div>
     </Frame>

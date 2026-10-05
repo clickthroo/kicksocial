@@ -54,6 +54,10 @@ export const PERISHES: Record<string, PerishKind> = {
   // tomorrow, and no amount of good copy survives being a day out, so it ages
   // faster than anything else here and leaves on its own inside two days.
   yesterday_sales: "day",
+  // Both halves of this post perish inside a day. The card names a date, so it
+  // is wrong rather than late by tomorrow - and every shirt on it is a live
+  // listing, so a day-old draft can be promoting something already sold.
+  dropzone: "day",
   // Every point on the card is a completed sale, so none of it can stop being
   // true - but the card labels one of them "Latest", and the next recorded sale
   // makes that word wrong. It ages like a roundup, not like a listing.

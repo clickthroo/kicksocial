@@ -57,6 +57,7 @@ import {
   DEFAULT_YESTERDAY_SALES_CONFIG,
   YESTERDAY_SALES_BRIEF,
 } from "./yesterday-sales.ts";
+import { runDropzone, DEFAULT_DROPZONE_CONFIG, DROPZONE_BRIEF } from "./dropzone.ts";
 
 export interface Recipe {
   key: string;
@@ -169,6 +170,15 @@ single shirt and what it went for stops a scroller where "this week's results"
 does not. The counting ban and the market-wide framing apply there exactly as
 they do everywhere else.`,
     run: (selection) => runSoldThisWeek({ ...DEFAULT_SOLD_CONFIG, ...(selection as object) }),
+  },
+  {
+    key: "dropzone",
+    name: "Dropzone",
+    cadence: "daily",
+    platforms: ["x", "instagram", "tiktok"],
+    visualTemplate: "sales_grid_card",
+    brief: DROPZONE_BRIEF,
+    run: (selection) => runDropzone({ ...DEFAULT_DROPZONE_CONFIG, ...(selection as object) }),
   },
   {
     key: "yesterday_sales",
