@@ -34,11 +34,15 @@ export function RunNowButton({ recipeKey }: { recipeKey: string }) {
   };
 
   return (
-    <div className="run-now">
+    // `has-result` rather than letting the text sit inline: a skip reason is a
+    // sentence or two naming what the recipe looked for and how much of it it
+    // found, and inline it was clipped at the card's edge mid-word. With the
+    // class it takes a row of its own under the button and wraps.
+    <div className={`run-now${result ? " has-result" : ""}`}>
       <button className="btn run-now-btn" onClick={go} disabled={isPending}>
         {isPending ? "Running…" : "Run now"}
       </button>
-      {result && <span className="run-now-result">{result}</span>}
+      {result && <p className="run-now-result">{result}</p>}
     </div>
   );
 }

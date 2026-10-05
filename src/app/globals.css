@@ -403,16 +403,30 @@ header.top .sub a:hover { color: var(--text); }
 }
 .run-title { font-size: 15px; line-height: 1.35; margin-top: 4px; }
 .run-meta { font-size: 12px; color: var(--muted); padding: 8px 16px 0; }
-.run-reason { font-size: 13px; line-height: 1.5; margin: 8px 0 0; padding: 0 16px 12px; }
+.run-reason {
+  font-size: 13px; line-height: 1.5; margin: 8px 0 0; padding: 0 16px 12px;
+  overflow-wrap: anywhere;
+}
 .run:not(:has(.run-reason)) .run-meta { padding-bottom: 12px; }
 .run-diagnostics {
   padding: 0 16px 12px; font-size: 12px; line-height: 1.6; color: var(--muted);
   font-family: ui-monospace, monospace; overflow-wrap: anywhere;
 }
 
-.run-now { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.run-now { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; flex-wrap: wrap; }
+/* A run that skipped says why, in a sentence that names what it was looking for
+   and how much of it it found. That is the most useful text on the page and it
+   was being clipped at the card's edge mid-word, because it sat inline in a box
+   that could neither shrink nor wrap. Given a result, the control takes the
+   whole row and the reason wraps underneath. */
+.run-now.has-result { flex: 1 1 100%; }
 .btn.run-now-btn { flex: 0 0 auto; font-size: 13px; padding: 7px 14px; border-radius: 8px; }
-.run-now-result { font-size: 12px; color: var(--muted); }
+.run-now-result {
+  flex: 1 1 100%; min-width: 0; margin: 0;
+  font-size: 13px; line-height: 1.5; color: var(--muted);
+  /* A product id or a long season string has no spaces to break at. */
+  overflow-wrap: anywhere;
+}
 
 /* --- post a sale --- */
 .sold-photo { max-height: 420px; object-fit: contain; background: var(--surface-2); }

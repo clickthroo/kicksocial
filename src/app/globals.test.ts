@@ -167,6 +167,21 @@ describe("the things that make it usable with a thumb", () => {
     assert.ok(Number(xs![1]) >= 24, "WCAG 2.2 2.5.8 sets 24x24 as the absolute minimum");
   });
 
+  test("a run's skip reason is allowed to wrap", () => {
+    // It was clipped mid-word at the card's edge, because it sat inline in a
+    // flex box that could neither shrink nor wrap while `.card` hid the
+    // overflow. It is the most useful text on that page: a recipe that skips is
+    // working as intended, and the reason is the only thing that says what it
+    // was looking for and how close it got.
+    for (const selector of [".run-now-result", ".run-reason"]) {
+      const rule = new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+      assert.ok(rule, `${selector} has no rule`);
+      assert.ok(!/white-space:\s*nowrap/.test(rule), `${selector} must not be nowrap`);
+      assert.ok(!/text-overflow:\s*ellipsis/.test(rule), `${selector} must not be ellipsised`);
+      assert.match(rule, /overflow-wrap:\s*anywhere/, `${selector} must break long tokens`);
+    }
+  });
+
   test("nothing is typeset below 12px, bar the one documented exception", () => {
     // 10px and 11px were in use for status pills, timestamps, credits and
     // source lines, all of which are read at arm's length on a phone.
