@@ -9,7 +9,51 @@
   --accent-ink: #06210f;
   --danger: #f2565a;
   --warn: #e3a83b;
+  /* Deliberately not the accent. A focus ring the same colour as the selected
+     state cannot be told apart from one. */
+  --ring: #7dd3fc;
   --radius: 14px;
+
+  /*
+   * `--border` draws the edge of a CARD, which is identified by its content, so
+   * a hairline is right and no contrast ratio is required of it.
+   * `--control-border` draws the edge of an INPUT, which is identified by
+   * nothing except that edge. WCAG 1.4.11 asks 3:1 of it. The sheet used the
+   * hairline for both, so a text field on white was a 1.29:1 outline, which on
+   * a phone in daylight is not an outline.
+   */
+  --control-border: #636f85;
+
+  /*
+   * One spacing scale. The sheet used 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+   * 14, 15, 16, 18 and 20 as padding values, which is not a scale but the
+   * absence of one: nothing lines up with anything, and every new rule invents
+   * another number.
+   */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+
+  /*
+   * Control heights. WCAG 2.2 (2.5.8, AA) sets 24x24 CSS px as the floor;
+   * Apple's guidance is 44pt and Material's 48dp, and this tool is driven with
+   * a thumb. So 44 for anything that decides something, 36 for a chip or tab,
+   * and 32 as the hard floor for a dense inline control.
+   */
+  --tap: 44px;
+  --tap-sm: 36px;
+  --tap-xs: 32px;
+
+  /*
+   * 16px is not a taste decision on a form control. Safari on iOS zooms the
+   * viewport whenever a focused input is below it, which is what throws the
+   * layout sideways mid-typing and leaves the right-hand edge off screen.
+   */
+  --field-size: 16px;
 }
 
 @media (prefers-color-scheme: light) {
@@ -20,12 +64,75 @@
     --border: #dfe3e9;
     --text: #12161b;
     --muted: #5d6874;
-    --accent: #12a862;
+    /*
+     * The light palette was the one carrying the failures, and it is the one in
+     * use: a phone, outdoors, on whatever the system is set to. Measured
+     * against white, the old values were accent 3.09:1, warn 2.11:1, danger
+     * 3.36:1, and white-on-accent 3.09:1. So the label on the primary Approve
+     * button failed, as did every price, every error and every warning on the
+     * screen. These are the same hues, darkened until they clear 4.5:1.
+     *
+     * 5.19:1 on white as text, and 5.19:1 the other way round as a fill with
+     * white on it, so one value fixes both uses.
+     */
+    --accent: #0a7d4a;
     --accent-ink: #ffffff;
+    /* 5.89:1 on white, was 3.36:1. */
+    --danger: #c0272b;
+    /* 5.93:1 on white, was 2.11:1 - barely visible, and carrying every
+       "check this before you post" message in the tool. */
+    --warn: #8a5a00;
+    --control-border: #7e8794;
+    --ring: #0a66c2;
   }
 }
 
 * { box-sizing: border-box; }
+
+/*
+ * FOCUS, MOTION AND TARGETS
+ *
+ * The sheet had no :focus rule of any kind, which is a WCAG 2.4.7 failure
+ * outright: every custom background in here paints over whatever ring the
+ * browser would have drawn, so tabbing through the queue moved an invisible
+ * cursor. `:focus-visible` rather than `:focus`, so a thumb tap does not leave
+ * a ring behind it the way `:focus` would.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/*
+ * Nothing in here animates to communicate anything, so when the system asks for
+ * less motion there is nothing to lose by giving it all of it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * The floor, applied once rather than remembered at each call site. Every
+ * button and link-styled control in the sheet was between 26px and 30px tall:
+ * above the 24px WCAG minimum, well under the 44px a thumb actually wants, and
+ * the export links were a bare text run at about 16px.
+ */
+button,
+.btn,
+.nav-link,
+.tab,
+.copy-btn,
+.filter,
+.export .link {
+  min-height: var(--tap-xs);
+}
+
 
 html, body {
   margin: 0;
@@ -56,21 +163,21 @@ header.top .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
   margin-bottom: 14px;
   overflow: hidden;
 }
-.card.resolved { opacity: 0.45; }
+.card.resolved { opacity: 0.6; }
 
 .card-head { padding: 14px 16px 0; }
 .card-head-row {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
 .recipe-tag {
-  display: inline-block; font-size: 11px; text-transform: uppercase;
+  display: inline-block; font-size: 12px; text-transform: uppercase;
   letter-spacing: 0.06em; color: var(--muted); font-weight: 600;
 }
 
 /* How old the draft is. Quiet while it is fresh - it is context, not an alarm -
    and it only takes on colour once the age is a reason to check something. */
 .age {
-  flex: 0 0 auto; font-size: 11px; font-weight: 600; white-space: nowrap;
+  flex: 0 0 auto; font-size: 12px; font-weight: 600; white-space: nowrap;
   color: var(--muted); font-variant-numeric: tabular-nums;
 }
 .age-ageing { color: var(--warn); }
@@ -96,17 +203,18 @@ header.top .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
    are none. */
 .copy-btn {
   margin-left: auto;
-  display: flex; align-items: center; gap: 5px;
-  font: inherit; font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  font: inherit; font-size: 13px; font-weight: 600;
   color: var(--muted);
   background: none; border: 1px solid transparent; border-radius: 999px;
-  padding: 5px 10px; cursor: pointer;
+  padding: 7px 13px; min-height: var(--tap-sm); cursor: pointer;
 }
 .copy-btn:hover { color: var(--text); background: var(--surface-2); border-color: var(--border); }
 .copy-btn.is-done { color: var(--accent); }
 .tab {
-  font: inherit; font-size: 12px; font-weight: 600;
-  padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 13px; border-radius: 999px; cursor: pointer;
+  min-height: var(--tap-sm);
   background: transparent; color: var(--muted); border: 1px solid transparent;
 }
 .tab[aria-selected="true"] { background: var(--surface-2); color: var(--text); border-color: var(--border); }
@@ -116,13 +224,14 @@ header.top .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .hashtags { color: var(--muted); font-size: 13px; }
 .beats { margin: 8px 0 0; padding-left: 18px; }
 .beats li { font-size: 14px; line-height: 1.5; margin-bottom: 4px; }
-.count { font-size: 11px; color: var(--muted); }
+.count { font-size: 12px; color: var(--muted); }
 .count.over { color: var(--danger); font-weight: 600; }
 
 details.facts { border-top: 1px solid var(--border); }
 details.facts > summary {
-  padding: 11px 16px; cursor: pointer; font-size: 13px;
+  padding: var(--s3) var(--s4); cursor: pointer; font-size: 14px;
   color: var(--muted); font-weight: 600; list-style: none;
+  min-height: var(--tap); display: flex; align-items: center;
 }
 details.facts > summary::-webkit-details-marker { display: none; }
 details.facts > summary::before { content: "▸ "; }
@@ -134,10 +243,13 @@ details.facts[open] > summary::before { content: "▾ "; }
 }
 .claim .stmt { font-size: 13px; }
 .claim .val { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.claim .src { grid-column: 1 / -1; font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+.claim .src { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
 
+/* The one thing in the sheet allowed under 12px: a JSON dump inside a
+   collapsed fold, scanned rather than read, which scrolls sideways. Larger
+   type means more scrolling and fewer keys visible at once. */
 pre.raw {
-  margin: 0; padding: 12px 16px; font-size: 11px; line-height: 1.5;
+  margin: 0; padding: 12px 16px; font-size: 11.5px; line-height: 1.5;
   overflow-x: auto; color: var(--muted); border-top: 1px solid var(--border);
   background: var(--surface-2);
 }
@@ -149,9 +261,13 @@ pre.raw {
 .card > .actions { padding: 14px 16px; background: var(--surface-2); }
 .card > .actions .btn { font-size: 15px; padding: 13px; }
 button.btn {
-  flex: 1; font: inherit; font-size: 14px; font-weight: 600;
-  padding: 11px; border-radius: 10px; cursor: pointer; border: 1px solid var(--border);
+  flex: 1; font: inherit; font-size: 15px; font-weight: 600;
+  padding: 11px var(--s3); border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--control-border);
   background: var(--surface-2); color: var(--text);
+  /* A thumb target, not a mouse one. */
+  min-height: var(--tap);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   transition: transform 0.06s ease;
 }
 .card > .actions .btn.reject { background: var(--surface); }
@@ -171,15 +287,51 @@ button.reject { color: var(--danger); }
 .export { display: flex; gap: 14px; padding: 10px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
 details.facts .export { border-top: none; padding-top: 2px; }
 .export .link {
-  font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
-  background: none; border: none; padding: 0; cursor: pointer; text-decoration: none;
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--muted);
+  background: none; border: none; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center;
+  padding: 0 var(--s2); min-height: var(--tap-sm);
+  border-radius: 8px;
 }
 .export .link:hover { color: var(--text); }
 
 .verify { display: flex; gap: 16px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--border); }
-.verify a { font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none; }
+.verify a {
+  font-size: 14px; font-weight: 600; color: var(--accent); text-decoration: none;
+  display: inline-flex; align-items: center; min-height: var(--tap-sm);
+}
 .verify a:hover { text-decoration: underline; }
 .verify a.secondary { color: var(--muted); font-weight: 500; }
+
+/* --- choosing a post to make ------------------------------------------- */
+.group { margin-bottom: var(--s5); }
+.group-title {
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); margin: 0 var(--s4) var(--s1);
+}
+.group-note {
+  font-size: 13px; color: var(--muted); line-height: 1.5;
+  margin: 0 var(--s4) var(--s3);
+}
+.group-items { display: flex; flex-direction: column; gap: var(--s2); }
+
+/* A whole card is the target, not a word inside it. Each one is well past the
+   44px a thumb wants, which is the easiest target to hit in the tool and
+   should be: it is the first choice on the way to every manual post. */
+.builder {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: var(--s3) var(--s4);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); text-decoration: none;
+}
+.builder:hover { border-color: var(--control-border); }
+.builder-label { font-size: 16px; font-weight: 700; color: var(--text); }
+.builder-blurb { font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+@media (min-width: 640px) {
+  .group-items { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
 
 /* --- settings screen --- */
 .settings .card-head { padding-bottom: 4px; }
@@ -190,9 +342,10 @@ details.facts .export { border-top: none; padding-top: 2px; }
 .field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
 .settings .hint { font-size: 12px; color: var(--muted); margin: 5px 0 9px; line-height: 1.45; }
 .settings input[type="number"], .settings textarea {
-  font: inherit; font-size: 14px; width: 100%;
+  font: inherit; font-size: var(--field-size); width: 100%;
   background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+  border: 1px solid var(--control-border); border-radius: 8px;
+  padding: 10px 12px; min-height: var(--tap);
 }
 .settings textarea { line-height: 1.5; resize: vertical; }
 .settings label.toggle, .settings label.check {
@@ -212,9 +365,10 @@ header.top .sub a:hover { color: var(--text); }
 }
 .nav::-webkit-scrollbar { display: none; }
 .nav-link {
-  flex: 0 0 auto; font-size: 13px; font-weight: 600; text-decoration: none;
-  color: var(--muted); padding: 6px 9px; border-radius: 999px;
+  flex: 0 0 auto; font-size: 14px; font-weight: 600; text-decoration: none;
+  color: var(--muted); padding: 0 var(--s3); border-radius: 999px;
   border: 1px solid transparent; white-space: nowrap;
+  display: inline-flex; align-items: center; min-height: var(--tap-sm);
 }
 .nav-link:hover { color: var(--text); }
 .nav-link[aria-current="page"] {
@@ -227,8 +381,8 @@ header.top .sub a:hover { color: var(--text); }
    to anyone who cannot separate green from amber. */
 .pill {
   display: inline-block; flex: 0 0 auto; white-space: nowrap;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
-  padding: 4px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.03em;
+  padding: 4px 10px; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); border: 1px solid var(--border);
 }
 .pill.created { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
@@ -265,7 +419,7 @@ header.top .sub a:hover { color: var(--text); }
 .sold-facts { display: flex; flex-wrap: wrap; gap: 14px 26px; }
 .sold-fact { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
 .settings input[type="url"], .settings input[type="text"], .settings input[type="date"] {
-  font: inherit; font-size: 14px; width: 100%;
+  font: inherit; font-size: var(--field-size); width: 100%; min-height: var(--tap);
   background: var(--surface-2); color: var(--text);
   border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
 }
@@ -287,12 +441,19 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
   background: none; border: none; padding: 0; cursor: pointer; text-decoration: none;
 }
 .pub-tools .link:hover { color: var(--text); }
+/*
+ * The workhorse text field: the publish URL, the photograph URL, the credit,
+ * the player, the Kickio link. Five of the seven builders are mostly this one
+ * control repeated, so its size is most of how the tool feels on a phone.
+ */
 .pub-url {
-  font: inherit; font-size: 14px; width: 100%; margin-top: 9px;
+  font: inherit; font-size: var(--field-size); width: 100%; margin-top: var(--s2);
   background: var(--surface-2); color: var(--text);
-  border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px;
+  border: 1px solid var(--control-border); border-radius: 8px;
+  padding: 10px var(--s3); min-height: var(--tap);
 }
-.btn.pub-mark { width: 100%; margin-top: 11px; font-size: 13px; padding: 9px; }
+.pub-url::placeholder { color: var(--muted); }
+.btn.pub-mark { width: 100%; margin-top: var(--s3); }
 
 .log-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -311,9 +472,10 @@ h2.section { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
 .styles-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .styles-row::-webkit-scrollbar { display: none; }
 .style-chip {
-  flex: 0 0 auto; font: inherit; font-size: 12px; font-weight: 600;
-  padding: 6px 11px; border-radius: 999px; cursor: pointer; white-space: nowrap;
-  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  flex: 0 0 auto; font: inherit; font-size: 13px; font-weight: 600;
+  padding: 0 var(--s3); border-radius: 999px; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; min-height: var(--tap-sm);
+  background: transparent; color: var(--muted); border: 1px solid var(--control-border);
 }
 .style-chip:hover:not(:disabled) { color: var(--text); }
 .style-chip[aria-checked="true"] {
@@ -388,7 +550,7 @@ ol.queue li {
 .queue-pos {
   flex: 0 0 auto; width: 20px; height: 20px; border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; background: var(--accent); color: var(--accent-ink);
+  font-size: 12px; font-weight: 700; background: var(--accent); color: var(--accent-ink);
 }
 .queue-name { flex: 1; min-width: 0; }
 ol.queue .link {
@@ -509,7 +671,7 @@ ol.queue .link:hover { color: var(--danger); }
     font-size: 12px; color: var(--muted); margin: 0 0 10px;
   }
   .keyhint kbd {
-    font: inherit; font-size: 11px; font-weight: 700;
+    font: inherit; font-size: 12px; font-weight: 700;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 5px; padding: 1px 6px;
   }
@@ -531,7 +693,7 @@ ol.queue .link:hover { color: var(--danger); }
 .tag-new {
   display: inline-block; margin-left: 8px; padding: 1px 6px; border-radius: 999px;
   background: var(--accent); color: var(--accent-ink);
-  font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   vertical-align: 2px;
 }
 .pick-stock { font-size: 13px; font-weight: 600; color: var(--text); }
@@ -565,11 +727,11 @@ ol.queue .link:hover { color: var(--danger); }
   border-bottom: 1px solid var(--border);
 }
 .players li > a:first-child:hover { color: var(--accent); border-bottom-color: var(--accent); }
-.players a.getty { font-size: 11px; color: var(--muted); text-decoration: none; }
+.players a.getty { font-size: 12px; color: var(--muted); text-decoration: none; }
 .players a.getty:hover { color: var(--accent); text-decoration: underline; }
 /* Where a name came from, which is the difference between a dated career and a
    name somebody typed on a listing. */
-.players .whence { font-size: 11px; color: var(--muted); }
+.players .whence { font-size: 12px; color: var(--muted); }
 /* A name taken from a shirt of a different season. Not an error - often it is
    the right player anyway - but the one case where following the suggestion
    produces a photograph of the wrong kit, so it is not left quiet. */
@@ -586,7 +748,7 @@ ol.queue .link:hover { color: var(--danger); }
 /* --- what became of a shirt last time it was used ---------------------- */
 .use-badge {
   display: inline-block; padding: 1px 7px; border-radius: 999px;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
   border: 1px solid var(--border); color: var(--muted);
 }
 /* Published is the one state that means the work is done, so it is the one
@@ -595,14 +757,15 @@ ol.queue .link:hover { color: var(--danger); }
 .use-badge.cleared { color: var(--warn); border-color: var(--warn); }
 .use-badge.queued { color: var(--muted); }
 .use-badge.rejected { color: var(--muted); opacity: 0.75; }
-.use-note { font-size: 11px; color: var(--muted); margin-left: 7px; }
+.use-note { font-size: 12px; color: var(--muted); margin-left: 7px; }
 
 /* --- filtering a long list -------------------------------------------- */
 .filters { display: flex; gap: 7px; flex-wrap: wrap; margin: 0 16px 13px; }
 .filter {
-  font-size: 12px; font-weight: 600; text-decoration: none;
-  color: var(--muted); background: var(--surface); border: 1px solid var(--border);
-  border-radius: 999px; padding: 6px 12px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  color: var(--muted); background: var(--surface); border: 1px solid var(--control-border);
+  border-radius: 999px; padding: 0 var(--s4);
+  display: inline-flex; align-items: center; gap: 5px; min-height: var(--tap-sm);
 }
 .filter:hover { color: var(--text); }
 .filter.on { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
@@ -617,7 +780,7 @@ ol.queue .link:hover { color: var(--danger); }
   width: 92px; height: 92px; object-fit: contain;
   background: #ffffff; border-radius: 8px; border: 1px solid var(--border);
 }
-.photo-slot .btn { font-size: 11px; padding: 6px 8px; border-radius: 7px; width: 100%; }
+.photo-slot .btn { font-size: 13px; padding: 0 var(--s2); border-radius: 8px; width: 100%; min-height: var(--tap-sm); }
 /* The add button has no thumbnail above it, so it drops to the bottom of the
    row on its own and lines up with the other buttons rather than floating. */
 .photo-slot.add { justify-content: flex-end; }
@@ -633,12 +796,12 @@ ol.queue .link:hover { color: var(--danger); }
 /* --- uploading a photograph ------------------------------------------- */
 .upload { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; margin-bottom: 8px; }
 .upload .btn { font-size: 13px; padding: 9px 15px; border-radius: 8px; flex: 0 0 auto; }
-.upload-note { font-size: 11px; color: var(--muted); line-height: 1.4; flex: 1 1 160px; }
+.upload-note { font-size: 12px; color: var(--muted); line-height: 1.4; flex: 1 1 160px; }
 .hint.upload-failed { color: var(--danger); }
 /* The seam between the two ways of giving the card a picture. Small, because
    uploading is the one most people want and the link is the fallback. */
 .upload-or {
-  display: block; font-size: 11px; color: var(--muted);
+  display: block; font-size: 12px; color: var(--muted);
   text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 5px;
 }
 
@@ -686,7 +849,7 @@ ol.queue .link:hover { color: var(--danger); }
 }
 .login-form .btn { margin-top: 16px; justify-content: center; }
 .login-note { font-size: 13px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; }
-.login-hint { font-size: 11px; color: var(--muted); }
+.login-hint { font-size: 12px; color: var(--muted); }
 .login-error {
   margin-top: 12px;
   font-size: 13px;
@@ -698,11 +861,15 @@ ol.queue .link:hover { color: var(--danger); }
 
 .nav-out { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .nav-who {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.nav-signout { border: 0; background: none; cursor: pointer; font: inherit; }
+.nav-signout {
+  border: 0; background: none; cursor: pointer; font: inherit;
+  display: inline-flex; align-items: center; min-height: var(--tap-sm);
+  padding: 0 var(--s2); border-radius: 8px;
+}
