@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { currentEmail, signOut } from "./login/actions.ts";
+import { BUILDERS } from "@/lib/recipes/builders.ts";
 
 /**
  * One nav for every screen.
@@ -27,26 +28,17 @@ const DESTINATIONS = [
 /**
  * Builders, which highlight "New post" rather than nothing.
  *
- * Kept here beside the nav rather than imported from the /new page, because
- * this is the only thing that needs to know a path is a builder, and a nav
- * that imports a page is a nav that drags a page's dependencies into every
- * screen.
+ * Read off the shared registry rather than listed again here. This was a third
+ * copy of "which paths are builders", and the second copy had already gone
+ * three recipes out of date without anybody noticing.
  */
-const BUILDERS = [
-  "/sold",
-  "/drops",
-  "/price-history",
-  "/who-am-i",
-  "/battle",
-  "/classics",
-  "/photoprod",
-];
+const BUILDER_PATHS = BUILDERS.map((b) => b.href);
 
 export async function Nav({ current }: { current: string }) {
   // Read here rather than threaded through every page: the nav is the only
   // thing that needs it, and every page already renders the nav.
   const email = await currentEmail();
-  const active = BUILDERS.includes(current) ? "/new" : current;
+  const active = BUILDER_PATHS.includes(current) ? "/new" : current;
 
   return (
     <nav className="nav">

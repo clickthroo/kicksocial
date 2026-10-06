@@ -3,6 +3,7 @@ import Link from "next/link";
 import { engine } from "@/lib/engine/client.ts";
 import { RECIPES } from "@/lib/recipes/index.ts";
 import { RunNowButton } from "./RunNowButton.tsx";
+import { BUILDERS, builderFor, type Builder } from "@/lib/recipes/builders.ts";
 
 export const dynamic = "force-dynamic";
 // A manual run queries Kickio and then waits on Claude; the default limit cuts
@@ -22,13 +23,6 @@ interface RunRow {
   post_drafts: { headline: string | null; status: string } | null;
 }
 
-/** Recipes started by a person rather than by cron, so absent from RECIPES. */
-const ON_DEMAND_RECIPES = [
-  { key: "grail_sale", name: "Grail Sale" },
-  { key: "kickio_drop", name: "Kickio Drops" },
-  { key: "price_history", name: "Price History" },
-  { key: "who_am_i", name: "Who Am I?" },
-];
 
 function titleise(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -119,13 +113,21 @@ export default async function RunsPage() {
   // and run unattended. Grail Sale is started from a form, so it is not in that
   // registry but still belongs on this page; so does any key that has run and is
   // no longer in the code, which would otherwise vanish from the summary.
-  const summary: Array<{ key: string; name: string; onDemand: boolean }> = [
-    ...RECIPES.map((r) => ({ key: r.key, name: r.name, onDemand: false })),
-    ...ON_DEMAND_RECIPES.map((r) => ({ ...r, onDemand: true })),
+  const summary: Array<{ key: string; name: string; builder: Builder | undefined }> = [
+    ...RECIPES.map((r) => ({ key: r.key, name: r.name, builder: builderFor(r.key) })),
+    // Started by a person rather than by cron, so absent from RECIPES.
+    ...BUILDERS.filter((b) => !RECIPES.some((r) => r.key === b.key)).map((b) => ({
+      key: b.key,
+      name: b.name,
+      builder: b,
+    })),
   ];
   for (const key of latestByRecipe.keys()) {
     if (summary.some((r) => r.key === key)) continue;
-    summary.push({ key, name: titleise(key), onDemand: true });
+    // A key with runs behind it but no recipe and no builder: retired, or
+    // renamed. It gets a row so its history does not vanish, and no button,
+    // because there is nowhere to send anyone.
+    summary.push({ key, name: titleise(key), builder: undefined });
   }
 
   const now = Date.now();
@@ -180,10 +182,13 @@ export default async function RunsPage() {
                 <span className={`pill ${run ? run.status : "none"}`}>
                   {run ? (STATUS_LABEL[run.status] ?? run.status) : "No runs"}
                 </span>
-                {recipe.onDemand ? (
-                  // Nothing for a button to run: this one needs the admin's input.
-                  <Link className="btn run-now-btn" href="/sold">
-                    Add a sale
+                {recipe.builder ? (
+                  // Nothing for a button to run: this one needs a person's
+                  // input, so the link goes to the page where that input is
+                  // given and says what the input actually is. Every one of
+                  // these used to read "Add a sale" and go to /sold.
+                  <Link className="btn run-now-btn" href={recipe.builder.href} prefetch={false}>
+                    {recipe.builder.action}
                   </Link>
                 ) : (
                   <RunNowButton recipeKey={recipe.key} />
