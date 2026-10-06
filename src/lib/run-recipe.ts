@@ -43,6 +43,44 @@ export interface RunOutcome {
   reason?: string;
 }
 
+/**
+ * Make sure the recipe has a row in `recipes` before a draft points at it.
+ *
+ * `post_drafts.recipe_key` is a FOREIGN KEY onto `recipes.key`. A recipe that
+ * exists only in code therefore generates its copy, pays for the Claude call,
+ * and then fails on the insert with "violates foreign key constraint
+ * post_drafts_recipe_key_fkey" - which says nothing about the actual problem
+ * and cost 27 seconds and a generation to find out. PhotoProd did exactly that
+ * twice, and Dropzone and Yesterday's Sales were queued to do the same on their
+ * first successful run.
+ *
+ * ON CONFLICT DO NOTHING, never an update. The row is also the admin's: /admin
+ * edits `enabled`, `platforms`, `selection` and `prompt_template` through it,
+ * and a recipe that reset those every time it ran would quietly undo settings
+ * somebody had chosen.
+ *
+ * `prompt_template` is NOT NULL with no default, so a new row gets a single
+ * space. Every creator reads `config?.prompt_template?.trim() || BRIEF`, so a
+ * blank one falls through to the brief in code, which is what a recipe nobody
+ * has customised should use.
+ */
+async function ensureRecipeRow(
+  key: string,
+  name: string,
+  cadence: string,
+  visualTemplate: string,
+): Promise<void> {
+  const { error } = await engine()
+    .from("recipes")
+    .upsert(
+      { key, name, cadence, prompt_template: " ", visual_template: visualTemplate },
+      { onConflict: "key", ignoreDuplicates: true },
+    );
+  // Not fatal on its own: if the row cannot be written the insert below fails
+  // anyway, and it fails with its own message rather than this one.
+  if (error) console.warn(`Could not ensure the recipes row for ${key}: ${error.message}`);
+}
+
 /** Drop platform variants the recipe doesn't publish to. */
 function forPlatforms(copy: PlatformCopy, platforms: Recipe["platforms"]): PlatformCopy {
   // Alt text describes the card, not a platform, so it survives whichever
@@ -93,6 +131,12 @@ export async function runRecipe(
     prompt_template: string | null;
     platforms: string[] | null;
   } | null;
+
+  // A null config is not a disabled recipe, it is a recipe with no row - and
+  // `post_drafts.recipe_key` is a foreign key onto that row, so the insert
+  // below would fail after the copy had already been written and paid for.
+  // The cron path has the registry to hand, so it fills the row from that.
+  if (!config) await ensureRecipeRow(key, recipe.name, recipe.cadence, recipe.visualTemplate);
 
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
@@ -241,6 +285,11 @@ export async function createGrailSaleDraft(input: GrailSaleInput): Promise<RunOu
     platforms: string[] | null;
     selection: Record<string, unknown> | null;
   } | null;
+
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Grail Sale", "on_demand", "grail_sale_card");
 
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
@@ -438,6 +487,11 @@ export async function createKickioDropDraft(input: KickioDropInput): Promise<Run
     selection: Record<string, unknown> | null;
   } | null;
 
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Kickio Drops", "on_demand", "drop_card");
+
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
     return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
@@ -537,6 +591,11 @@ export async function createPriceHistoryDraft(productId: string): Promise<RunOut
     selection: Record<string, unknown> | null;
   } | null;
 
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Price History", "on_demand", "price_history_card");
+
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
     return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
@@ -629,6 +688,11 @@ export async function createWhoAmIDraft(playerKey: string): Promise<RunOutcome> 
     selection: Record<string, unknown> | null;
   } | null;
 
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Who Am I?", "on_demand", "who_am_i_card");
+
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
     return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
@@ -718,6 +782,11 @@ export async function createBattleDraft(leftId: string, rightId: string): Promis
     platforms: string[] | null;
     selection: Record<string, unknown> | null;
   } | null;
+
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Battle of the Shirts", "on_demand", "battle_card");
 
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
@@ -819,6 +888,11 @@ export async function createClassicDraft(input: ClassicInput): Promise<RunOutcom
     selection: Record<string, unknown> | null;
   } | null;
 
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Kickio Classics", "on_demand", "classic_card");
+
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
     return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
@@ -912,6 +986,11 @@ export async function createPhotoProdDraft(input: PhotoProdInput): Promise<RunOu
     platforms: string[] | null;
     selection: Record<string, unknown> | null;
   } | null;
+
+  // A null config is not a disabled recipe, it is a recipe with no row -
+  // and `post_drafts.recipe_key` is a foreign key onto that row, so the
+  // insert below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "PhotoProd", "on_demand", "classic_card");
 
   if (config && !config.enabled) {
     await record("skipped", { skipped_reason: "Recipe is disabled" });
