@@ -1300,18 +1300,88 @@ function GrailSaleCard({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 26 : 0 }}>
-            <div
-              style={{
-                display: "flex",
-                fontSize: portrait ? 24 : 20,
-                fontWeight: 700,
-                letterSpacing: 3,
-                color: palette.accent,
-                marginBottom: portrait ? 8 : 5,
-              }}
-            >
-              {mode === "value" ? "USUALLY " + String(d.typical_price ?? "") : available ? "BUY IT NOW" : "SOLD FOR"}
-            </div>
+            {mode === "value" ? (
+              /*
+               * The markdown line: what the shirt has sold for, struck through,
+               * and how far under that this listing sits.
+               *
+               * THE LABEL IS NOT "LAST TRACKED SALE", AND THAT IS DELIBERATE.
+               * `typical_price` is the MEDIAN of matching sales, and the whole
+               * recipe is built on not using the latest one: a 1990-91 England
+               * XL looked 41% below its last sale of £325.99 and the only other
+               * recorded sale of that exact shirt was £190.99. Naming the median
+               * as the last sale would print a figure on a public card that the
+               * post's own copy contradicts two lines later, and it would be the
+               * precise claim value-pick.ts exists to refuse.
+               *
+               * The strike and the percentage share one baseline for the same
+               * reason: a reader does the sum, and two numbers that do not
+               * reconcile are worse than one number with no strike at all.
+               */
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  marginBottom: portrait ? 8 : 5,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 24 : 20,
+                    fontWeight: 700,
+                    letterSpacing: 3,
+                    color: palette.muted,
+                    marginRight: portrait ? 12 : 9,
+                  }}
+                >
+                  TRACKED SALES
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: portrait ? 24 : 20,
+                    fontWeight: 700,
+                    letterSpacing: 3,
+                    color: palette.muted,
+                    // Satori draws this itself rather than ignoring it, and
+                    // takes its own colour for the rule - so the line can be
+                    // lighter than the figure it crosses.
+                    textDecoration: "line-through",
+                    textDecorationColor: palette.hairline,
+                    marginRight: portrait ? 16 : 12,
+                  }}
+                >
+                  {String(d.typical_price ?? "")}
+                </div>
+                {d.discount_pct ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      fontSize: portrait ? 24 : 20,
+                      fontWeight: 800,
+                      letterSpacing: 2,
+                      color: palette.accent,
+                    }}
+                  >
+                    -{String(d.discount_pct)}%
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: portrait ? 24 : 20,
+                  fontWeight: 700,
+                  letterSpacing: 3,
+                  color: palette.accent,
+                  marginBottom: portrait ? 8 : 5,
+                }}
+              >
+                {available ? "BUY IT NOW" : "SOLD FOR"}
+              </div>
+            )}
             <div
               style={{
                 display: "flex",
