@@ -8,18 +8,42 @@
 import type { Platform, PlatformCopy } from "../engine/types.ts";
 import { PLATFORM_LIMITS } from "./limits.ts";
 
-export function tags(list: string[] | undefined): string {
-  return (list ?? []).map((h) => `#${h.replace(/^#/, "")}`).join(" ");
+/**
+ * The tag block, capped at what the network will actually keep.
+ *
+ * The cap is applied HERE rather than only at generation, because the drafts
+ * already written do not get regenerated. Instagram dropped its limit from
+ * thirty to five in December 2025 and every draft made before that carries
+ * thirty; pasting them puts five on the post and twenty-five in a bin. Capping
+ * at the point the text is built fixes the queue as well as the next run.
+ *
+ * `limit` is optional so that a caller with no platform in hand gets the whole
+ * list, which is what `bodyBudget` wants: it is measuring what the tags cost,
+ * and an uncapped count is the cautious side to be wrong on.
+ */
+export function tags(list: string[] | undefined, limit?: number): string {
+  const all = (list ?? []).map((h) => `#${h.replace(/^#/, "")}`);
+  return (typeof limit === "number" ? all.slice(0, limit) : all).join(" ");
+}
+
+/** How many tags a network keeps, so the card and the clipboard agree. */
+export function tagLimit(platform: Platform): number {
+  return PLATFORM_LIMITS[platform].hashtags;
+}
+
+/** The tags a draft actually carries, capped for the network it is going to. */
+export function platformTags(list: string[] | undefined, platform: Platform): string {
+  return tags(list, tagLimit(platform));
 }
 
 export function exportText(copy: PlatformCopy, platform: Platform): string {
   if (platform === "x") {
     // X counts hashtags inside the character limit, so they belong in the post
     // body rather than as a separate block.
-    return [copy.x?.text, tags(copy.x?.hashtags)].filter(Boolean).join(" ");
+    return [copy.x?.text, platformTags(copy.x?.hashtags, "x")].filter(Boolean).join(" ");
   }
   if (platform === "instagram") {
-    return [copy.instagram?.caption, tags(copy.instagram?.hashtags)]
+    return [copy.instagram?.caption, platformTags(copy.instagram?.hashtags, "instagram")]
       .filter(Boolean)
       .join("\n\n");
   }
@@ -33,7 +57,7 @@ export function exportText(copy: PlatformCopy, platform: Platform): string {
   const tiktok = copy.tiktok;
   const body =
     tiktok?.caption ?? [tiktok?.hook, ...(tiktok?.beats ?? []), tiktok?.cta].filter(Boolean).join("\n");
-  return [body, tags(tiktok?.hashtags)].filter(Boolean).join("\n\n");
+  return [body, platformTags(tiktok?.hashtags, "tiktok")].filter(Boolean).join("\n\n");
 }
 
 /** What the network will actually count: the post plus the tags with it. */

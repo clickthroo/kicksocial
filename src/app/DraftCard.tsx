@@ -5,7 +5,7 @@ import { approveDraft, rejectDraft, chooseStyle, replacePhoto } from "./actions.
 import { uploadPhoto } from "@/lib/upload/browser.ts";
 import { CARD_STYLES, asCardStyle, type CardStyle } from "@/lib/render/styles.ts";
 import type { FormatKey } from "@/lib/render/templates.tsx";
-import { exportLength, exportText, overBy, tags, xLength } from "@/lib/copy/export.ts";
+import { exportLength, exportText, overBy, platformTags, tagLimit, xLength } from "@/lib/copy/export.ts";
 import { PLATFORM_LIMITS, leadLength, willCollapse } from "@/lib/copy/limits.ts";
 import type { Freshness } from "@/lib/engine/freshness.ts";
 import type { Platform, PostDraft } from "@/lib/engine/types.ts";
@@ -43,6 +43,22 @@ function TickIcon() {
       />
     </svg>
   );
+}
+
+/**
+ * How many tags the draft has, and how many of them will survive the post.
+ *
+ * "30/5 hashtags" reads as a validation error on a draft that is perfectly
+ * fine; the draft is not broken, the platform changed under it. Instagram cut
+ * its cap from thirty to five in December 2025, so every draft written before
+ * that carries thirty. The export caps them, so nothing is lost at the point of
+ * pasting - this just says so rather than leaving the reviewer to wonder which
+ * five they are getting.
+ */
+function TagCount({ written, platform }: { written: number; platform: Platform }) {
+  const limit = tagLimit(platform);
+  if (written <= limit) return <>{`${written}/${limit} hashtags`}</>;
+  return <>{`${written} hashtags written, the ${limit} shown are what will post`}</>;
 }
 
 function urlField(sourceData: Record<string, unknown>, key: string): string | null {
@@ -444,7 +460,7 @@ export function DraftCard({
               <p>{draft.copy.x.text}</p>
             )}
             {draft.copy.x.hashtags?.length ? (
-              <p className="hashtags">{tags(draft.copy.x.hashtags)}</p>
+              <p className="hashtags">{platformTags(draft.copy.x.hashtags, "x")}</p>
             ) : null}
             <span className={`count${xLength(draft.copy) > PLATFORM_LIMITS.x.chars ? " count over" : ""}`}>
               {willCollapse(draft.copy.x.text)
@@ -458,13 +474,13 @@ export function DraftCard({
         {tab === "instagram" && draft.copy.instagram && (
           <>
             <p>{draft.copy.instagram.caption}</p>
-            <p className="hashtags">{tags(draft.copy.instagram.hashtags)}</p>
+            <p className="hashtags">{platformTags(draft.copy.instagram.hashtags, "instagram")}</p>
             <span
               className={`count${overBy(draft.copy, "instagram") > 0 ? " count over" : ""}`}
             >
               {exportLength(draft.copy, "instagram")}/{PLATFORM_LIMITS.instagram.chars}{" "}
-              characters with tags · {draft.copy.instagram.hashtags.length}/
-              {PLATFORM_LIMITS.instagram.hashtags} hashtags
+              characters with tags ·{" "}
+              <TagCount written={draft.copy.instagram.hashtags.length} platform="instagram" />
             </span>
           </>
         )}
@@ -491,7 +507,7 @@ export function DraftCard({
               </p>
             )}
             {draft.copy.tiktok.hashtags?.length ? (
-              <p className="hashtags">{tags(draft.copy.tiktok.hashtags)}</p>
+              <p className="hashtags">{platformTags(draft.copy.tiktok.hashtags, "tiktok")}</p>
             ) : null}
             {draft.copy.tiktok.caption && (
               <span

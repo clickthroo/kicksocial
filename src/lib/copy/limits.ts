@@ -40,16 +40,28 @@
  * and only 80-100 characters show before the "more". So `tiktok.target` is 300
  * and `tiktok.lead` is the conservative end of that visible window.
  *
- * Hashtag counts are per network because the networks differ, not because one
- * number was split three ways. Instagram's 30 is the platform's own cap and it
- * rewards filling it. TikTok's 5 is the opposite case: 3-5 relevant tags is
- * what performs, and past about ten a caption reads as spam and loses reach.
- * Five tags is also roughly 70 characters, which a 300-character caption can
- * afford and a 2,200-character one never needed to think about.
+ * INSTAGRAM'S HASHTAG CAP IS FIVE, NOT THIRTY. It was thirty for a decade and
+ * this file said so, with a note that Instagram "rewards filling it". Instagram
+ * cut it to five in December 2025, announced by its @Creators account and by
+ * Adam Mosseri. A caption carrying thirty does not fail to post: the app keeps
+ * five, drops the rest, and some accounts of the change say it also limits the
+ * post's distribution. So every post this engine made was shipping twenty-five
+ * tags into a bin, and the reviewer had no way to tell from the queue.
+ *
+ * The five are shared between the caption and the first comment, so there is no
+ * getting a sixth in by moving it.
+ *
+ * TikTok's five is a different kind of number: not a cap but a finding. 3-5
+ * relevant tags is what performs, and past about ten a caption reads as spam
+ * and loses reach. Five tags is also roughly 70 characters, which a
+ * 300-character caption can afford.
+ *
+ * X's fifteen is ours. Premium lifted the character pressure that used to make
+ * three the right answer, and nothing on X strips a tag.
  */
 export const PLATFORM_LIMITS = {
   x: { chars: 25_000, lead: 280, hashtags: 15 },
-  instagram: { chars: 2_200, lead: 125, hashtags: 30 },
+  instagram: { chars: 2_200, lead: 125, hashtags: 5 },
   tiktok: { chars: 2_200, lead: 80, target: 300, hashtags: 5 },
 } as const;
 

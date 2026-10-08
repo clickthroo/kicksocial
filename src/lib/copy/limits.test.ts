@@ -40,8 +40,13 @@ describe("the lead", () => {
 });
 
 describe("hashtag counts are per network, not one number", () => {
-  test("Instagram is at the platform's own cap", () => {
-    assert.equal(PLATFORM_LIMITS.instagram.hashtags, 30);
+  test("Instagram is five, not the thirty it was for a decade", () => {
+    // Instagram cut the cap from thirty to five in December 2025, announced by
+    // its @Creators account and by Adam Mosseri. This file said thirty and
+    // added that Instagram "rewards filling it", so every post the engine made
+    // shipped twenty-five tags the app silently dropped. The five are shared
+    // between the caption and the first comment, so there is no sixth.
+    assert.equal(PLATFORM_LIMITS.instagram.hashtags, 5);
   });
 
   test("X is generous, because Premium means they cost the post nothing", () => {

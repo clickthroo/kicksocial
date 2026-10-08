@@ -83,12 +83,13 @@ const COPY_SCHEMA = {
           // Structured outputs reject minItems above 1, so counts are stated
           // here and in the brand voice rather than enforced by the schema.
           description:
-            `${PLATFORM_LIMITS.instagram.hashtags} hashtags, without the leading #. Instagram ` +
-            `allows 30 and rewards reach, so fill it: work outward from the most ` +
-            "specific (club, season, player, manufacturer, sponsor) through the " +
-            "mid-tail (#90sfootball, #awaykit) to the broad (#footballshirt). Every " +
-            "one must be a tag a real collector would browse - never invent a tag, " +
-            "pad with near-duplicates of the same word, or repeat one in the caption.",
+            `At most ${PLATFORM_LIMITS.instagram.hashtags} hashtags, without the leading #. ` +
+            "Instagram cut its cap from thirty to five in December 2025 and keeps only " +
+            "the first five, so these are a choice rather than a list: there is no room " +
+            "for a broad tag that every shirt post could carry. Pick the most specific " +
+            "ones a real collector would actually browse - the club, the season, the " +
+            "player - over anything generic. Never invent a tag, never pad with " +
+            "near-duplicates of the same word, and never repeat one in the caption.",
         },
       },
     },

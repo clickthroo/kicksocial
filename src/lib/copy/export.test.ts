@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { bodyBudget, exportText, overBy, tags, xLength } from "./export.ts";
+import { bodyBudget, exportText, overBy, tags, xLength, platformTags } from "./export.ts";
 import { PLATFORM_LIMITS } from "./limits.ts";
 import { ctaForDay, CTA_POOL, SOLD_CTA_POOL } from "./brand-voice.ts";
 import type { PlatformCopy } from "../engine/types.ts";
@@ -145,5 +145,47 @@ describe("over the ceiling", () => {
     // The caption alone is exactly at the ceiling, so everything the tags add
     // is overrun: "#nufc" (5) plus the blank line (2).
     assert.equal(overBy(fat, "tiktok"), 7);
+  });
+});
+
+describe("the tag block is capped at what the network keeps", () => {
+  const thirty = Array.from({ length: 30 }, (_, i) => `tag${i + 1}`);
+
+  test("Instagram keeps five of a draft written when the cap was thirty", () => {
+    // The drafts already in the queue are not regenerated, so this is what
+    // fixes them: pasting one used to put thirty tags in the box, of which
+    // Instagram kept five and binned twenty-five.
+    const out = platformTags(thirty, "instagram");
+    assert.equal(out.split(" ").length, 5);
+    assert.equal(out, "#tag1 #tag2 #tag3 #tag4 #tag5");
+  });
+
+  test("it keeps the first five, which the brief orders most specific first", () => {
+    assert.ok(platformTags(thirty, "instagram").startsWith("#tag1 "));
+  });
+
+  test("a draft already inside the cap is untouched", () => {
+    assert.equal(platformTags(["a", "b"], "instagram"), "#a #b");
+  });
+
+  test("each network gets its own cap, not one shared number", () => {
+    assert.equal(platformTags(thirty, "x").split(" ").length, 15);
+    assert.equal(platformTags(thirty, "tiktok").split(" ").length, 5);
+  });
+
+  test("the exported text carries the capped block, not the full list", () => {
+    // The thing that actually reaches the clipboard.
+    const copy = { instagram: { caption: "Hello", hashtags: thirty } } as never;
+    const text = exportText(copy, "instagram");
+    assert.equal((text.match(/#/g) ?? []).length, 5);
+  });
+
+  test("no tags at all is still an empty string, not a stray hash", () => {
+    assert.equal(platformTags(undefined, "instagram"), "");
+    assert.equal(platformTags([], "instagram"), "");
+  });
+
+  test("a leading # in the stored tag is not doubled", () => {
+    assert.equal(platformTags(["#a"], "instagram"), "#a");
   });
 });
