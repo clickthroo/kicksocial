@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { currentEmail, signOut } from "./login/actions.ts";
 import { BUILDERS } from "@/lib/recipes/builders.ts";
+import { loadProfile, profileLabel } from "@/lib/auth/profile.ts";
 
 /**
  * One nav for every screen.
@@ -38,6 +39,10 @@ export async function Nav({ current }: { current: string }) {
   // Read here rather than threaded through every page: the nav is the only
   // thing that needs it, and every page already renders the nav.
   const email = await currentEmail();
+  // The display name where one is set, the email otherwise. Read here so every
+  // page gets it without threading it through, exactly as the email already is.
+  const profile = email ? await loadProfile(email).catch(() => null) : null;
+  const label = profile ? profileLabel(profile) : email;
   const active = BUILDER_PATHS.includes(current) ? "/new" : current;
 
   return (
@@ -53,14 +58,25 @@ export async function Nav({ current }: { current: string }) {
         </Link>
       ))}
       {email && (
-        <form action={signOut} className="nav-out">
-          <span className="nav-who" title={email}>
-            {email}
-          </span>
-          <button className="nav-link nav-signout" type="submit">
-            Sign out
-          </button>
-        </form>
+        <div className="nav-out">
+          {/* A link rather than a label, and it carries no nav slot of its own:
+              five destinations is what fits across a phone, and the account is
+              not a sixth thing you go to, it is the thing you already are. */}
+          <Link
+            className="nav-who"
+            href="/profile"
+            title={`${email} - your account`}
+            aria-current={current === "/profile" ? "page" : undefined}
+            prefetch={false}
+          >
+            {label}
+          </Link>
+          <form action={signOut}>
+            <button className="nav-link nav-signout" type="submit">
+              Sign out
+            </button>
+          </form>
+        </div>
       )}
     </nav>
   );

@@ -832,6 +832,17 @@ ol.queue .link:hover { color: var(--danger); }
   background: #ffffff; border-radius: 6px;
 }
 
+/* --- your own account -------------------------------------------------- */
+/* A label inside a field group, under the group's own uppercase heading. The
+   field-label style is the heading; this is the line above one input where a
+   group has several. */
+.field-sub {
+  display: block; font-size: 13px; font-weight: 600; color: var(--text);
+  margin: var(--s3) 0 5px;
+}
+.hint.profile-done { color: var(--accent); }
+
+
 /* --- Signing in ---------------------------------------------------------- */
 
 .login-wrap {
@@ -874,6 +885,17 @@ ol.queue .link:hover { color: var(--danger); }
 }
 
 .nav-out { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+/* A link now, so it needs the same target height and focus affordance as every
+   other control in the strip. */
+a.nav-who {
+  display: inline-flex; align-items: center; min-height: var(--tap-sm);
+  padding: 0 var(--s2); border-radius: 999px; text-decoration: none;
+  font-weight: 600;
+}
+a.nav-who:hover { color: var(--text); background: var(--surface-2); }
+a.nav-who[aria-current="page"] {
+  color: var(--text); background: var(--surface-2);
+}
 .nav-who {
   font-size: 12px;
   color: var(--muted);
