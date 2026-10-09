@@ -38,3 +38,30 @@ export const TIKTOK_SAFE_BOTTOM = 300;
 export function asFormat(value: unknown): FormatKey {
   return typeof value === "string" && value in FORMATS ? (value as FormatKey) : "ig";
 }
+
+/**
+ * The largest font size a single line of text can be set at and still fit.
+ *
+ * Satori returns no text metrics, so a line that is too long does not report
+ * itself: it wraps, and a block given a fixed height then spills into whatever
+ * is under it. The Battle card's hero sat at up to 132px because "Which one?"
+ * is ten characters and fitted; "Which one wins?" is fifteen and does not, by
+ * about eighty pixels on a 1080-wide frame.
+ *
+ * `perChar` is the average glyph width as a fraction of the font size, for the
+ * bold grotesque these cards are set in. 0.58 is deliberately on the wide side:
+ * being wrong small costs a few points of type nobody will notice, and being
+ * wrong large costs a second line through the artwork.
+ *
+ * Here rather than in templates.tsx because the bare node test runner cannot
+ * load a .tsx file, and this is a rule worth testing.
+ */
+export function lineFits(
+  text: string,
+  available: number,
+  max: number,
+  perChar = 0.58,
+): number {
+  if (text.length === 0 || available <= 0) return max;
+  return Math.max(1, Math.min(max, Math.floor(available / (text.length * perChar))));
+}

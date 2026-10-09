@@ -26,7 +26,7 @@ import {
   STUDIO_MUTED,
   type Style,
 } from "./card-style.ts";
-import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, type FormatKey } from "./formats.ts";
+import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, lineFits, type FormatKey } from "./formats.ts";
 import { axisDates, plotted, priceLineSvg, type ChartBox } from "./price-chart.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
@@ -3116,6 +3116,16 @@ function MostWantedCard({
  * network this engine cannot read. There is deliberately nowhere on this card
  * for a tally, so a future change cannot quietly start printing one.
  */
+/**
+ * The question the Battle card asks.
+ *
+ * Named rather than inline because its LENGTH is a layout input: the hero is
+ * set as large as one line allows, and the next rewording changes how large
+ * that is. Anything much longer than this will be set small enough to stop
+ * being a hero.
+ */
+const HERO = "Which one wins?";
+
 function BattleCard({
   draft,
   format,
@@ -3282,7 +3292,13 @@ function BattleCard({
         />
 
         {/* The hero line. A question nobody notices gets no replies, and the
-            eyebrow alone was not loud enough to stop a thumb. */}
+            eyebrow alone was not loud enough to stop a thumb.
+
+            Clamped to what fits on ONE line. The height here is fixed, so a
+            wrap does not make the block taller, it pushes a second line of
+            132px type down through the shirts. The clamp goes after
+            `titleScale` rather than inside the min, because the editorial look
+            scales type up by 1.22 and would otherwise carry it back over. */}
         {heroH > 0 && (
           <div
             style={{
@@ -3295,14 +3311,18 @@ function BattleCard({
             <div
               style={{
                 display: "flex",
-                fontSize: Math.round(Math.min(heroH * 0.52, 132) * look.titleScale),
+                fontSize: lineFits(
+                  HERO,
+                  width - pad * 2,
+                  Math.round(Math.min(heroH * 0.52, 132) * look.titleScale),
+                ),
                 fontWeight: 800,
                 letterSpacing: -4,
                 lineHeight: 1,
                 color: look.ink,
               }}
             >
-              Which one?
+              {HERO}
             </div>
           </div>
         )}
