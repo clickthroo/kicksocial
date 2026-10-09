@@ -26,7 +26,16 @@ import {
   STUDIO_MUTED,
   type Style,
 } from "./card-style.ts";
-import { FORMATS, TIKTOK_SAFE_BOTTOM, asFormat, lineFits, type FormatKey } from "./formats.ts";
+import {
+  FORMATS,
+  TIKTOK_SAFE_BOTTOM,
+  addressSize,
+  asFormat,
+  lineFits,
+  lockupHeight,
+  markSize,
+  type FormatKey,
+} from "./formats.ts";
 import { axisDates, plotted, priceLineSvg, type ChartBox } from "./price-chart.ts";
 import { DEFAULT_BRAND, type Brand } from "../brand/settings.ts";
 
@@ -185,17 +194,30 @@ function BrandBadge({
 }) {
   const light = (luminance(surface) ?? 0) > 0.5;
   if (!light) return <BrandMark size={size} brand={brand} />;
-  const pad = Math.round(size * 0.12);
+  /*
+   * A DISC, NOT A ROUNDED SQUARE, AND NO PADDING.
+   *
+   * The plate used to be a rounded square inset by 12% on each side, which
+   * read as a black app-icon tile with the logo floating inside it: a surround
+   * the brand does not have, and a mark drawn at 76% of the space it was given.
+   *
+   * The artwork is a 512x512 RGBA PNG whose ink is a circle, so a disc of the
+   * same diameter sits exactly under that circle rather than around it. On a
+   * dark card there is still no plate at all - the white mark reads on its own,
+   * and Satori cannot recolour an image, which is the whole reason this exists.
+   *
+   * `size / 2` as a NUMBER. A "50%" string is the border-radius shorthand
+   * Satori silently drops, which would put the square back without a word.
+   */
   return (
     <div
       style={{
         display: "flex",
-        padding: pad,
-        borderRadius: Math.round(size * 0.24),
+        borderRadius: Math.round(size / 2),
         background: STUDIO,
       }}
     >
-      <BrandMark size={size - pad * 2} brand={brand} />
+      <BrandMark size={size} brand={brand} />
     </div>
   );
 }
@@ -224,8 +246,8 @@ function BrandLockup({
   compact?: boolean;
 }) {
   const portrait = format !== "x";
-  const size = compact ? (portrait ? 92 : 72) : portrait ? 172 : 128;
-  const urlSize = compact ? (portrait ? 20 : 17) : portrait ? 24 : 20;
+  const size = markSize(format, compact);
+  const urlSize = addressSize(format, compact);
 
   const url = (
     <div
@@ -290,13 +312,6 @@ function BrandLockup({
 }
 
 /** How much vertical room BrandLockup takes, for templates that size a grid. */
-function lockupHeight(format: FormatKey): number {
-  return format !== "x" ? 172 + 8 + 24 : 128;
-}
-
-
-
-
 /**
  * Build a sparkline as an SVG data URI. Satori renders `img` reliably; inline
  * SVG support is patchier, so this is the safer path.

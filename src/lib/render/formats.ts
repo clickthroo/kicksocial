@@ -65,3 +65,31 @@ export function lineFits(
   if (text.length === 0 || available <= 0) return max;
   return Math.max(1, Math.min(max, Math.floor(available / (text.length * perChar))));
 }
+
+/**
+ * How big the mark is drawn, in one place.
+ *
+ * `lockupHeight` used to repeat these numbers as literals, which is a second
+ * copy of a layout constant that nine cards reserve space against: change the
+ * lockup and every one of them is laying out around the old size without
+ * saying so.
+ *
+ * Raised about 10% from 172/128. The mark is the only thing on most of these
+ * cards that says whose post it is, and at the old size it was losing that
+ * argument to the photography.
+ */
+export function markSize(format: FormatKey, compact: boolean): number {
+  const portrait = format !== "x";
+  return compact ? (portrait ? 102 : 80) : portrait ? 190 : 142;
+}
+
+export function addressSize(format: FormatKey, compact: boolean): number {
+  const portrait = format !== "x";
+  return compact ? (portrait ? 21 : 18) : portrait ? 26 : 21;
+}
+
+/** The space a card must leave for the lockup. Stacked in portrait, inline on 16:9. */
+export function lockupHeight(format: FormatKey): number {
+  const mark = markSize(format, false);
+  return format !== "x" ? mark + 8 + addressSize(format, false) : mark;
+}

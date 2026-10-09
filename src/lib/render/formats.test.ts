@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM, lineFits } from "./formats.ts";
+import { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM, lineFits, markSize, addressSize, lockupHeight } from "./formats.ts";
 
 describe("output formats", () => {
   test("one per platform Kickio actually posts to", () => {
@@ -82,5 +82,62 @@ describe("fitting a line of type to the space it has", () => {
   test("empty text and a nonsense width fall back to the maximum", () => {
     assert.equal(lineFits("", AVAILABLE, 132), 132);
     assert.equal(lineFits("Which one wins?", 0, 132), 132);
+  });
+});
+
+describe("the brand lockup's size, which nine cards lay out around", () => {
+  test("the reserved height is derived from the mark, not repeated as a literal", () => {
+    // It used to be written twice: once in the lockup and once in
+    // `lockupHeight`. A second copy of a layout constant means changing the
+    // logo leaves nine cards laying out around the old size without saying so.
+    for (const format of ["ig", "tiktok"] as const) {
+      assert.equal(
+        lockupHeight(format),
+        markSize(format, false) + 8 + addressSize(format, false),
+      );
+    }
+  });
+
+  test("on 16:9 the lockup is inline, so its height is just the mark", () => {
+    assert.equal(lockupHeight("x"), markSize("x", false));
+  });
+
+  test("compact is smaller, because it sits above a photograph", () => {
+    // The full lockup is 172px of a 1350px card. Over a product shot that is a
+    // masthead eating the thing people came to look at.
+    for (const format of ["ig", "x", "tiktok"] as const) {
+      assert.ok(markSize(format, true) < markSize(format, false), format);
+    }
+  });
+
+  test("portrait gets a bigger mark than 16:9, in both sizes", () => {
+    assert.ok(markSize("ig", false) > markSize("x", false));
+    assert.ok(markSize("ig", true) > markSize("x", true));
+  });
+
+  test("the two portrait frames agree, because they are the same width", () => {
+    assert.equal(markSize("ig", false), markSize("tiktok", false));
+    assert.equal(lockupHeight("ig"), lockupHeight("tiktok"));
+  });
+
+  test("the mark stays a sane share of the frame it is on", () => {
+    // Big enough to say whose post it is, nowhere near big enough to be the
+    // post. Above about a fifth of the width it stops being a signature.
+    for (const format of ["ig", "x", "tiktok"] as const) {
+      const share = markSize(format, false) / FORMATS[format].width;
+      assert.ok(share > 0.08 && share < 0.2, `${format}: ${share.toFixed(3)}`);
+    }
+  });
+
+  test("the reserved height leaves a usable card behind it", () => {
+    // The guard that matters: raising the lockup takes the difference out of
+    // every card's content area, and one that goes negative draws nothing.
+    for (const format of ["ig", "x", "tiktok"] as const) {
+      const { height } = FORMATS[format];
+      const pad = format === "x" ? 44 : 56;
+      const safe = format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0;
+      const left = height - pad * 2 - safe - lockupHeight(format);
+      assert.ok(left > height * 0.3, `${format} has only ${left}px left`);
+    }
   });
 });
