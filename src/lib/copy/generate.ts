@@ -15,6 +15,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BRAND_VOICE, ctaForDay } from "./brand-voice.ts";
 import type { Claim, PlatformCopy, RecipeCandidate } from "../engine/types.ts";
+import { withoutPrivateFigures } from "./private.ts";
 import { PLATFORM_LIMITS } from "./limits.ts";
 import { stripEmDashesDeep } from "./dashes.ts";
 
@@ -204,7 +205,10 @@ export async function generateCopy(
             type: "text",
             text:
               `## FACTS (the only source of detail you may use)\n\n` +
-              `\`\`\`json\n${JSON.stringify(candidate.sourceData, null, 2)}\n\`\`\`\n\n` +
+              // Redacted HERE rather than in each recipe: one chokepoint every post
+              // type passes through, including the ones written after this. A
+              // figure the model is never given is a figure it cannot print.
+              `\`\`\`json\n${JSON.stringify(withoutPrivateFigures(candidate.sourceData), null, 2)}\n\`\`\`\n\n` +
               `## CLAIMS (every number in your copy must come from one of these, unchanged)\n\n` +
               `${renderClaims(candidate.claims)}\n\n` +
               `## CTA to use this time\n\n${ctaForDay(new Date(), options.ctaPool)}\n\n` +

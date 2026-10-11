@@ -290,9 +290,12 @@ export async function runPriceTrends(
       statement: `${winner.label} ${direction} ${Math.abs(pct).toFixed(1)}% over ${windowDays} days`,
       value: pct,
       source: `price_index_aggregates.pct_change_90d (${winner.scope}:${winner.key})`,
-      basis:
-        `like-for-like: the same ${winner.cohort_count} comparable shirts tracked ` +
-        `across both windows, from ${winner.total_sales} sales`,
+      // The method, without the sample size. The cohort count and the sale
+      // count both describe how much data Kickio holds, and claims are sent to
+      // the model along with the facts, so a number here is a number that can
+      // end up in a post. What a reviewer needs from this line is that it is
+      // like-for-like, which survives.
+      basis: "like-for-like: the same comparable shirts tracked across both windows",
     },
     {
       statement: `Median fair price ${median}`,
@@ -312,7 +315,6 @@ export async function runPriceTrends(
       change_basis: winner.change_basis,
       change_window_days: windowDays,
       cohort_count: winner.cohort_count,
-      total_sales: winner.total_sales,
       median_fair_price: median,
       // What the subject IS, spelled out. "Germany" alone on a card reads as a
       // country; the point is the shirts.

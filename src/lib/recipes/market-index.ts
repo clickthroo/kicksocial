@@ -130,7 +130,7 @@ export function assessWindow(points: IndexPoint[], config: MarketIndexConfig): I
       ok: false,
       reason:
         `The basket behind the index changed by ${drift.toFixed(1)}% across the window ` +
-        `(limit ${config.maxCohortDriftPct}%), from ${first.cohort_count} shirts to ` +
+        `(limit ${config.maxCohortDriftPct}%), from the tracked cohort to ` +
         `${last.cohort_count}. A ${pct.toFixed(1)}% move on a basket that size cannot be ` +
         "read as a price change - it is Kickio's tracking coverage growing, not the market.",
       diagnostics,
@@ -203,8 +203,8 @@ export async function runMarketIndex(
         `${Math.max(first.cohort_count, last.cohort_count)} comparable shirts`,
     },
     {
-      statement: `${last.total_sales_90d} sales tracked in the trailing 90 days`,
-      value: last.total_sales_90d,
+      statement: "The index is built on a trailing 90-day window of tracked sales",
+      value: last.day,
       source: "price_index_history.total_sales_90d",
       basis: "Market-wide data aggregated by Kickio, not Kickio's own sales",
     },
@@ -219,7 +219,6 @@ export async function runMarketIndex(
       pct_change: Number(pct.toFixed(2)),
       change_window_days: days,
       cohort_count: last.cohort_count,
-      total_sales: last.total_sales_90d,
       index_from: Number(first.index_value.toFixed(2)),
       index_to: Number(last.index_value.toFixed(2)),
       from_day: first.day,

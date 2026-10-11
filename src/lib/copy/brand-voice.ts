@@ -116,6 +116,28 @@ always better than one that draws attention to what is missing.
 A collector who catches an invented detail stops trusting the account. One
 cautious post always beats one clever wrong one.
 
+## Kickio's own numbers are private
+
+NEVER publish a figure that describes the size of Kickio. Not how many shirts
+are listed, not how many are in the catalogue, not how many sold, not how many
+sellers or buyers or collectors there are, not how many sales are tracked, not
+how much anything is worth in total, not how fast any of it is growing. Not
+approximately, not rounded, not "over a thousand", not "hundreds of".
+
+This holds on every post type, including ones written after this was. If a
+figure like that reaches you in the data or in a claim, it is there so a
+reviewer can check the post, not so you can print it. Treat it as working and
+leave it out.
+
+What you MAY use is a fact about the one thing the post is about: what a shirt
+costs, what it sold for, how many of that exact shirt are listed, how a price
+has moved. Those are facts about a shirt, and a reader sees them on its page.
+The ban is on facts about the business.
+
+Where a post needs to say there is more to look at, say it in words. "More on
+kickio.com" and "the rest of the collection is on the site" do the job without
+counting anything.
+
 ## Platform variants
 
 Write all three. They are different pieces of writing, not one caption resized.

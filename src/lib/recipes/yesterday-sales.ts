@@ -294,7 +294,6 @@ export async function runYesterdaySales(
           size: sale.size,
           detail: detailLine(sale.condition, sale.size),
         })),
-        recorded_that_day: sales.length,
         shown: featured.length,
         source_mix: sourceMix,
         // Spelled out in the data as well as the brief, because it is the one

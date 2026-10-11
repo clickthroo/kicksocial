@@ -213,39 +213,19 @@ describe("it never claims a shirt is the dearest or the best", () => {
 
   test("it requires a line saying there is more", () => {
     assert.match(DROPZONE_BRIEF, /SAY THERE IS MORE/);
-    assert.match(DROPZONE_BRIEF, /live_shirt_count/);
+    assert.match(DROPZONE_BRIEF, /count nothing/i);
   });
 });
 
-describe("the line that says how much more there is", () => {
-  test("a real count is rounded DOWN to a hundred", () => {
-    // A floor can never become an overstatement between reading it and the
-    // post going out: say 1,300 of 1,315 and a shirt can sell without making
-    // the card wrong.
-    assert.match(moreLine(1315), /1,300\+ shirts/);
-    assert.match(moreLine(2628), /2,600\+ shirts/);
-    assert.match(moreLine(100), /100\+ shirts/);
+describe("the line that says there is more, without saying how much", () => {
+  test("it counts nothing", () => {
+    // It used to carry a rounded floor of everything buyable on Kickio. How
+    // big the shop is is a figure about the business and those stay private.
+    assert.ok(!/\d/.test(moreLine()), moreLine());
   });
 
-  test("a small or unreadable count says nothing about how many", () => {
-    // "40+ more" invites arithmetic nobody wanted, and a count that failed to
-    // read must not be guessed at.
-    for (const n of [null, 0, 42, 99]) {
-      assert.equal(moreLine(n), "A snapshot of what came in. More at kickio.com");
-    }
-  });
-
-  test("every version says it is a snapshot and points at Kickio", () => {
-    for (const n of [null, 42, 1315]) {
-      assert.match(moreLine(n), /snapshot/i);
-      assert.match(moreLine(n), /kickio\.com/);
-    }
-  });
-
-  test("it never rounds up", () => {
-    for (const n of [100, 199, 1000, 1315, 9999]) {
-      const shown = Number((/([\d,]+)\+/.exec(moreLine(n))?.[1] ?? "0").replace(/,/g, ""));
-      assert.ok(shown <= n, `${shown} > ${n}`);
-    }
+  test("it still says it is a snapshot and still points at Kickio", () => {
+    assert.match(moreLine(), /snapshot/i);
+    assert.match(moreLine(), /kickio\.com/);
   });
 });

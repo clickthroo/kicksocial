@@ -35,8 +35,9 @@
  * selection rule rather than something to say out loud: the card is drawn in
  * arrival order so the grid cannot be read as a chart, the headline carries no
  * price, and the brief refuses superlatives outright. The footer says how many
- * shirts are on the site, because six tiles with nothing beside them read as
- * the whole shop.
+ * there is more to see, in words, because six tiles with nothing beside them
+ * read as the whole shop. It counts nothing while doing it: how many shirts
+ * Kickio holds is a figure about the business and those stay private.
  *
  * THAT COSTS FREQUENCY, AND THE FIGURE IS KNOWN. Measured over the 14 days to
  * 2026-10-05, new listings still live, photographed and distinct ran 4, 2, 2,
@@ -203,43 +204,16 @@ export async function recentlyShown(days: number): Promise<Set<string>> {
 }
 
 /**
- * How many shirts are buyable on Kickio right now, for the "and there is more"
- * line.
- *
- * `has_active_listing` rather than `status`, which is the distinction Most
- * Wanted once got wrong: 2,628 products are `active` and about half that many
- * can actually be bought. A count that includes shirts with nothing for sale
- * is not a count of what a reader would find.
- *
- * A head count rather than a read: the number is wanted, the rows are not.
- * Fails soft to null, because a card that cannot say how many is still a card,
- * and a post should not be lost over a footer.
- */
-export async function liveShirtCount(): Promise<number | null> {
-  const { count, error } = await kickio()
-    .from("products")
-    .select("id", { count: "exact", head: true })
-    .is("deleted_at", null)
-    .eq("has_active_listing", true);
-  if (error) return null;
-  return typeof count === "number" ? count : null;
-}
-
-/**
  * The line that stops the card reading as the whole shop.
  *
- * Rounded DOWN to a hundred, so the number is always a floor and can never be
- * an overstatement between the read and the post going out: say 1,300 of 1,315
- * and a shirt can sell without making the card wrong.
- *
- * Under a hundred it says nothing about how many, because "40+ more" invites
- * the arithmetic nobody wanted, and a count that cannot be read says nothing
- * either rather than guessing at "many".
+ * It used to carry a count of everything buyable on Kickio, rounded down. That
+ * is a figure about the size of the business and those stay private, so the
+ * card says there is more in words and counts nothing. "More at kickio.com"
+ * does the job the number was doing without telling anyone how big the shop
+ * is.
  */
-export function moreLine(count: number | null): string {
-  if (count === null || count < 100) return "A snapshot of what came in. More at kickio.com";
-  const floor = Math.floor(count / 100) * 100;
-  return `A snapshot of what came in. ${floor.toLocaleString("en-GB")}+ shirts on kickio.com`;
+export function moreLine(): string {
+  return "A snapshot of what came in. More at kickio.com";
 }
 
 export async function runDropzone(
@@ -358,7 +332,7 @@ export async function runDropzone(
     .slice(0, config.featureCount)
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
-  const [fee, liveCount] = await Promise.all([buyerFeeSettings(), liveShirtCount()]);
+  const fee = await buyerFeeSettings();
 
   const featured: DropShirt[] = chosen.map((listing) => {
     const product = productFor.get(listing.product_id!)!;
@@ -388,21 +362,17 @@ export async function runDropzone(
 
   const claims: Claim[] = [
     {
-      statement:
-        `${candidates.length} shirt${candidates.length === 1 ? " was" : "s were"} listed ` +
-        `on Kickio on ${day.label} and ${candidates.length === 1 ? "is" : "are"} still on sale`,
-      value: candidates.length,
+      statement: `Every shirt on this card was listed on Kickio on ${day.label}`,
+      value: day.key,
       source: `listings.created_at within the 24 hours of ${day.key}`,
       basis:
         "Kickio's own listings table, not market data. Active, not deleted or withdrawn, " +
-        "in stock, and found at source by the stock checker. Of these, " +
-        `${featured.length} are on the card.`,
+        "in stock, and found at source by the stock checker. How many arrived that day " +
+        "is a figure about the size of the business and is deliberately not here: it is " +
+        "on the run log instead, where no prompt can reach it.",
     },
     {
-      statement:
-        `${featured.length} of them are on the card, priced ${featured
-          .map((f) => f.price)
-          .join(", ")}`,
+      statement: `The shirts shown are priced ${featured.map((f) => f.price).join(", ")}`,
       value: featured.length,
       source: "listings.price_cents plus the buyer fee",
       basis:
@@ -445,7 +415,6 @@ export async function runDropzone(
           detail: detailLine(shirt.condition, shirt.size),
           kickio_url: shirt.productUrl,
         })),
-        postable: candidates.length,
         shown: featured.length,
         // The one claim this post may make that the sales post may not.
         on_kickio: true,
@@ -458,8 +427,7 @@ export async function runDropzone(
         // Says what the card is rather than letting the grid imply a ranking,
         // and how much of Kickio it is not. A grid of six with nothing beside
         // it reads as the shop; a floor count says it is a corner of one.
-        card_footer: moreLine(liveCount),
-        live_shirt_count: liveCount,
+        card_footer: moreLine(),
       },
       claims,
       images: featured.map((shirt) => shirt.imageUrl),
@@ -480,11 +448,11 @@ STRUCTURE
    club, the season, the kit, the condition.
 2. A line on the rest. A pattern beats a list - a run of nineties away shirts,
    three Italian clubs, two in the same size.
-3. Say there is more where these came from, then send them to Kickio.
-   \`live_shirt_count\` is how many shirts are buyable on the site right now,
-   and the card prints a rounded floor of it. \`top_url\` is the page for the
-   first shirt and each entry in \`featured\` carries its own \`kickio_url\`. On
-   a platform that allows one link, use \`top_url\`.
+3. Say there is more where these came from, then send them to Kickio. Say it
+   in words and count nothing: how many shirts are on the site is private.
+   \`top_url\` is the page for the first shirt and each entry in \`featured\`
+   carries its own \`kickio_url\`. On a platform that allows one link, use
+   \`top_url\`.
 
 THIS ONE IS OURS, AND YOU MAY SAY SO
 
@@ -511,8 +479,9 @@ Three things follow and none of them is optional.
 - Never write "the six most expensive" or "the day's top arrivals". A grid
   reads as a chart unless the words say otherwise, which is why the card
   carries "a snapshot of what came in".
-- SAY THERE IS MORE. This is a handful of shirts out of a site holding over a
-  thousand. A listing with no photograph cannot go on the card and a recently
+- SAY THERE IS MORE, WITHOUT SAYING HOW MUCH MORE. This is a handful of what
+  Kickio has, and how much that is stays private: no counts, no "over a
+  thousand", no "hundreds of". A listing with no photograph cannot go on the card and a recently
   promoted shirt is held back, so it is not even all of yesterday. "A few of
   yesterday's arrivals", "some of what landed" and "a snapshot of the last
   day" are the register, and one line pointing at everything else belongs in
