@@ -93,3 +93,29 @@ export function lockupHeight(format: FormatKey): number {
   const mark = markSize(format, false);
   return format !== "x" ? mark + 8 + addressSize(format, false) : mark;
 }
+
+/**
+ * How to break n tiles across rows of at most three.
+ *
+ * Dropzone shows a snapshot of what arrived, which is three to six shirts
+ * rather than six exactly, and the obvious slice leaves a single tile adrift
+ * on a second row looking like one failed to load. Four goes two and two; five
+ * goes three and two with the short row centred by the caller. Six and three
+ * are already whole rows.
+ *
+ * Returns the count per row, so the caller can keep the tile width fixed at a
+ * third of the frame and centre anything short. A tile that changes size with
+ * how many there were is a card that looks different every day.
+ */
+export function rowsOf(n: number, max = 3): number[] {
+  if (n <= 0) return [];
+  if (n <= max) return [n];
+  if (n === 4) return [2, 2];
+  const rows: number[] = [];
+  let left = n;
+  while (left > 0) {
+    rows.push(Math.min(max, left));
+    left -= max;
+  }
+  return rows;
+}

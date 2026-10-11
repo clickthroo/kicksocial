@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM, lineFits, markSize, addressSize, lockupHeight } from "./formats.ts";
+import { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM, lineFits, markSize, addressSize, lockupHeight, rowsOf } from "./formats.ts";
 
 describe("output formats", () => {
   test("one per platform Kickio actually posts to", () => {
@@ -138,6 +138,44 @@ describe("the brand lockup's size, which nine cards lay out around", () => {
       const safe = format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0;
       const left = height - pad * 2 - safe - lockupHeight(format);
       assert.ok(left > height * 0.3, `${format} has only ${left}px left`);
+    }
+  });
+});
+
+describe("breaking a snapshot across rows", () => {
+  test("six and three are whole rows", () => {
+    assert.deepEqual(rowsOf(6), [3, 3]);
+    assert.deepEqual(rowsOf(3), [3]);
+  });
+
+  test("four goes two and two, not three and one", () => {
+    // A single tile on a second row looks like one failed to load.
+    assert.deepEqual(rowsOf(4), [2, 2]);
+  });
+
+  test("five goes three and two", () => {
+    assert.deepEqual(rowsOf(5), [3, 2]);
+  });
+
+  test("fewer than a row stays on one line", () => {
+    assert.deepEqual(rowsOf(1), [1]);
+    assert.deepEqual(rowsOf(2), [2]);
+  });
+
+  test("nothing yields no rows rather than one empty one", () => {
+    assert.deepEqual(rowsOf(0), []);
+    assert.deepEqual(rowsOf(-1), []);
+  });
+
+  test("every tile is placed exactly once", () => {
+    for (let n = 0; n <= 9; n++) {
+      assert.equal(rowsOf(n).reduce((a, b) => a + b, 0), Math.max(0, n), `n=${n}`);
+    }
+  });
+
+  test("no row is ever wider than the column count", () => {
+    for (let n = 0; n <= 9; n++) {
+      for (const row of rowsOf(n)) assert.ok(row <= 3, `n=${n}`);
     }
   });
 });

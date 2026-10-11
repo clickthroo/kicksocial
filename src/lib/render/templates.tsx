@@ -34,6 +34,7 @@ import {
   lineFits,
   lockupHeight,
   markSize,
+  rowsOf,
   type FormatKey,
 } from "./formats.ts";
 import { axisDates, plotted, priceLineSvg, type ChartBox } from "./price-chart.ts";
@@ -3490,10 +3491,16 @@ function SalesGridCard({
   // the next shirt and print a real price under the wrong picture.
   const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
 
+  // Always three columns' worth of WIDTH, however many tiles there are, so a
+  // four-shirt day and a six-shirt day draw the same size of shirt. Only the
+  // number per row changes, and a short row is centred rather than left
+  // hanging with a gap beside it.
   const cols = 3;
   const rows: number[][] = [];
-  for (let i = 0; i < featured.length; i += cols) {
-    rows.push(featured.slice(i, i + cols).map((_, j) => i + j));
+  let taken = 0;
+  for (const count of rowsOf(featured.length, cols)) {
+    rows.push(Array.from({ length: count }, (_, j) => taken + j));
+    taken += count;
   }
 
   const gap = portrait ? 18 : 14;
@@ -3521,7 +3528,11 @@ function SalesGridCard({
     band * 3;
 
   const cellW = Math.floor((width - pad * 2 - gap * (cols - 1)) / cols);
-  const plateMax = Math.floor((gridH - gap * (rows.length - 1)) / Math.max(1, rows.length)) - captionH;
+  // Divided by the rows there actually are: a three-shirt snapshot is one row
+  // and gets the whole stage, rather than drawing half-size tiles against a
+  // row that is not there.
+  const plateMax =
+    Math.floor((gridH - gap * (rows.length - 1)) / Math.max(1, rows.length)) - captionH;
   const plate = Math.max(90, Math.min(cellW, plateMax));
   const keyline = portrait ? 2 : 1;
   const inset = portrait ? 8 : 5;
@@ -3575,7 +3586,7 @@ function SalesGridCard({
 
         <div style={{ display: "flex", flexDirection: "column", gap }}>
           {rows.map((row, r) => (
-            <div key={r} style={{ display: "flex", gap }}>
+            <div key={r} style={{ display: "flex", gap, justifyContent: "center" }}>
               {row.map((index) => {
                 const sale = featured[index]!;
                 const photo = photos[index];
