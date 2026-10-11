@@ -1,5 +1,5 @@
 /**
- * Dropzone - the six dearest shirts listed on Kickio yesterday.
+ * Dropzone - a snapshot of the shirts listed on Kickio in the last day.
  *
  * The companion to Yesterday's Sales Highlights, and its opposite in the one
  * way that matters: that post is about the market and must never claim the
@@ -29,6 +29,14 @@
  * card and the copy both say what the post actually is - some of what came in
  * yesterday, not a ranking, not a complete list, not the dearest six on the
  * site.
+ *
+ * NO SHIRT IS CLAIMED TO BE THE DEAREST OR THE BEST OF ANYTHING. Price decides
+ * which get a tile on a day when more arrived than fit, and that is a
+ * selection rule rather than something to say out loud: the card is drawn in
+ * arrival order so the grid cannot be read as a chart, the headline carries no
+ * price, and the brief refuses superlatives outright. The footer says how many
+ * shirts are on the site, because six tiles with nothing beside them read as
+ * the whole shop.
  *
  * THAT COSTS FREQUENCY, AND THE FIGURE IS KNOWN. Measured over the 14 days to
  * 2026-10-05, new listings still live, photographed and distinct ran 4, 2, 2,
@@ -76,9 +84,10 @@ export const DEFAULT_DROPZONE_CONFIG: DropzoneConfig = {
   featureCount: 6,
   minFeatured: 3,
   windowDays: 1,
-  // Deliberately low. The post is "the dearest six that arrived", and on a quiet
-  // day the sixth will not be dear. A floor that empties the grid defeats the
-  // post; one that admits a £15 shirt only costs it the bottom-right tile.
+  // Deliberately low. Price decides which shirts get a tile when more arrived
+  // than fit, but the post never says so, and on a quiet day everything that
+  // came in is on the card whatever it cost. A floor that empties the grid
+  // defeats the post; one that admits a £15 shirt costs it one tile.
   minPriceCents: 1_500,
   // Consecutive 24-hour windows do not overlap, so nothing can come round
   // again on its own. This guards the other two routes: a second run on the
@@ -193,6 +202,46 @@ export async function recentlyShown(days: number): Promise<Set<string>> {
   return seen;
 }
 
+/**
+ * How many shirts are buyable on Kickio right now, for the "and there is more"
+ * line.
+ *
+ * `has_active_listing` rather than `status`, which is the distinction Most
+ * Wanted once got wrong: 2,628 products are `active` and about half that many
+ * can actually be bought. A count that includes shirts with nothing for sale
+ * is not a count of what a reader would find.
+ *
+ * A head count rather than a read: the number is wanted, the rows are not.
+ * Fails soft to null, because a card that cannot say how many is still a card,
+ * and a post should not be lost over a footer.
+ */
+export async function liveShirtCount(): Promise<number | null> {
+  const { count, error } = await kickio()
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .eq("has_active_listing", true);
+  if (error) return null;
+  return typeof count === "number" ? count : null;
+}
+
+/**
+ * The line that stops the card reading as the whole shop.
+ *
+ * Rounded DOWN to a hundred, so the number is always a floor and can never be
+ * an overstatement between the read and the post going out: say 1,300 of 1,315
+ * and a shirt can sell without making the card wrong.
+ *
+ * Under a hundred it says nothing about how many, because "40+ more" invites
+ * the arithmetic nobody wanted, and a count that cannot be read says nothing
+ * either rather than guessing at "many".
+ */
+export function moreLine(count: number | null): string {
+  if (count === null || count < 100) return "A snapshot of what came in. More at kickio.com";
+  const floor = Math.floor(count / 100) * 100;
+  return `A snapshot of what came in. ${floor.toLocaleString("en-GB")}+ shirts on kickio.com`;
+}
+
 export async function runDropzone(
   config: DropzoneConfig = DEFAULT_DROPZONE_CONFIG,
   now: Date = new Date(),
@@ -293,9 +342,23 @@ export async function runDropzone(
     };
   }
 
-  const chosen = candidates.slice(0, config.featureCount);
+  /*
+   * PRICE PICKS THEM, ARRIVAL ORDERS THEM.
+   *
+   * `candidates` is dearest first, which is the right way to choose six out of
+   * nine: a snapshot of the cheapest six is a worse advert than a snapshot of
+   * the dearest six, and nothing on the card claims either.
+   *
+   * But drawing them in that order makes the grid a chart. Six prices
+   * descending left to right is a ranking whether the words say so or not, and
+   * a reader counts down it. Ordered by when they were listed, it is what it
+   * says it is: some of what arrived, newest first.
+   */
+  const chosen = candidates
+    .slice(0, config.featureCount)
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
-  const fee = await buyerFeeSettings();
+  const [fee, liveCount] = await Promise.all([buyerFeeSettings(), liveShirtCount()]);
 
   const featured: DropShirt[] = chosen.map((listing) => {
     const product = productFor.get(listing.product_id!)!;
@@ -318,7 +381,10 @@ export async function runDropzone(
     };
   });
 
-  const dearest = featured[0]!;
+  // The link a one-link platform gets. The newest of the set now that they are
+  // ordered by arrival, which is the right one to lead with on a post about
+  // what just landed.
+  const lead = featured[0]!;
 
   const claims: Claim[] = [
     {
@@ -333,12 +399,16 @@ export async function runDropzone(
         `${featured.length} are on the card.`,
     },
     {
-      statement: `The dearest of the ${featured.length} shown is ${dearest.price}`,
-      value: dearest.priceCents / 100,
-      source: `listings.price_cents (listing ${dearest.listingId}) plus the buyer fee`,
+      statement:
+        `${featured.length} of them are on the card, priced ${featured
+          .map((f) => f.price)
+          .join(", ")}`,
+      value: featured.length,
+      source: "listings.price_cents plus the buyer fee",
       basis:
-        "The price a buyer pays, not the seller's figure. The dearest of the day's " +
-        "arrivals THAT HAS A PHOTOGRAPH and has not been promoted before.",
+        "Prices a buyer pays, not the sellers' figures. Which shirts got a tile was " +
+        "decided by price where more arrived than fit, but none of them is claimed to " +
+        "be the dearest anything: there are shirts on Kickio dearer than all of these.",
     },
   ];
 
@@ -353,7 +423,10 @@ export async function runDropzone(
         .map((s) => s.productId)
         .sort()
         .join("|"),
-      headline: `Dropzone: ${featured.length} new in on ${day.label}, from ${dearest.price}`,
+      // No price in the headline. "from £89" reads as the cheapest of a range
+      // and was in fact the dearest of the six, which is the wrong claim twice
+      // over for a post that is not making one.
+      headline: `Dropzone: ${featured.length} new in on ${day.label}`,
       sourceData: {
         day: day.key,
         window_hours: 24,
@@ -376,16 +449,17 @@ export async function runDropzone(
         shown: featured.length,
         // The one claim this post may make that the sales post may not.
         on_kickio: true,
-        top_url: dearest.productUrl,
+        top_url: lead.productUrl,
         // The three strings that make `sales_grid_card` this post rather than
         // the sales one. Same grid, opposite direction: that card asks you to
         // list a shirt, this one asks you to buy one.
         card_label: "DROPZONE",
         card_title: "Just landed on Kickio",
-        // Says what the card is rather than letting the grid imply a ranking.
-        // Six tiles in order of price read as a chart unless something says
-        // otherwise, and this post is not a chart: it is some of what arrived.
-        card_footer: "A snapshot of what came in. See them all at kickio.com",
+        // Says what the card is rather than letting the grid imply a ranking,
+        // and how much of Kickio it is not. A grid of six with nothing beside
+        // it reads as the shop; a floor count says it is a corner of one.
+        card_footer: moreLine(liveCount),
+        live_shirt_count: liveCount,
       },
       claims,
       images: featured.map((shirt) => shirt.imageUrl),
@@ -401,13 +475,16 @@ a chart: see the snapshot rule below, which is the one thing to get right.
 
 STRUCTURE
 
-1. Lead with the best of them. Name the shirt, the price, and what makes it
-   worth stopping for: the club, the season, the kit, the condition.
+1. Lead with one of them, chosen because it is interesting rather than because
+   it is dearest. Name the shirt and what makes it worth stopping for: the
+   club, the season, the kit, the condition.
 2. A line on the rest. A pattern beats a list - a run of nineties away shirts,
    three Italian clubs, two in the same size.
-3. Send them to Kickio. \`top_url\` is the page for the shirt you led with and
-   each entry in \`featured\` carries its own \`kickio_url\`. On a platform that
-   allows one link, use \`top_url\`.
+3. Say there is more where these came from, then send them to Kickio.
+   \`live_shirt_count\` is how many shirts are buyable on the site right now,
+   and the card prints a rounded floor of it. \`top_url\` is the page for the
+   first shirt and each entry in \`featured\` carries its own \`kickio_url\`. On
+   a platform that allows one link, use \`top_url\`.
 
 THIS ONE IS OURS, AND YOU MAY SAY SO
 
@@ -426,14 +503,20 @@ This is some of what was listed in the last twenty-four hours. It is not a
 ranking, not the dearest shirts on Kickio, and not everything that came in.
 Three things follow and none of them is optional.
 
-- Never write "the six most expensive", "the day's top arrivals", "the best of
-  what came in" or anything else that makes the card a chart. A grid in price
-  order reads as a ranking unless the words say otherwise, which is why the
-  card itself carries the line "a snapshot of what came in".
-- Never imply it is the complete list. A listing with no photograph cannot go
-  on the card and a shirt promoted in a recent Dropzone is held back, so there
-  is nearly always more than this. "A few of yesterday's arrivals", "some of
-  what landed" and "a snapshot of the last day" are the register.
+- NO SUPERLATIVES ABOUT ANY OF THEM. Not "the dearest", not "the priciest of
+  the week", not "the best of what came in", not "the standout", not "the top
+  arrival". You are not told which is dearest and the card is not in price
+  order, so there is nothing to base one on. A shirt can be described - rare
+  colourway, good condition, hard size - but never ranked.
+- Never write "the six most expensive" or "the day's top arrivals". A grid
+  reads as a chart unless the words say otherwise, which is why the card
+  carries "a snapshot of what came in".
+- SAY THERE IS MORE. This is a handful of shirts out of a site holding over a
+  thousand. A listing with no photograph cannot go on the card and a recently
+  promoted shirt is held back, so it is not even all of yesterday. "A few of
+  yesterday's arrivals", "some of what landed" and "a snapshot of the last
+  day" are the register, and one line pointing at everything else belongs in
+  every post.
 - The number shown varies between three and six. Write about the shirts, not
   about how many there are, and the copy then works whichever it is.
 

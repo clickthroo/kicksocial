@@ -6,6 +6,7 @@ import {
   DROPZONE_KEY,
   isLive,
   onePerProduct,
+  moreLine,
 } from "./dropzone.ts";
 import { freshness, hasExpired, perishKind } from "../engine/freshness.ts";
 import { stripEmDashes } from "../copy/dashes.ts";
@@ -199,3 +200,52 @@ describe("the brief", () => {
   });
 });
 
+
+describe("it never claims a shirt is the dearest or the best", () => {
+  test("the brief refuses superlatives outright", () => {
+    // Price picks which shirts get a tile when more arrived than fit. That is
+    // a selection rule, not a thing to say: the copy is not told which is
+    // dearest and the card is not drawn in price order, so there is nothing
+    // to base a superlative on.
+    assert.match(DROPZONE_BRIEF, /NO SUPERLATIVES ABOUT ANY OF THEM/);
+    assert.match(DROPZONE_BRIEF, /never ranked/i);
+  });
+
+  test("it requires a line saying there is more", () => {
+    assert.match(DROPZONE_BRIEF, /SAY THERE IS MORE/);
+    assert.match(DROPZONE_BRIEF, /live_shirt_count/);
+  });
+});
+
+describe("the line that says how much more there is", () => {
+  test("a real count is rounded DOWN to a hundred", () => {
+    // A floor can never become an overstatement between reading it and the
+    // post going out: say 1,300 of 1,315 and a shirt can sell without making
+    // the card wrong.
+    assert.match(moreLine(1315), /1,300\+ shirts/);
+    assert.match(moreLine(2628), /2,600\+ shirts/);
+    assert.match(moreLine(100), /100\+ shirts/);
+  });
+
+  test("a small or unreadable count says nothing about how many", () => {
+    // "40+ more" invites arithmetic nobody wanted, and a count that failed to
+    // read must not be guessed at.
+    for (const n of [null, 0, 42, 99]) {
+      assert.equal(moreLine(n), "A snapshot of what came in. More at kickio.com");
+    }
+  });
+
+  test("every version says it is a snapshot and points at Kickio", () => {
+    for (const n of [null, 42, 1315]) {
+      assert.match(moreLine(n), /snapshot/i);
+      assert.match(moreLine(n), /kickio\.com/);
+    }
+  });
+
+  test("it never rounds up", () => {
+    for (const n of [100, 199, 1000, 1315, 9999]) {
+      const shown = Number((/([\d,]+)\+/.exec(moreLine(n))?.[1] ?? "0").replace(/,/g, ""));
+      assert.ok(shown <= n, `${shown} > ${n}`);
+    }
+  });
+});
