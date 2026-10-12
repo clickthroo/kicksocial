@@ -1572,6 +1572,10 @@ function ArchiveCard({
           >
             {String(d.team ?? "")}
           </div>
+          {/* The span, and no count beside it. This line read "86 shirts ·
+              1991-2024": how much stock Kickio holds is a figure about the
+              business, and those are private in every post type. The years are
+              a fact about what is on the card. */}
           <div
             style={{
               display: "flex",
@@ -1581,12 +1585,14 @@ function ArchiveCard({
               marginTop: 8,
             }}
           >
-            {String(d.shirts ?? "")} shirts · {String(d.earliest ?? "")}–{String(d.latest ?? "")}
+            {String(d.earliest ?? "")}–{String(d.latest ?? "")}
           </div>
           {/* Said on the card, not just in the caption: these are Kickio's
-              holdings, not the club's kit history. */}
+              holdings, not the club's kit history. The kits are named rather
+              than counted, which is also the more useful line - "Home · Away ·
+              Third" tells a reader what to look for. */}
           <div style={{ display: "flex", fontSize: 19, color: look.muted, marginTop: 10 }}>
-            {String(d.kit_types ?? "")} kit types listed
+            {(Array.isArray(d.kits) ? (d.kits as unknown[]).map(String) : []).join(" · ")}
           </div>
         </div>
       </div>

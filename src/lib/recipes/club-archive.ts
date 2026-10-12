@@ -96,11 +96,18 @@ export function seasonYear(season: string | null): number | null {
 
 export interface ClubSummary {
   team: string;
+  /**
+   * How many of this club's shirts are listed. SELECTION ONLY: it decides
+   * which club is deep enough to be worth a post, and the queue screen shows
+   * it. It never reaches the card, the copy or a claim - how much stock Kickio
+   * holds is a figure about the business and those stay private.
+   */
   shirts: number;
   earliest: number;
   latest: number;
   spanYears: number;
-  kitTypes: number;
+  /** The kinds of shirt present, named rather than counted. */
+  kits: string[];
   photos: string[];
   /** The shirts whose photos are on the card, oldest first. */
   featured: Array<{ name: string | null; season: string | null; shirt_type: string | null }>;
@@ -124,9 +131,18 @@ export function summarise(
 
   const earliest = Math.min(...years);
   const latest = Math.max(...years);
-  const kitTypes = new Set(
-    products.map((p) => cleanValue(p.shirt_type)).filter((t): t is string => !!t),
-  ).size;
+  // Named, and in the order a kit list is read rather than the order the rows
+  // happened to arrive in. Anything unexpected keeps its own name and goes
+  // after the three everybody knows.
+  const ORDER = ["home", "away", "third"];
+  const kits = [
+    ...new Set(products.map((p) => cleanValue(p.shirt_type)).filter((t): t is string => !!t)),
+  ].sort((a, b) => {
+    const ia = ORDER.indexOf(a.toLowerCase());
+    const ib = ORDER.indexOf(b.toLowerCase());
+    if (ia !== ib) return (ia < 0 ? ORDER.length : ia) - (ib < 0 ? ORDER.length : ib);
+    return a.localeCompare(b);
+  });
 
   // Oldest first, so the grid reads as a timeline rather than a shelf.
   const withPhotos = products
@@ -151,7 +167,7 @@ export function summarise(
     earliest,
     latest,
     spanYears: latest - earliest,
-    kitTypes,
+    kits,
     photos,
     featured,
   };
@@ -281,13 +297,10 @@ export async function runClubArchive(
   // Deepest first. The cooldown does the rotating, so this does not need to.
   const winner = eligible.sort((a, b) => b.shirts - a.shirts)[0];
 
+  // No count of the club's shirts here, deliberately. It used to be the first
+  // claim and the first three words of the headline, and how much stock Kickio
+  // holds is a figure about the business: private, in every post type.
   const claims: Claim[] = [
-    {
-      statement: `${winner.shirts} ${winner.team} shirts listed on Kickio`,
-      value: winner.shirts,
-      source: "products (active, not deleted), counted by team",
-      basis: "What Kickio has listed, not what exists",
-    },
     {
       statement: `Spanning ${winner.earliest} to ${winner.latest}`,
       value: `${winner.earliest}-${winner.latest}`,
@@ -295,9 +308,10 @@ export async function runClubArchive(
       basis: "The oldest and newest Kickio holds - not the club's first or latest kit",
     },
     {
-      statement: `${winner.kitTypes} different kit types`,
-      value: winner.kitTypes,
+      statement: `The kits listed are ${winner.kits.join(", ")}`,
+      value: winner.kits.join(", "),
       source: "products.shirt_type, distinct values for this club",
+      basis: "Named rather than counted, and only the kinds currently listed",
     },
   ];
 
@@ -305,17 +319,18 @@ export async function runClubArchive(
     ok: true,
     candidate: {
       subjectRef: subjectRefFor(winner.team),
-      headline: `${winner.shirts} ${winner.team} shirts on Kickio, ${winner.earliest}–${winner.latest}`,
+      headline: `${winner.team} on Kickio, ${winner.earliest}–${winner.latest}`,
       sourceData: {
         subject: `${winner.team} on Kickio`,
         team: winner.team,
-        shirts: winner.shirts,
         earliest: winner.earliest,
         latest: winner.latest,
         span_years: winner.spanYears,
-        kit_types: winner.kitTypes,
+        kits: winner.kits,
         featured: winner.featured,
-        scope_note: "Counts describe Kickio's listings, not the club's full kit history",
+        scope_note:
+          "These are the shirts Kickio has listed for this club, not the club's full " +
+          "kit history. The years are the oldest and newest listed, nothing more.",
       },
       claims,
       images: winner.photos,
@@ -339,9 +354,13 @@ Pick out one or two specific shirts from the facts and say why that era's kit is
 worth a second look - the sponsor, the manufacturer, what was happening at the
 club. The list is the subject; the detail is what makes it readable.
 
-Two hard rules:
-- Every number describes WHAT KICKIO HAS LISTED, not what exists. Never call it
-  complete, never call it every shirt, and never imply the oldest one listed is
-  the club's oldest kit. Say "on Kickio" and mean it.
+Three hard rules:
+- COUNT NOTHING. Not how many of the club's shirts are listed, not how many
+  kinds of kit, not how many years. You are not given those figures because
+  they are not yours to publish: how much Kickio holds is a fact about the
+  business and it stays private. The years and the kit names are what you have.
+- Everything you say describes WHAT KICKIO HAS LISTED, not what exists. Never
+  call it complete, never call it every shirt, and never imply the oldest one
+  listed is the club's oldest kit. Say "on Kickio" and mean it.
 - Do not rank the club against others, or call the collection big, best or
-  definitive. You have counts, not a comparison.`;
+  definitive. You have a span of years and some shirts, not a comparison.`;

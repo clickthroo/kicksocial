@@ -427,17 +427,18 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
     id: "sample-archive",
     recipe_key: "club_archive",
     subject_ref: "club:manchester united",
-    headline: "164 Manchester United shirts on Kickio, 1975–2025",
+    headline: "Manchester United on Kickio, 1975\u20132025",
     generation: { visual_template: "archive_grid" },
     source_data: {
       subject: "Manchester United on Kickio",
       team: "Manchester United",
-      shirts: 164,
       earliest: 1975,
       latest: 2025,
       span_years: 50,
-      kit_types: 7,
-      scope_note: "Counts describe Kickio's listings, not the club's full kit history",
+      kits: ["Home", "Away", "Third", "Fourth", "Goalkeeper"],
+      scope_note:
+        "These are the shirts Kickio has listed for this club, not the club's full " +
+        "kit history. The years are the oldest and newest listed, nothing more.",
       // Real Manchester United products, so the grid is judged against real
       // photography rather than flat placeholders.
       images: [

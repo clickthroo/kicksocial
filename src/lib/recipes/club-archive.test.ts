@@ -6,6 +6,7 @@ import {
   qualifies,
   subjectRefFor,
   DEFAULT_CLUB_ARCHIVE_CONFIG as CONFIG,
+  CLUB_ARCHIVE_BRIEF,
 } from "./club-archive.ts";
 
 const product = (season: string | null, shirt_type: string | null, photo: string | null) => ({
@@ -47,14 +48,34 @@ describe("season parsing", () => {
 });
 
 describe("summarising a club", () => {
-  test("counts shirts, span and kit types from the rows themselves", () => {
+  test("counts shirts and reads the span from the rows themselves", () => {
     // teams.listings_count reports 65 for England where 140 products exist, so
     // these are recounted rather than read off that column.
     const summary = summarise("Manchester United", deepClub(), CONFIG)!;
     assert.equal(summary.shirts, 24);
     assert.equal(summary.earliest, 1975);
     assert.equal(summary.latest, 1975 + 23 * 2);
-    assert.equal(summary.kitTypes, 3);
+  });
+
+  test("the kits are named, and in the order a kit list is read", () => {
+    // They used to be a count on the card ("3 kit types listed"). A count of
+    // what Kickio holds is a figure about the business, and the names are the
+    // more useful line anyway: it tells a reader what to look for.
+    const summary = summarise("Manchester United", deepClub(), CONFIG)!;
+    assert.deepEqual(summary.kits, ["Home", "Away", "Third"]);
+  });
+
+  test("an unexpected kit keeps its name and goes last", () => {
+    const rows = [
+      ...deepClub(),
+      product("1999-00", "Fourth", "https://img.example/x.jpg"),
+    ];
+    assert.deepEqual(summarise("Manchester United", rows, CONFIG)!.kits, [
+      "Home",
+      "Away",
+      "Third",
+      "Fourth",
+    ]);
   });
 
   test("orders the grid oldest first, so it reads as a timeline", () => {
@@ -128,5 +149,26 @@ describe("cooldown identity", () => {
   test("is case-insensitive, so one club cannot be featured twice", () => {
     assert.equal(subjectRefFor("Arsenal"), subjectRefFor("arsenal"));
     assert.equal(subjectRefFor("  Arsenal "), "club:arsenal");
+  });
+});
+
+describe("Kickio's own figures stay out of it", () => {
+  test("the brief tells the writer to count nothing", () => {
+    // The card used to open on "86 shirts" and the brief used to end on "you
+    // have counts". How much stock Kickio holds is a figure about the
+    // business, and those are private in every post type.
+    assert.match(CLUB_ARCHIVE_BRIEF, /COUNT NOTHING/);
+    assert.match(CLUB_ARCHIVE_BRIEF, /stays private/i);
+  });
+
+  test("it still insists the post says \"on Kickio\"", () => {
+    // Dropping the count must not drop the scope. Without it the post reads as
+    // the club's kit history rather than one shop's shelf.
+    assert.match(CLUB_ARCHIVE_BRIEF, /WHAT KICKIO HAS LISTED/);
+    assert.match(CLUB_ARCHIVE_BRIEF, /Say "on Kickio" and mean it/);
+  });
+
+  test("the brief no longer tells the writer it has counts", () => {
+    assert.ok(!/You have counts/.test(CLUB_ARCHIVE_BRIEF));
   });
 });
