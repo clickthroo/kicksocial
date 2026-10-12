@@ -24,8 +24,29 @@ async function me(): Promise<string | null> {
   return currentEmail();
 }
 
+/**
+ * A thrown error becomes a line on the form, never an error page.
+ *
+ * `login` and `setPassword` both throw when the database answers with
+ * anything but a result, and an uncaught throw in a server action is the full
+ * "Application error: a server-side exception has occurred" page with a digest
+ * on it. On this screen that is the worst possible outcome: it is the page
+ * where somebody is changing their password, and the one thing they need to
+ * know is whether it changed. A sentence on the form says so; an error page
+ * does not.
+ */
+function failed(err: unknown, doing: string): SaveState {
+  const message = err instanceof Error ? err.message : String(err);
+  return { error: `${doing} failed: ${message}`, done: null };
+}
+
 export async function saveName(_prev: SaveState, form: FormData): Promise<SaveState> {
-  const email = await me();
+  let email: string | null;
+  try {
+    email = await me();
+  } catch (err) {
+    return failed(err, "Reading your session");
+  }
   if (!email) return { error: "You are not signed in.", done: null };
 
   const name = String(form.get("name") ?? "");
@@ -59,7 +80,12 @@ export async function saveName(_prev: SaveState, form: FormData): Promise<SaveSt
  * and the message says so when it happens.
  */
 export async function changePassword(_prev: SaveState, form: FormData): Promise<SaveState> {
-  const email = await me();
+  let email: string | null;
+  try {
+    email = await me();
+  } catch (err) {
+    return failed(err, "Reading your session");
+  }
   if (!email) return { error: "You are not signed in.", done: null };
 
   const current = String(form.get("current") ?? "");
@@ -68,7 +94,15 @@ export async function changePassword(_prev: SaveState, form: FormData): Promise<
 
   if (!current) return { error: "Enter your current password.", done: null };
 
-  const check = await login(email, current);
+  let check;
+  try {
+    check = await login(email, current);
+  } catch (err) {
+    // The check itself failed, which is not the same as the password being
+    // wrong, and it must not read as if it were: nothing has been counted
+    // against the lockout and nothing has changed.
+    return failed(err, "Checking your current password");
+  }
   if (!check.ok) return { error: loginMessage(check), done: null };
 
   if (password !== again) return { error: "Those two do not match.", done: null };

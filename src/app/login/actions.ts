@@ -29,12 +29,30 @@ async function startSession(email: string): Promise<void> {
   });
 }
 
+/**
+ * The sign-in screen answers with a message rather than an error page.
+ *
+ * `login` throws when the database cannot answer at all, and an uncaught throw
+ * in a server action replaces the form with Next's own error page and a
+ * digest. On the one screen somebody uses when nothing else works, a sentence
+ * saying the check could not run beats a page saying nothing.
+ */
+function unavailable(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return `Could not check that just now: ${message}`;
+}
+
 export async function signIn(_prev: FormState, form: FormData): Promise<FormState> {
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");
   const next = safeNext(form.get("next"));
 
-  const result = await login(email, password);
+  let result;
+  try {
+    result = await login(email, password);
+  } catch (err) {
+    return { error: unavailable(err) };
+  }
   if (!result.ok) return { error: loginMessage(result) };
   if (result.mustChange) return { error: null, mustChange: { email: result.email } };
 
@@ -56,14 +74,23 @@ export async function choosePassword(_prev: FormState, form: FormData): Promise<
   const again = String(form.get("again") ?? "");
   const next = safeNext(form.get("next"));
 
-  const result = await login(email, current);
+  let result;
+  try {
+    result = await login(email, current);
+  } catch (err) {
+    return { error: unavailable(err), mustChange: { email } };
+  }
   if (!result.ok) return { error: loginMessage(result), mustChange: { email } };
   if (password !== again) return { error: "Those two do not match.", mustChange: { email } };
 
   const problem = passwordProblem(password);
   if (problem) return { error: problem, mustChange: { email } };
 
-  await setPassword(result.email, password);
+  try {
+    await setPassword(result.email, password);
+  } catch (err) {
+    return { error: unavailable(err), mustChange: { email } };
+  }
   await startSession(result.email);
   redirect(next);
 }
