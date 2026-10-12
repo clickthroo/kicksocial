@@ -909,3 +909,38 @@ a.nav-who[aria-current="page"] {
   display: inline-flex; align-items: center; min-height: var(--tap-sm);
   padding: 0 var(--s2); border-radius: 8px;
 }
+
+/* --- the six shirts a heritage post would show ------------------------- */
+/* Three across, not six like the Who Am I? strip. That strip is looked at;
+   this one is read - the price, size and condition under each shirt are what
+   the reviewer is checking before paying for copy, and at six across every
+   one of those lines wraps. */
+.heritage-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3);
+  padding: 0 16px 13px;
+}
+.heritage-item { display: flex; flex-direction: column; min-width: 0; }
+.heritage-item img {
+  width: 100%; aspect-ratio: 1; object-fit: contain;
+  background: #ffffff; border-radius: 8px;
+}
+.heritage-season { font-size: 13px; font-weight: 700; margin-top: 7px; }
+.heritage-price { font-size: 14px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+.heritage-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* The clubs themselves. A row rather than a pill, because a club is chosen on
+   two things: its name and the seasons it can field. */
+.club-list { display: flex; flex-direction: column; }
+.club-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left; min-height: var(--tap);
+  padding: 10px 16px; border: 0; border-top: 1px solid var(--border);
+  background: none; color: var(--text); font: inherit; cursor: pointer;
+}
+.club-row:hover { background: var(--surface-2); }
+.club-row[aria-pressed="true"] { background: var(--surface-2); }
+.club-name { font-size: 15px; font-weight: 700; }
+.club-span { font-size: 12px; color: var(--muted); }
+.club-recent {
+  font-size: 12px; font-weight: 600; color: var(--warn); flex: 0 0 auto;
+}

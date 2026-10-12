@@ -99,6 +99,16 @@ export const BUILDERS: Builder[] = [
     group: "list",
   },
   {
+    key: "club_heritage",
+    name: "Club Heritage Shirts",
+    href: "/heritage",
+    action: "Pick a club",
+    blurb:
+      "Six of one club's older shirts, all on sale now. Pick the club and the " +
+      "card takes its colours from the shirts.",
+    group: "list",
+  },
+  {
     key: "price_history",
     name: "Price History",
     href: "/price-history",

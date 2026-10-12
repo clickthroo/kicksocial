@@ -123,6 +123,42 @@ export const SAMPLE_DRAFTS: Record<string, PostDraft> = {
       ],
     },
   },
+  heritage_card: {
+    ...base,
+    id: "sample-heritage",
+    recipe_key: "club_heritage",
+    subject_ref: "Liverpool",
+    headline: "Liverpool heritage: 6 shirts, 1981-82 onwards",
+    // Sweep, because that is the style the recipe creates these in: the field
+    // is the first shirt's own colour and a sample in the house grey would be
+    // testing a card nobody will be shown.
+    generation: { visual_template: "heritage_card", style: "sweep" },
+    source_data: {
+      team: "Liverpool",
+      span: "1981-82 to 1989-90",
+      card_label: "LIVERPOOL HERITAGE",
+      card_title: "Liverpool",
+      card_subtitle: "Heritage collection",
+      card_footer: "All available now at kickio.com",
+      shirt_colour: { hex: "#8f1a24", deep: "#2b080b" },
+      shirts: [
+        { season: "1981-82", kit: "Home", price: "\u00a3425.00", size: "L", condition: "Very good", detail: "Very good \u00b7 Size L" },
+        { season: "1982-84", kit: "Away", price: "\u00a3310.00", size: "M", condition: "Good", detail: "Good \u00b7 Size M" },
+        { season: "1984-85", kit: "Home", price: "\u00a3289.00", size: "XL", condition: "Excellent", detail: "Excellent \u00b7 Size XL" },
+        { season: "1985-86", kit: "Third", price: "\u00a3265.00", size: "M", condition: "Mint", detail: "Mint \u00b7 Size M" },
+        { season: "1987-88", kit: "Home", price: "\u00a3199.00", size: "S", condition: "Good", detail: "Good \u00b7 Size S" },
+        { season: "1989-90", kit: "Away", price: "\u00a3175.00", size: "L", condition: "Very good", detail: "Very good \u00b7 Size L" },
+      ],
+      images: [
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/BRAA069V/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/GERH1221VL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/BRAA069V/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/GERH1221VL/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/BRAA069V/0.jpg",
+        "https://rlveellvebfzgyobceru.supabase.co/storage/v1/object/public/product-images/scraped/cfs/GERH1221VL/0.jpg",
+      ],
+    },
+  },
   sales_grid_card: {
     ...base,
     id: "sample-yesterday-sales",

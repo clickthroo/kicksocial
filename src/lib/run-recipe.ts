@@ -28,6 +28,13 @@ import {
   type ClassicInput,
 } from "./recipes/classics.ts";
 import {
+  runClubHeritage,
+  DEFAULT_HERITAGE_CONFIG,
+  HERITAGE_BRIEF,
+  HERITAGE_KEY,
+  type HeritageInput,
+} from "./recipes/club-heritage.ts";
+import {
   runPriceHistory,
   PRICE_HISTORY_BRIEF,
   PRICE_HISTORY_KEY,
@@ -1034,6 +1041,108 @@ export async function createPhotoProdDraft(input: PhotoProdInput): Promise<RunOu
         usage: generated.usage,
         visual_template: "classic_card",
         style: asCardStyle((config?.selection as Record<string, unknown>)?.style ?? "spotlight"),
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    if (isDuplicateSubject(error)) {
+      const reason = duplicateSubjectReason(candidate.subjectRef);
+      await record("skipped", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+      return { recipeKey: key, status: "skipped", reason };
+    }
+    const reason = `Saving draft failed: ${error.message}`;
+    await record("failed", { skipped_reason: reason });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const draftId = (data as { id: string }).id;
+  await record("created", { draft_id: draftId });
+  return { recipeKey: key, status: "created", draftId, headline: candidate.headline };
+}
+
+/**
+ * Club Heritage Shirts: six of one club's older shirts, all buyable.
+ *
+ * Created in SWEEP rather than the house default, which is the only creator
+ * here that chooses a style on purpose. Sweep is the style that spends the
+ * colour sampled from the photograph, and this is the one post built around a
+ * club's own colours - a studio-grey heritage card is a worse card and nobody
+ * would know to switch it. The admin can still change it on the draft.
+ */
+export async function createHeritageDraft(input: HeritageInput): Promise<RunOutcome> {
+  const key = HERITAGE_KEY;
+  const startedAt = Date.now();
+
+  const record = async (status: string, extra: Record<string, unknown> = {}): Promise<void> => {
+    await engine()
+      .from("recipe_runs")
+      .insert({ recipe_key: key, trigger: "manual", status, duration_ms: Date.now() - startedAt, ...extra });
+  };
+
+  const { data: configRow } = await engine()
+    .from("recipes")
+    .select("enabled,prompt_template,platforms,selection")
+    .eq("key", key)
+    .maybeSingle();
+  const config = configRow as {
+    enabled: boolean;
+    prompt_template: string | null;
+    platforms: string[] | null;
+    selection: Record<string, unknown> | null;
+  } | null;
+
+  // A null config is not a disabled recipe, it is a recipe with no row - and
+  // `post_drafts.recipe_key` is a foreign key onto that row, so the insert
+  // below would fail after the copy had already been paid for.
+  if (!config) await ensureRecipeRow(key, "Club Heritage Shirts", "on_demand", "heritage_card");
+
+  if (config && !config.enabled) {
+    await record("skipped", { skipped_reason: "Recipe is disabled" });
+    return { recipeKey: key, status: "skipped", reason: "Recipe is disabled" };
+  }
+
+  const result = await runClubHeritage(input, {
+    ...DEFAULT_HERITAGE_CONFIG,
+    ...((config?.selection as object) ?? {}),
+  });
+  if (!result.ok) {
+    await record("skipped", { skipped_reason: result.reason, diagnostics: result.diagnostics ?? {} });
+    return { recipeKey: key, status: "skipped", reason: result.reason };
+  }
+
+  const { candidate } = result;
+  const platforms = (config?.platforms as Recipe["platforms"] | undefined) ?? [
+    "x",
+    "instagram",
+    "tiktok",
+  ];
+
+  let generated;
+  try {
+    generated = await generateCopy(config?.prompt_template?.trim() || HERITAGE_BRIEF, candidate);
+  } catch (err) {
+    const reason = `Copy generation failed: ${(err as Error).message}`;
+    await record("failed", { skipped_reason: reason, diagnostics: { subject: candidate.subjectRef } });
+    return { recipeKey: key, status: "failed", reason };
+  }
+
+  const { data, error } = await engine()
+    .from("post_drafts")
+    .insert({
+      recipe_key: key,
+      status: "draft",
+      subject_ref: candidate.subjectRef,
+      headline: candidate.headline,
+      copy: forPlatforms(generated.copy, platforms),
+      source_data: { ...candidate.sourceData, images: candidate.images },
+      claims: candidate.claims,
+      generation: {
+        model: "claude-opus-5",
+        usage: generated.usage,
+        visual_template: "heritage_card",
+        style: asCardStyle((config?.selection as Record<string, unknown>)?.style ?? "sweep"),
       },
     })
     .select("id")

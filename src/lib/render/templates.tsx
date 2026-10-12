@@ -820,8 +820,17 @@ interface GridLook {
 }
 
 
-function gridLook(key: CardStyle, brand: Brand): GridLook {
-  const palette = styleFor(key, brand);
+/**
+ * `shirt` is the colour sampled from the post's own photograph, for the one
+ * style that spends it. Optional because most grid cards have no single shirt
+ * to take a colour from: a 3x3 of nine clubs has nine of them.
+ */
+function gridLook(
+  key: CardStyle,
+  brand: Brand,
+  shirt?: { hex: string; deep: string },
+): GridLook {
+  const palette = styleFor(key, brand, shirt);
   const base: GridLook = {
     from: palette.from,
     to: palette.to,
@@ -850,9 +859,15 @@ function gridLook(key: CardStyle, brand: Brand): GridLook {
       // Price Trends hero number is green, and green on green is not a style.
       // It also drowned the lockup. A tint keeps the identity and leaves the
       // foreground somewhere to stand.
+      //
+      // WITH A SHIRT COLOUR, THE SHIRT WINS. `styleFor` has already put the
+      // photograph's own colour in `palette.from`, and tinting that towards
+      // brand green would throw away the thing that makes the card this club's
+      // rather than any club's. The brand tint is the fallback, for the grids
+      // that carry no single shirt to sample.
       return {
         ...base,
-        from: mix(palette.from, brand.accentDeep, 0.34),
+        from: shirt ? palette.from : mix(palette.from, brand.accentDeep, 0.34),
         to: palette.to,
         cellBorder: "rgba(255,255,255,0.22)",
       };
@@ -3665,6 +3680,428 @@ function SalesGridCard({
   );
 }
 
+/* ---------------------------------------------------------------------------
+ * HERITAGE GRID - one club's older shirts, all of them buyable.
+ *
+ * Its own template rather than a label on the sales grid, because the two posts
+ * are not the same shape. The sales grid leads with a price: somebody with that
+ * shirt in a drawer reads the number before they read the name. This one leads
+ * with the club and the seasons, and the price is the quieter line that says you
+ * could own it. Heritage copy on a card built to shout a figure read like a
+ * price list for a museum.
+ *
+ * THE FIELD IS THE FIRST SHIRT'S OWN COLOUR, sampled from its photograph when
+ * the draft is created and read here through `shirt_colour` - the same key the
+ * single-shirt cards use. The Sweep style is what spends it, and a heritage
+ * draft is created in Sweep, so the card arrives in the club's colours without
+ * anybody choosing anything.
+ *
+ * TWO COMPOSITIONS, NOT ONE SCALED. Portrait stacks: lockup, club, grid,
+ * sign-off. On 16:9 that same stack does not fit and cannot be made to - six
+ * tiles in two rows, each carrying three lines of caption, need about 440px of
+ * the 587 a 1200x675 card has inside its margins, and the type block and the
+ * lockup want more than the rest. Landscape therefore turns the card on its
+ * side: the type sits in a column down the left and the grid takes the full
+ * height beside it, which gives 205px tiles where the stacked version gave 90
+ * and spilled off the bottom edge.
+ *
+ * WHAT IT MUST NOT PRINT. Not a count of anything: how many of the club's
+ * shirts Kickio holds is a figure about the business, and those stay private.
+ * Not "the oldest", in any wording - the six are chosen oldest first and saying
+ * so is a claim about the whole catalogue that is wrong the moment an older one
+ * is listed. The seasons are on the tiles; a reader can see for themselves how
+ * old these are, which is the whole trick of the card.
+ * ------------------------------------------------------------------------- */
+
+interface HeritageType {
+  season: number;
+  price: number;
+  detail: number;
+}
+
+/**
+ * The tiles, in rows of at most three.
+ *
+ * Split out because the two compositions draw the same grid and a second copy
+ * of it would have drifted - the landscape card was already the one that
+ * needed different numbers, not a different tile.
+ */
+function HeritageTiles({
+  shirts,
+  photos,
+  look,
+  type,
+  cellW,
+  plate,
+  gap,
+  keyline,
+  inset,
+}: {
+  shirts: Array<Record<string, unknown>>;
+  photos: string[];
+  look: GridLook;
+  type: HeritageType;
+  cellW: number;
+  plate: number;
+  gap: number;
+  keyline: number;
+  inset: number;
+}) {
+  const rows: number[][] = [];
+  let taken = 0;
+  for (const count of rowsOf(shirts.length, 3)) {
+    rows.push(Array.from({ length: count }, (_, j) => taken + j));
+    taken += count;
+  }
+  const shot = plate - keyline * 2 - inset * 2;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap }}>
+      {rows.map((row, r) => (
+        <div key={r} style={{ display: "flex", gap, justifyContent: "center" }}>
+          {row.map((index) => {
+            const item = shirts[index]!;
+            const photo = photos[index];
+            return (
+              <div key={index} style={{ display: "flex", flexDirection: "column", width: cellW }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: plate,
+                    height: plate,
+                    background: look.cellFill,
+                    borderRadius: look.radius,
+                    border: `${keyline}px solid rgba(0,0,0,0.58)`,
+                  }}
+                >
+                  {photo ? (
+                    <img src={photo} width={shot} height={shot} style={{ objectFit: "contain" }} />
+                  ) : (
+                    <div style={{ display: "flex", width: shot, height: shot }} />
+                  )}
+                </div>
+
+                {/* Season first. On this card the year is the hook and the
+                    price is the invitation, which is the other way round from
+                    a sales grid. */}
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: type.season,
+                    fontWeight: 700,
+                    color: look.ink,
+                    marginTop: 12,
+                  }}
+                >
+                  {[item.season, item.kit].filter(Boolean).join(" · ").slice(0, 26)}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: type.price,
+                    fontWeight: 800,
+                    color: look.accent,
+                    marginTop: 2,
+                  }}
+                >
+                  {String(item.price ?? "")}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: type.detail,
+                    color: look.muted,
+                    marginTop: 2,
+                  }}
+                >
+                  {String(item.detail ?? "")}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HeritageCard({
+  draft,
+  format,
+  brand,
+  style = DEFAULT_CARD_STYLE,
+}: {
+  draft: PostDraft;
+  format: FormatKey;
+  brand: Brand;
+  style?: CardStyle;
+}) {
+  const d = draft.source_data as Record<string, unknown>;
+  const shirtColour = d.shirt_colour as { hex: string; deep: string } | undefined;
+  const look = gridLook(style, brand, shirtColour);
+  const portrait = format !== "x";
+  const { width, height } = FORMATS[format];
+  const pad = portrait ? 56 : 44;
+
+  const shirts = Array.isArray(d.shirts)
+    ? (d.shirts as Array<Record<string, unknown>>).slice(0, 6)
+    : [];
+  // Index-aligned with `shirts`. The recipe features only products it has a
+  // renderable photograph for precisely so this holds: one gap would slide
+  // every photo onto the next shirt and print a real price under the wrong
+  // picture.
+  const photos = Array.isArray(d.images) ? (d.images as unknown[]).map(String) : [];
+
+  const club = String(d.card_title ?? "");
+  const subtitle = (
+    typeof d.card_subtitle === "string" && d.card_subtitle ? d.card_subtitle : "Heritage collection"
+  ).toUpperCase();
+  const era = String(d.span ?? "");
+  const footer =
+    typeof d.card_footer === "string" && d.card_footer
+      ? d.card_footer
+      : "All available now at kickio.com";
+  const label = typeof d.card_label === "string" && d.card_label ? d.card_label : undefined;
+
+  const gap = portrait ? 18 : 14;
+  const type: HeritageType = {
+    season: portrait ? 22 : 16,
+    price: portrait ? 32 : 23,
+    detail: portrait ? 19 : 15,
+  };
+  const subSize = portrait ? 25 : 19;
+  const eraSize = portrait ? 27 : 20;
+  const footSize = portrait ? 27 : 20;
+  const LINE = 1.2;
+  const keyline = portrait ? 2 : 1;
+  const inset = portrait ? 8 : 5;
+  // Satori returns no text metrics, so a caption block's height is computed
+  // from what it is set in: three lines plus the air above them.
+  const captionH = type.season * LINE + type.price * LINE + type.detail * LINE + 16;
+  const rowCount = Math.max(1, rowsOf(shirts.length, 3).length);
+
+  if (!portrait) {
+    // Type down the left, grid filling the height beside it. See the header.
+    const leftW = 340;
+    const colGap = 34;
+    const gridW = width - pad * 2 - leftW - colGap;
+    const cellW = Math.floor((gridW - gap * 2) / 3);
+    const inner = height - pad * 2;
+    const plate = Math.floor(
+      Math.max(90, Math.min(cellW, (inner - gap * (rowCount - 1)) / rowCount - captionH)),
+    );
+    // Allowed two lines rather than one: a narrow column is the one place a
+    // club name should wrap, and "Borussia Monchengladbach" on one line of
+    // 340px is 24px type nobody would read.
+    const clubSize = lineFits(club, leftW * 1.8, 52);
+
+    return (
+      <Frame format={format} background={look.to} ink={look.ink}>
+        <div
+          style={{
+            display: "flex",
+            width: "100%",
+            height: "100%",
+            padding: pad,
+            background: `linear-gradient(to right, ${look.from} 0%, ${look.to} 58%, ${look.to} 100%)`,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              width: leftW,
+              marginRight: colGap,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {/* The compact mark, and no label beside it: the club's name is
+                  the next line down, so "LIVERPOOL HERITAGE" in the lockup
+                  would be the same words twice in a 340px column. */}
+              <BrandLockup
+                format={format}
+                brand={brand}
+                muted={look.muted}
+                surface={look.to}
+                compact
+              />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: clubSize,
+                  fontWeight: 800,
+                  letterSpacing: -1,
+                  lineHeight: 1.06,
+                  color: look.ink,
+                  marginTop: 26,
+                }}
+              >
+                {club}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: subSize,
+                  fontWeight: 700,
+                  letterSpacing: look.tracking + 2,
+                  color: look.muted,
+                  marginTop: 12,
+                }}
+              >
+                {subtitle}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: eraSize,
+                  fontWeight: 700,
+                  color: look.accent,
+                  marginTop: 6,
+                }}
+              >
+                {era}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", fontSize: footSize, color: look.muted }}>{footer}</div>
+          </div>
+
+          {/* An explicit width, not flexGrow. A grown column is sized from
+              its content, and this card's content is three fixed-width tiles
+              a row: the arithmetic above already knows how wide the column
+              is, so it says so. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              width: gridW,
+            }}
+          >
+            <HeritageTiles
+              shirts={shirts}
+              photos={photos}
+              look={look}
+              type={type}
+              cellW={cellW}
+              plate={plate}
+              gap={gap}
+              keyline={keyline}
+              inset={inset}
+            />
+          </div>
+        </div>
+      </Frame>
+    );
+  }
+
+  // Always three columns' worth of width, however many tiles there are, so a
+  // club with six draws the same size of shirt as one with four.
+  const cellW = Math.floor((width - pad * 2 - gap * 2) / 3);
+  const clubSize = lineFits(club, width - pad * 2, 78);
+  const typeH = clubSize * 1.06 + 12 + subSize * LINE + 6 + eraSize * LINE;
+  const band = format === "tiktok" ? 92 : 44;
+  const gridH =
+    height -
+    pad * 2 -
+    (format === "tiktok" ? TIKTOK_SAFE_BOTTOM : 0) -
+    lockupHeight(format) -
+    typeH -
+    footSize * LINE -
+    band * 3;
+  // Divided by the rows that will be drawn, not the most the frame could hold:
+  // four shirts make two rows and get the whole stage between them.
+  const plate = Math.floor(
+    Math.max(90, Math.min(cellW, (gridH - gap * (rowCount - 1)) / rowCount - captionH)),
+  );
+
+  return (
+    <Frame format={format} background={look.to} ink={look.ink}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
+          padding: pad,
+          paddingBottom: format === "tiktok" ? pad + TIKTOK_SAFE_BOTTOM : pad,
+          // Linear only. Satori renders a radial gradient anchored quite
+          // differently from a browser, which is how an earlier card came back
+          // with the light pushed into one corner.
+          background: `linear-gradient(to bottom, ${look.from} 0%, ${look.to} 64%, ${look.to} 100%)`,
+        }}
+      >
+        <BrandLockup
+          format={format}
+          brand={brand}
+          label={label}
+          muted={look.muted}
+          surface={look.to}
+        />
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: clubSize,
+              fontWeight: 800,
+              letterSpacing: -1.5,
+              lineHeight: 1.06,
+              color: look.ink,
+            }}
+          >
+            {club}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: subSize,
+              fontWeight: 700,
+              letterSpacing: look.tracking + 2,
+              color: look.muted,
+              marginTop: 12,
+            }}
+          >
+            {subtitle}
+          </div>
+          {/* The span of what is shown, not a claim about what exists. The
+              seasons are the romance of this post, so they are set in the
+              card's accent and given a line of their own. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: eraSize,
+              fontWeight: 700,
+              color: look.accent,
+              marginTop: 6,
+            }}
+          >
+            {era}
+          </div>
+        </div>
+
+        <HeritageTiles
+          shirts={shirts}
+          photos={photos}
+          look={look}
+          type={type}
+          cellW={cellW}
+          plate={plate}
+          gap={gap}
+          keyline={keyline}
+          inset={inset}
+        />
+
+        <div style={{ display: "flex", fontSize: footSize, color: look.muted }}>{footer}</div>
+      </div>
+    </Frame>
+  );
+}
+
 function ClassicCard({
   draft,
   format,
@@ -3936,6 +4373,15 @@ export function templateFor(
     case "sales_grid_card":
       return (
         <SalesGridCard
+          draft={draft}
+          format={format}
+          brand={brand}
+          style={style ?? asCardStyle((draft.generation as { style?: unknown })?.style)}
+        />
+      );
+    case "heritage_card":
+      return (
+        <HeritageCard
           draft={draft}
           format={format}
           brand={brand}

@@ -85,6 +85,11 @@ export const PERISHES: Record<string, PerishKind> = {
   // A career that ended years ago does not go out of date, and the shirts are
   // the catalogue's rather than one seller's. Nothing here can stop being true.
   who_am_i: "none",
+  // Six shirts from one club, each with a price read off a live listing. The
+  // shirts are forty years old; the prices beside them are today's, and one
+  // selling makes the card wrong in the most visible way - a reader clicks a
+  // tile and lands on a page with nothing to buy.
+  club_heritage: "listing",
   // Posted by hand from /drops: one shirt you can buy now, with the price read
   // off the listing. The shortest shelf life of the lot - the listing can sell
   // or be undercut, and then the card prints a price that is not the price.
