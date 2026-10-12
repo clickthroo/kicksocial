@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveName, changePassword, EMPTY, type SaveState } from "./actions.ts";
+import { saveName, changePassword } from "./actions.ts";
+import { EMPTY, type SaveState } from "./state.ts";
 
 function Result({ state }: { state: SaveState }) {
   if (state.error) return <p className="hint upload-failed">{state.error}</p>;

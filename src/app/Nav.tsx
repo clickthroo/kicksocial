@@ -38,7 +38,10 @@ const BUILDER_PATHS = BUILDERS.map((b) => b.href);
 export async function Nav({ current }: { current: string }) {
   // Read here rather than threaded through every page: the nav is the only
   // thing that needs it, and every page already renders the nav.
-  const email = await currentEmail();
+  // Guarded: the nav is on every screen, so anything thrown while working out
+  // who is signed in takes the whole tool down rather than one page. The worst
+  // case is a nav with no account on it.
+  const email = await currentEmail().catch(() => null);
   // The display name where one is set, the email otherwise. Read here so every
   // page gets it without threading it through, exactly as the email already is.
   const profile = email ? await loadProfile(email).catch(() => null) : null;

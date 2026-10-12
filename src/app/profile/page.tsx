@@ -19,8 +19,17 @@ function when(iso: string | null): string {
 export default async function ProfilePage() {
   // The middleware already refused anyone without a session, so this is null
   // only if it was bypassed. Said rather than assumed.
-  const email = await currentEmail();
-  const profile = email ? await loadProfile(email) : null;
+  const email = await currentEmail().catch(() => null);
+  let profile: Awaited<ReturnType<typeof loadProfile>> = null;
+  let loadError: string | null = null;
+  try {
+    profile = email ? await loadProfile(email) : null;
+  } catch (err) {
+    // A database that will not answer is a banner on this page, not an error
+    // page: the forms below still work, and whoever is looking at it needs to
+    // be told which half is broken.
+    loadError = (err as Error).message;
+  }
 
   return (
     <div className="wrap">
@@ -30,7 +39,9 @@ export default async function ProfilePage() {
         <Nav current="/profile" />
       </header>
 
-      {!profile && (
+      {loadError && <div className="banner">Could not read your account: {loadError}</div>}
+
+      {!profile && !loadError && (
         <div className="banner">
           You are not signed in, or this account no longer exists. Sign in again.
         </div>

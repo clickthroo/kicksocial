@@ -101,9 +101,27 @@ export async function signOut(): Promise<void> {
   redirect("/login");
 }
 
-/** Who is signed in, for the header. Null only if the middleware was bypassed. */
+/**
+ * Who is signed in, for the header.
+ *
+ * NULL RATHER THAN A THROW WHEN THE SECRET IS MISSING. `sessionSecret()`
+ * throws, by design, because minting a session without one would be a hole.
+ * But this function is called while rendering the nav on every page, and an
+ * exception there is an error page on every screen in the tool with nothing on
+ * it to say why - which is exactly the failure this came out of. The
+ * middleware already answers that case with a 503 that names the variable, so
+ * here the safe answer is "nobody", and every caller treats nobody as not
+ * signed in. It fails closed: no secret means no session, not a free pass.
+ */
 export async function currentEmail(): Promise<string | null> {
   const jar = await cookies();
-  const session = await readSession(jar.get(SESSION_COOKIE)?.value, sessionSecret());
+  let secret: string;
+  try {
+    secret = sessionSecret();
+  } catch (err) {
+    console.error(`[session] ${(err as Error).message}`);
+    return null;
+  }
+  const session = await readSession(jar.get(SESSION_COOKIE)?.value, secret);
   return session?.email ?? null;
 }

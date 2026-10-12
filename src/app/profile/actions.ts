@@ -5,12 +5,10 @@ import { login, loginMessage, setPassword, passwordProblem } from "@/lib/auth/ad
 import { displayNameProblem, setDisplayName } from "@/lib/auth/profile.ts";
 import { currentEmail } from "../login/actions.ts";
 
-export interface SaveState {
-  error: string | null;
-  done: string | null;
-}
-
-export const EMPTY: SaveState = { error: null, done: null };
+// Re-exported from a plain module rather than declared here: a "use server"
+// file may export async functions and nothing else, and an exported object
+// here throws on the first action call. See ./state.ts.
+import type { SaveState } from "./state.ts";
 
 /**
  * The account being changed is ALWAYS the one in the session cookie.
