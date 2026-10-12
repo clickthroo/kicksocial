@@ -197,10 +197,14 @@ export async function runMarketIndex(
       statement: `The tracked shirt market ${direction} ${Math.abs(pct).toFixed(1)}% over ${days} days`,
       value: Number(pct.toFixed(2)),
       source: `price_index_history.index_value (${first.day} to ${last.day})`,
+      // The basket's size is left out on purpose: claims are sent to the model
+      // with the facts, so a count here is a count that can end up in a post,
+      // and how many shirts Kickio tracks is a figure about the business. The
+      // drift guard above still refuses a basket that changed too much, and
+      // the reviewer can see the numbers in the run's own data.
       basis:
         `Index ${first.index_value.toFixed(2)} to ${last.index_value.toFixed(2)}, on a basket ` +
-        `that held between ${Math.min(first.cohort_count, last.cohort_count)} and ` +
-        `${Math.max(first.cohort_count, last.cohort_count)} comparable shirts`,
+        "of comparable shirts tracked across both ends of the window",
     },
     {
       statement: "The index is built on a trailing 90-day window of tracked sales",

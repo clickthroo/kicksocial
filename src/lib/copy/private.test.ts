@@ -90,3 +90,18 @@ describe("the rule is in the brand voice too, for the prose the filter cannot re
     assert.match(BRAND_VOICE, /"More on\s+kickio\.com"/);
   });
 });
+
+describe("the sample behind an index figure", () => {
+  test("the cohort count is private, like every other count of what is tracked", () => {
+    // It was printed on the index card as "38 comparable shirts · 79 sales".
+    // The sale count had already gone, which left the card drawing "· sales"
+    // with nothing in front of it; both are off the card now, and the key is
+    // kept from the prompt so the model cannot put it back in words.
+    assert.equal(isPrivateField("cohort_count"), true);
+  });
+
+  test("the price it describes survives, because a price is not a count", () => {
+    assert.equal(isPrivateField("median_fair_price"), false);
+    assert.equal(isPrivateField("pct_change"), false);
+  });
+});

@@ -44,6 +44,10 @@ export const PRIVATE_FIELDS: ReadonlySet<string> = new Set([
   "total_sales_90d",
   "sales_count",
   "sales_tracked",
+  // The sample behind an index figure: how many comparable shirts are tracked,
+  // which is the same question as how much data Kickio holds. The claim beside
+  // it says the method is like-for-like, which is what a reviewer needs.
+  "cohort_count",
   "recorded_that_day",
   "listed_that_day",
   "postable",

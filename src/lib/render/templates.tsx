@@ -527,9 +527,14 @@ function TrendCard({
         {/* 16:9 has no slack for the middle block to absorb, so the sign-off
             keeps its own clearance rather than sitting on the caption. */}
         <div style={{ display: "flex", flexDirection: "column", marginTop: portrait ? 0 : 22 }}>
+          {/* The median, and nothing about the size of the sample behind it.
+              How many comparable shirts and how many tracked sales sit under
+              a figure are counts of what Kickio tracks, and those are private.
+              A reviewer still sees them in the draft's own data; a reader sees
+              the price. This line also used to print "· sales" with nothing in
+              front of it, from the day the sale count stopped being passed. */}
           <div style={{ display: "flex", fontSize: 24, color: look.muted }}>
-            Median {String(d.median_fair_price ?? "")} · {String(d.cohort_count ?? "")} comparable shirts ·{" "}
-            {String(d.total_sales ?? "")} sales
+            Median {String(d.median_fair_price ?? "")}
           </div>
           {/* Provenance matters: this is market data, not Kickio's own sales. */}
           <div style={{ display: "flex", fontSize: 20, color: look.muted, opacity: 0.7, marginTop: 8 }}>
