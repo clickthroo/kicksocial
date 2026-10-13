@@ -56,6 +56,17 @@ export function asFormat(value: unknown): FormatKey {
  * Here rather than in templates.tsx because the bare node test runner cannot
  * load a .tsx file, and this is a rule worth testing.
  */
+/**
+ * The question the Battle card asks.
+ *
+ * Here rather than beside the card because its LENGTH is a layout input: the
+ * hero is set as large as one line allows, and every rewording changes how
+ * large that is. "Which one?" fitted at 132px, "Which one wins?" did not, and
+ * "Which shirt wins?" is longer again. Keeping it in the module the tests can
+ * load means the next rewording is measured rather than hoped about.
+ */
+export const BATTLE_HERO = "Which Shirt Wins?";
+
 export function lineFits(
   text: string,
   available: number,

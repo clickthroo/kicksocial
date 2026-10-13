@@ -27,6 +27,7 @@ import {
   type Style,
 } from "./card-style.ts";
 import {
+  BATTLE_HERO,
   FORMATS,
   TIKTOK_SAFE_BOTTOM,
   addressSize,
@@ -3158,15 +3159,8 @@ function MostWantedCard({
  * network this engine cannot read. There is deliberately nowhere on this card
  * for a tally, so a future change cannot quietly start printing one.
  */
-/**
- * The question the Battle card asks.
- *
- * Named rather than inline because its LENGTH is a layout input: the hero is
- * set as large as one line allows, and the next rewording changes how large
- * that is. Anything much longer than this will be set small enough to stop
- * being a hero.
- */
-const HERO = "Which one wins?";
+/** The question the Battle card asks. Lives in formats.ts: see the note there. */
+const HERO = BATTLE_HERO;
 
 function BattleCard({
   draft,

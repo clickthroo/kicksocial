@@ -1,6 +1,16 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { FORMATS, asFormat, TIKTOK_SAFE_BOTTOM, lineFits, markSize, addressSize, lockupHeight, rowsOf } from "./formats.ts";
+import {
+  BATTLE_HERO,
+  FORMATS,
+  asFormat,
+  TIKTOK_SAFE_BOTTOM,
+  lineFits,
+  markSize,
+  addressSize,
+  lockupHeight,
+  rowsOf,
+} from "./formats.ts";
 
 describe("output formats", () => {
   test("one per platform Kickio actually posts to", () => {
@@ -48,30 +58,31 @@ describe("fitting a line of type to the space it has", () => {
   });
 
   test("a longer line is brought down until it fits", () => {
-    // "Which one wins?" at 132px is about 1,049px of a 968px frame. Satori
+    // The hero runs past the frame at 132px: the first long wording came to
+    // about 1,049px of a 968px one, and every wording since is longer. Satori
     // does not report that, it just wraps - and the hero block has a fixed
     // height, so the second line lands on the shirts.
-    const size = lineFits("Which one wins?", AVAILABLE, 132);
+    const size = lineFits(BATTLE_HERO, AVAILABLE, 132);
     assert.ok(size < 132);
-    assert.ok(size * "Which one wins?".length * 0.58 <= AVAILABLE);
+    assert.ok(size * BATTLE_HERO.length * 0.58 <= AVAILABLE);
   });
 
   test("it is still big enough to be a hero", () => {
     // Clamping is only worth doing if what survives is still the loudest thing
     // on the card. Below about 80px it stops being one.
-    assert.ok(lineFits("Which one wins?", AVAILABLE, 132) >= 80);
+    assert.ok(lineFits(BATTLE_HERO, AVAILABLE, 132) >= 80);
   });
 
   test("the clamp is applied to the scaled size, not before it", () => {
     // The editorial look scales type up by 1.22. Passing the already-scaled
     // number in is what stops it carrying the line back over the edge.
     const scaled = Math.round(132 * 1.22);
-    assert.ok(lineFits("Which one wins?", AVAILABLE, scaled) < scaled);
+    assert.ok(lineFits(BATTLE_HERO, AVAILABLE, scaled) < scaled);
   });
 
   test("the wider 16:9 frame allows more", () => {
     const wide = 1200 - 44 * 2;
-    assert.ok(lineFits("Which one wins?", wide, 132) >= lineFits("Which one wins?", AVAILABLE, 132));
+    assert.ok(lineFits(BATTLE_HERO, wide, 132) >= lineFits(BATTLE_HERO, AVAILABLE, 132));
   });
 
   test("it never returns zero or a negative size", () => {
@@ -81,7 +92,7 @@ describe("fitting a line of type to the space it has", () => {
 
   test("empty text and a nonsense width fall back to the maximum", () => {
     assert.equal(lineFits("", AVAILABLE, 132), 132);
-    assert.equal(lineFits("Which one wins?", 0, 132), 132);
+    assert.equal(lineFits(BATTLE_HERO, 0, 132), 132);
   });
 });
 
