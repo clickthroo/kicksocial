@@ -1,29 +1,39 @@
 /**
- * Turning a pasted kickio.com listing link into a listing id.
+ * Turning a pasted kickio.com link into the thing a Drop should promote.
  *
  *   https://kickio.com/listings/21b7f8c2-6e2c-4203-9d0a-65f93232cf6b
+ *   https://kickio.com/marketplace/1994-96-chelsea-away-shirt
  *
- * Listings have no slug - only a UUID - so unlike the product parser there is
- * no human-readable form to fall back on and no shape to validate beyond "is
- * this a UUID". That makes the host and path checks the whole defence, so they
- * are an allowlist for the same reason the product parser's are: a permissive
- * "find a UUID somewhere in the string" would happily accept an eBay link, or
- * a Kickio admin URL, and look up something that is not the listing the admin
- * meant.
+ * BOTH KINDS ARE ACCEPTED, AND THAT IS THE POINT. A listing is one seller's
+ * copy of a shirt and has only a UUID; a product is the shirt itself and has
+ * a readable slug. This used to take the first and refuse the second with an
+ * instruction to go and find a listing link, which is a chore the admin should
+ * not be doing: the product page already leads with its cheapest live listing,
+ * the post links back to the product page whichever was pasted, and the engine
+ * can pick the same listing the page does without being told.
  *
- * ONE LETTER APART, AND A DIFFERENT THING
+ * So a product link resolves to a listing later (see `resolveDropListing`),
+ * and this file's only job is to say which of the two was pasted.
  *
- * `/marketplace/{slug}` is a product - the shirt, every seller. `/listings/{id}`
- * is one seller's copy of it. Pasting a product link here is the likeliest
- * mistake an admin will make, so that case is detected and named rather than
- * refused as "not a listing URL".
+ * A SLUG UNDER /listings/ IS A PRODUCT. Listings have no slug, so something
+ * readable in that position is a product address somebody has put under the
+ * wrong prefix - which is exactly what happened the day this was written. It
+ * resolves rather than refusing: the alternative is a correct message about a
+ * distinction the admin does not care about.
+ *
+ * The host and path checks stay an allowlist. A permissive "find a UUID or a
+ * slug somewhere in the string" would happily accept an eBay link or a Kickio
+ * admin URL and look up something nobody meant.
  */
 import { KICKIO_SITE_DEFAULT, KICKIO_PRODUCT_PATH_DEFAULT } from "../recipes/grail-of-the-day.ts";
 
 export const KICKIO_LISTING_PATH_DEFAULT = "/listings/{id}";
 
-export type ListingResult =
-  | { ok: true; id: string }
+export type DropTarget =
+  /** One seller's copy, by its id. */
+  | { ok: true; kind: "listing"; id: string }
+  /** The shirt itself, by its address. The listing is chosen from it later. */
+  | { ok: true; kind: "product"; slug: string }
   | { ok: false; reason: string };
 
 function allowedHosts(): string[] {
@@ -50,17 +60,29 @@ function productPathPrefix(): string {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Slugs Kickio generates: lowercase, digits, hyphens. */
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export function listingIdFromUrl(input: string): ListingResult {
+/** A trailing path segment read as whichever of the two it looks like. */
+function readSegment(value: string): DropTarget | null {
+  if (UUID.test(value)) return { ok: true, kind: "listing", id: value.toLowerCase() };
+  if (SLUG.test(value.toLowerCase())) return { ok: true, kind: "product", slug: value.toLowerCase() };
+  return null;
+}
+
+export function dropTargetFromUrl(input: string): DropTarget {
   const raw = input.trim();
-  if (!raw) return { ok: false, reason: "Paste a Kickio listing URL." };
+  if (!raw) return { ok: false, reason: "Paste a Kickio listing or shirt link." };
 
-  // A bare UUID is unambiguous, and saves a copy-paste when someone already
-  // has the id in front of them.
+  // A bare id or slug is unambiguous, and saves a copy-paste when somebody
+  // already has one in front of them.
   if (!raw.includes("/") && !raw.includes(" ")) {
-    return UUID.test(raw)
-      ? { ok: true, id: raw.toLowerCase() }
-      : { ok: false, reason: `"${raw}" is not a Kickio listing URL or listing id.` };
+    return (
+      readSegment(raw) ?? {
+        ok: false,
+        reason: `"${raw}" is not a Kickio link, a listing id or a shirt's address.`,
+      }
+    );
   }
 
   let url: URL;
@@ -83,34 +105,31 @@ export function listingIdFromUrl(input: string): ListingResult {
   }
 
   const segments = url.pathname.split("/").filter(Boolean);
-  const listingAt = segments.indexOf(listingPathPrefix());
+  const listings = listingPathPrefix();
+  const products = productPathPrefix();
 
-  if (listingAt === -1) {
-    // The likeliest mistake, so it gets its own sentence rather than a generic
-    // refusal. Product in, listing out is the whole point of this recipe.
-    if (segments.includes(productPathPrefix())) {
+  for (const prefix of [listings, products]) {
+    const at = segments.indexOf(prefix);
+    if (at === -1) continue;
+    const value = decodeURIComponent(segments[at + 1] ?? "");
+    if (!value) {
       return {
         ok: false,
-        reason:
-          `That is a product page, not a listing. A product is the shirt; a listing ` +
-          `is one seller's copy of it. Open the seller's listing from that page and ` +
-          `paste its /${listingPathPrefix()}/ link.`,
+        reason: `That /${prefix}/ link has nothing on the end of it.`,
       };
     }
+    const read = readSegment(value);
+    if (read) return read;
     return {
       ok: false,
-      reason: `That is a ${host} link, but not a /${listingPathPrefix()}/ page.`,
+      reason: `"${value}" is not a listing id or a shirt's address.`,
     };
   }
 
-  const id = decodeURIComponent(segments[listingAt + 1] ?? "");
-  if (!UUID.test(id)) {
-    return {
-      ok: false,
-      reason: id
-        ? `"${id}" is not a listing id.`
-        : `That /${listingPathPrefix()}/ link has no listing id on the end.`,
-    };
-  }
-  return { ok: true, id: id.toLowerCase() };
+  return {
+    ok: false,
+    reason:
+      `That is a ${host} link, but not a /${listings}/ or /${products}/ page. ` +
+      "Paste the shirt's page or one seller's listing.",
+  };
 }

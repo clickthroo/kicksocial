@@ -35,8 +35,7 @@ import { formatPrice } from "../kickio/pricing.ts";
 import { kickioUrl } from "./grail-of-the-day.ts";
 import { kitLabel } from "./most-wanted.ts";
 import { looksLikeImage } from "./classics.ts";
-import { slugFromUrl } from "../kickio/product-url.ts";
-import { listingIdFromUrl } from "../kickio/listing-url.ts";
+import { dropTargetFromUrl } from "../kickio/listing-url.ts";
 
 export const PHOTO_PROD_KEY = "photo_prod";
 
@@ -119,15 +118,12 @@ export async function resolveShirt(url: string): Promise<ResolveResult> {
   const trimmed = url.trim();
   if (!trimmed) return { ok: false, reason: "Paste a Kickio link to the shirt." };
 
-  const bySlug = slugFromUrl(trimmed);
-  if (bySlug.ok) return loadBySlug(bySlug.slug);
-
-  const byListing = listingIdFromUrl(trimmed);
-  if (byListing.ok) return loadByListing(byListing.id);
-
-  // Neither parser recognised it. The product parser's refusal is the more
-  // useful of the two here, because a product link is what this asks for.
-  return { ok: false, reason: bySlug.reason };
+  // One parser for both shapes. It used to try the product one, then the
+  // listing one, and report whichever refusal seemed more useful; the parser
+  // now says which kind it read, so there is nothing left to guess.
+  const target = dropTargetFromUrl(trimmed);
+  if (!target.ok) return { ok: false, reason: target.reason };
+  return target.kind === "product" ? loadBySlug(target.slug) : loadByListing(target.id);
 }
 
 async function loadBySlug(slug: string): Promise<ResolveResult> {

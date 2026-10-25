@@ -3,15 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { createKickioDropDraft, type RunOutcome } from "@/lib/run-recipe.ts";
 import { kickio } from "@/lib/kickio/client.ts";
-import { listingIdFromUrl } from "@/lib/kickio/listing-url.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "@/lib/kickio/pricing.ts";
 import { imageUrls, kickioUrl } from "@/lib/recipes/grail-of-the-day.ts";
 import { productImages, type ProductRow } from "@/lib/recipes/grail-sale.ts";
 import {
-  liveVerdict,
+  resolveDropListing,
   cheaperElsewhere,
   type KickioDropInput,
-  type ListingRow,
 } from "@/lib/recipes/kickio-drop.ts";
 
 export interface DropPreview {
@@ -24,6 +22,13 @@ export interface DropPreview {
   kickioUrl: string;
   /** Set when a cheaper live listing exists on the same product. */
   warning: string | null;
+  /**
+   * Whether the link named this listing or the shirt it belongs to.
+   *
+   * Worth showing: a product link means "whichever one Kickio is leading
+   * with", and that can be a different seller's copy next week.
+   */
+  pickedFrom: "listing" | "product";
 }
 
 /**
@@ -37,24 +42,12 @@ export interface DropPreview {
 export async function lookupListing(
   url: string,
 ): Promise<{ ok: true; preview: DropPreview } | { ok: false; reason: string }> {
-  const parsed = listingIdFromUrl(url);
-  if (!parsed.ok) return { ok: false, reason: parsed.reason };
-
-  const { data, error } = await kickio()
-    .from("listings")
-    .select(
-      "id,product_id,title,description,size,condition,price_cents,currency,images,status," +
-        "deleted_at,removed_at,removed_reason,stock_quantity,consecutive_gone_count,accepts_offers",
-    )
-    .eq("id", parsed.id)
-    .maybeSingle();
-
-  if (error) return { ok: false, reason: `Kickio lookup failed: ${error.message}` };
-  if (!data) return { ok: false, reason: "No listing on Kickio with that id." };
-
-  const listing = data as unknown as ListingRow;
-  const live = liveVerdict(listing);
-  if (!live.ok) return { ok: false, reason: `Cannot promote it: ${live.reason}.` };
+  // The recipe's own resolver, so the preview and the run can never disagree
+  // about which listing a link means. It accepts a listing link, the shirt's
+  // own page, or a bare id or address.
+  const resolved = await resolveDropListing(url);
+  if (!resolved.ok) return { ok: false, reason: resolved.reason };
+  const listing = resolved.listing;
 
   const { data: productData, error: productError } = await kickio()
     .from("products")
@@ -116,6 +109,7 @@ export async function lookupListing(
       price,
       facts,
       kickioUrl: kickioUrl(product.slug) ?? "",
+      pickedFrom: resolved.pickedFrom,
       warning: cheaper
         ? `A cheaper listing for this shirt is live at ` +
           `${formatPrice(buyerPriceCents(cheaper.lowestCents, fee), currency)}. ` +

@@ -7,12 +7,19 @@
  *   Grail Sale   a shirt that has gone. Price typed by hand. No link to buy.
  *   Kickio Drop  a shirt you can buy now. Price read from the listing.
  *
- * LISTING IN, PRODUCT OUT
+ * EITHER LINK IN, PRODUCT OUT
  *
- * The admin pastes `/listings/{uuid}` - one seller's copy of a shirt - and the
- * post links to `/marketplace/{slug}`, the shirt itself. That is deliberate:
- * a listing sells and 404s, while the product page survives and shows whoever
- * else is selling one. A post that outlives its link is worth the indirection.
+ * The admin pastes one seller's listing OR the shirt's own page, and the post
+ * links to `/marketplace/{slug}`, the shirt itself. Linking to the product is
+ * deliberate: a listing sells and 404s, while the product page survives and
+ * shows whoever else is selling one. A post that outlives its link is worth
+ * the indirection.
+ *
+ * A product link resolves to its cheapest live listing, which is the one that
+ * page already leads with. Refusing it and asking the admin to go and find a
+ * listing link, as this used to, was a chore in service of a distinction that
+ * makes no difference to the post: the price shown would be the same and the
+ * link would be the same.
  *
  * WHICH COSTS SOMETHING, AND IT IS CHECKED
  *
@@ -32,7 +39,7 @@
  */
 import { kickio } from "../kickio/client.ts";
 import type { Claim, RecipeResult } from "../engine/types.ts";
-import { listingIdFromUrl } from "../kickio/listing-url.ts";
+import { dropTargetFromUrl } from "../kickio/listing-url.ts";
 import { buyerFeeSettings, buyerPriceCents, formatPrice } from "../kickio/pricing.ts";
 import { imageUrls, kickioUrl, readSignals } from "./grail-of-the-day.ts";
 import { productImages, type ProductRow } from "./grail-sale.ts";
@@ -160,34 +167,147 @@ export function subjectRefFor(listingId: string): string {
   return `drop:${listingId.trim().toLowerCase()}`;
 }
 
-export async function runKickioDrop(input: KickioDropInput): Promise<RecipeResult> {
-  const parsed = listingIdFromUrl(input.url);
+/**
+ * Which listing a pasted link means.
+ *
+ * `pickedFrom` says how it was arrived at, because the two are not the same
+ * promise to the reviewer: a listing link means "this exact one", and a
+ * product link means "whichever Kickio is leading with", which can be a
+ * different seller's copy tomorrow. The preview says so rather than quietly
+ * choosing.
+ *
+ * Shared by the recipe and the /drops preview so the two can never disagree
+ * about what a link resolves to - the preview is what somebody approves, and
+ * it would be worth very little if the run then promoted something else.
+ */
+export type ResolvedDrop =
+  | { ok: true; listing: ListingRow; pickedFrom: "listing" | "product" }
+  | { ok: false; reason: string; diagnostics?: Record<string, unknown> };
+
+/**
+ * Addresses close to one that does not exist.
+ *
+ * The first segment of a Kickio slug is the season, and that is the part
+ * somebody gets wrong from memory. Dropping it and matching the rest finds
+ * the same shirt under the season Kickio actually files it as. Only ever used
+ * to write a better refusal, so a failure here costs nothing.
+ */
+async function nearbySlugs(slug: string): Promise<string[]> {
+  // Every leading all-digit segment goes: a season is "1994-95" or "2014",
+  // two segments or one, and dropping only the first leaves "95-chelsea-..."
+  // which matches nothing.
+  const parts = slug.split("-");
+  while (parts.length > 1 && /^\d+$/.test(parts[0]!)) parts.shift();
+  const tail = parts.join("-");
+  if (tail.length < 6) return [];
+  const { data } = await kickio()
+    .from("products")
+    .select("slug")
+    .eq("status", "active")
+    .is("deleted_at", null)
+    .like("slug", `%${tail}`)
+    .limit(3);
+  return ((data ?? []) as Array<{ slug: string | null }>)
+    .map((row) => row.slug)
+    .filter((s): s is string => Boolean(s));
+}
+
+export async function resolveDropListing(url: string): Promise<ResolvedDrop> {
+  const parsed = dropTargetFromUrl(url);
   if (!parsed.ok) return { ok: false, reason: parsed.reason };
 
+  if (parsed.kind === "listing") {
+    const { data, error } = await kickio()
+      .from("listings")
+      .select(LISTING_COLUMNS)
+      .eq("id", parsed.id)
+      .maybeSingle();
+
+    if (error) return { ok: false, reason: `Kickio lookup failed: ${error.message}` };
+    if (!data) {
+      return {
+        ok: false,
+        reason: "No listing on Kickio with that id. Check the link is a current listing.",
+        diagnostics: { listingId: parsed.id },
+      };
+    }
+
+    const listing = data as unknown as ListingRow;
+    const live = liveVerdict(listing);
+    if (!live.ok) {
+      return {
+        ok: false,
+        reason: `Cannot promote it: ${live.reason}.`,
+        diagnostics: { listingId: listing.id, status: listing.status },
+      };
+    }
+    return { ok: true, listing, pickedFrom: "listing" };
+  }
+
+  const { data: productData, error: productError } = await kickio()
+    .from("products")
+    .select("id,slug,status,deleted_at")
+    .eq("slug", parsed.slug)
+    .maybeSingle();
+
+  if (productError) return { ok: false, reason: `Kickio lookup failed: ${productError.message}` };
+  if (!productData) {
+    // A near miss is the likely case: these addresses carry a season, and
+    // "1994-96" for a shirt Kickio files under "1994-95" is a plausible thing
+    // to type from memory. So the refusal goes looking for the rest of the
+    // address and offers what it finds rather than stopping at "no".
+    const near = await nearbySlugs(parsed.slug);
+    return {
+      ok: false,
+      reason:
+        `Kickio has no shirt at "${parsed.slug}".` +
+        (near.length ? ` Did you mean ${near.map((s) => `"${s}"`).join(", ")}?` : " Check the address is right."),
+      diagnostics: { slug: parsed.slug, near },
+    };
+  }
+
+  const product = productData as { id: string; status: string | null; deleted_at: string | null };
+  if (product.deleted_at !== null || product.status !== "active") {
+    return {
+      ok: false,
+      reason: "That shirt is not live on Kickio, so the post would link to nothing.",
+      diagnostics: { slug: parsed.slug, status: product.status },
+    };
+  }
+
+  // Cheapest first, and then the same liveness rules a pasted listing gets.
+  // Price order rather than newest, because the product page leads with the
+  // cheapest live one and the card must not quote a price the page does not.
   const { data: listingData, error: listingError } = await kickio()
     .from("listings")
     .select(LISTING_COLUMNS)
-    .eq("id", parsed.id)
-    .maybeSingle();
+    .eq("product_id", product.id)
+    .order("price_cents", { ascending: true })
+    .limit(50);
 
   if (listingError) return { ok: false, reason: `Kickio lookup failed: ${listingError.message}` };
-  if (!listingData) {
+
+  const rows = (listingData ?? []) as unknown as ListingRow[];
+  const live = rows.find((row) => liveVerdict(row).ok);
+  if (!live) {
     return {
       ok: false,
-      reason: "No listing on Kickio with that id. Check the link is a current listing.",
-      diagnostics: { listingId: parsed.id },
+      reason:
+        "Nothing is for sale on that shirt's page right now, so there is no price to " +
+        "promote. A Grail Sale is the post for a shirt that has gone.",
+      diagnostics: { slug: parsed.slug, listings: rows.length },
     };
   }
 
-  const listing = listingData as unknown as ListingRow;
-  const live = liveVerdict(listing);
-  if (!live.ok) {
-    return {
-      ok: false,
-      reason: `Cannot promote it: ${live.reason}.`,
-      diagnostics: { listingId: listing.id, status: listing.status },
-    };
+  return { ok: true, listing: live, pickedFrom: "product" };
+}
+
+export async function runKickioDrop(input: KickioDropInput): Promise<RecipeResult> {
+  const resolved = await resolveDropListing(input.url);
+  if (!resolved.ok) {
+    return { ok: false, reason: resolved.reason, diagnostics: resolved.diagnostics ?? {} };
   }
+  const listing = resolved.listing;
 
   const { data: productData, error: productError } = await kickio()
     .from("products")

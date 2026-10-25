@@ -68,21 +68,22 @@ export function DropForm() {
       <section className="card settings">
         <div className="card-head">
           <span className="recipe-tag">Step 1</span>
-          <h2>Which listing?</h2>
+          <h2>Which shirt?</h2>
           <p className="desc">
-            Paste the <strong>listing</strong> link: one seller&apos;s copy of a shirt, not
-            the product page. The post will link to the product page, so it still works
-            after this one sells.
+            Paste the shirt&apos;s page or one seller&apos;s listing, whichever you have.
+            A shirt&apos;s page resolves to the cheapest copy for sale on it, which is the
+            one the page itself leads with. Either way the post links to the shirt&apos;s
+            page, so it still works after this copy sells.
           </p>
         </div>
 
         <div className="row">
           <label>
-            <span className="field-label">Kickio listing URL</span>
+            <span className="field-label">Kickio URL</span>
             <input
               type="url"
               value={url}
-              placeholder="https://kickio.com/listings/21b7f8c2-6e2c-4203-9d0a-65f93232cf6b"
+              placeholder="https://kickio.com/marketplace/1994-96-chelsea-away-shirt"
               onChange={(e) => setUrl(e.target.value)}
             />
           </label>
@@ -90,7 +91,7 @@ export function DropForm() {
 
         <div className="actions">
           <button className="btn" onClick={lookup} disabled={looking || !url.trim()}>
-            {looking ? "Looking up…" : "Look up listing"}
+            {looking ? "Looking up…" : "Look it up"}
           </button>
         </div>
       </section>
@@ -117,6 +118,17 @@ export function DropForm() {
           {/* The whole reason the price and the link can disagree. Shown before
               generating, not after, so the decision costs nothing. */}
           {preview.warning && <div className="setup"><strong>Cheaper one available</strong><p>{preview.warning}</p></div>}
+
+          {/* Which copy of the shirt this is, when the link did not say. The
+              promise behind a shirt's page is softer than the one behind a
+              listing: it is whoever is cheapest today. */}
+          {preview.pickedFrom === "product" && (
+            <p className="hint" style={{ padding: "0 16px" }}>
+              You pasted the shirt&apos;s page, so this is the cheapest copy for sale on
+              it, the one the page leads with. Paste a seller&apos;s listing link instead
+              if you mean one copy in particular.
+            </p>
+          )}
 
           {preview.photoSource === "listing" && (
             <p className="hint" style={{ padding: "0 16px" }}>
